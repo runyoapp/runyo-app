@@ -1300,7 +1300,7 @@ async function deleteActivity(rowIndex){
   closeDayModal();
   try{
     await deleteActivityById(rowIndex);
-    showToast('Verwijderd');
+    showToast('Verwijderd', true);
   }catch(e){
     showToast('Fout: '+e.message);
   }
@@ -2029,10 +2029,30 @@ function hideLoading(){
   el.classList.add('hidden');setTimeout(()=>el.style.display='none',350);
 }
 
-function showToast(msg){
+function showToast(msg, undoable=false){
   const el=document.getElementById('toast');
-  el.textContent=msg;el.classList.add('show');
-  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2500);
+  if(undoable&&state._undoBuffer){
+    el.innerHTML=`${msg} <button onclick="undoDelete()" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-left:8px;padding:0">Ongedaan maken</button>`;
+  }else{
+    el.textContent=msg;
+  }
+  el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.classList.remove('show');el.innerHTML='';},4000);
+}
+
+async function undoDelete(){
+  if(!state._undoBuffer)return;
+  clearTimeout(state._undoBuffer.timeout);
+  const row=state._undoBuffer.row;
+  state._undoBuffer=null;
+  document.getElementById('toast').classList.remove('show');
+  try{
+    await createActivity({
+      datum:row.datum, type:row.type, titel:row.titel,
+      detail:row.detail, km:row.km, fase:row.fase, feedback:row.feedback,
+    });
+    showToast('↩ Hersteld');
+  }catch(e){showToast('❌ '+e.message);}
 }
 
 function updateConnectionStatus(ok,err){
