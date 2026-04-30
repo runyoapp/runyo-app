@@ -670,7 +670,11 @@ function renderToday(){
     if(fbRow)h+=feedbackHtml(fbRow.datum,fbRow.feedback);
   }
 
-  // Tomorrow — compact
+  // Tomorrow — only show when on today
+  if(off!==0){h+=`</div>`;el.innerHTML=h;attachStarListeners();
+  const scrollEl2=document.getElementById('scrollArea');
+  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
+  return;}
   const tmrDate=new Date();tmrDate.setDate(tmrDate.getDate()+1);
   const tmr=state.data.find(r=>r.datum===tmrDate.toISOString().split('T')[0]);
   if(tmr){
@@ -1616,13 +1620,13 @@ function renderCalendar(){
   const mf_months=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
   const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
   let h=`<div class="page-title" style="padding:14px 20px 4px">
-    <div><div class="pt-kicker">Kalender</div><div class="pt-h">Overzicht</div></div>
+    <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
     <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
   </div>
   <div style="padding:8px 20px 0">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
     <button onclick="calPrev()" style="background:transparent;border:1px solid var(--border);padding:6px 10px;color:var(--text);cursor:pointer;font-family:var(--font-d);font-size:14px;-webkit-tap-highlight-color:transparent">‹</button>
-    <div style="flex:1;text-align:center;font-family:var(--font-d);font-weight:700;font-size:16px">${mf[m]} ${y}</div>
+    <div style="flex:1"></div>
     <button onclick="calNext()" style="background:transparent;border:1px solid var(--border);padding:6px 10px;color:var(--text);cursor:pointer;font-family:var(--font-d);font-size:14px;-webkit-tap-highlight-color:transparent">›</button>
   </div>
   <div class="cal-grid" style="margin-bottom:6px">
