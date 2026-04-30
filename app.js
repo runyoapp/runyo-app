@@ -55,15 +55,32 @@ function normalizeEmptyValues(obj){
   return out;
 }
 
+// Activity options for dropdowns — value=canonical English, sheet writes remapped
+const ACTIVITY_OPTIONS=[
+  {value:'run',      sheet:'run',        nl:'Hardlopen'},
+  {value:'work',     sheet:'werk',       nl:'Werk'},
+  {value:'strength', sheet:'kracht',     nl:'Kracht'},
+  {value:'mobility', sheet:'mobiliteit', nl:'Mobiliteit'},
+  {value:'rest',     sheet:'rust',       nl:'Rust'},
+  {value:'race',     sheet:'race',       nl:'Race'},
+  {value:'recovery', sheet:'herstel',    nl:'Herstel'},
+];
+// Map canonical type back to Dutch sheet value
+function toSheetType(canonical){
+  return ACTIVITY_OPTIONS.find(o=>o.value===canonical)?.sheet||canonical;
+}
+
 // ── DATA SERVICE LAYER ────────────────────────────────────────────────────────
 // Thin wrappers — UI always goes through these, never calls sheet directly.
 
 function getActivities(filters={}){
   let rows=state.data||[];
-  if(filters.date)rows=rows.filter(r=>r.datum===filters.date);
-  if(filters.fase)rows=rows.filter(r=>r.fase===filters.fase);
-  if(filters.type)rows=rows.filter(r=>normalizeType(r.type)===filters.type);
-  if(filters.excludeTypes)rows=rows.filter(r=>!filters.excludeTypes.includes(normalizeType(r.type)));
+  // Support both old (datum/fase) and new (date/phase) field names
+  if(filters.date)rows=rows.filter(r=>(r.date||r.datum)===filters.date);
+  if(filters.phase)rows=rows.filter(r=>(r.phase||r.fase)===filters.phase);
+  if(filters.fase)rows=rows.filter(r=>(r.fase||r.phase)===filters.fase);
+  if(filters.type)rows=rows.filter(r=>r.type===filters.type);
+  if(filters.excludeTypes)rows=rows.filter(r=>!filters.excludeTypes.includes(r.type));
   return rows;
 }
 
@@ -377,11 +394,35 @@ async function apiCall(params){
   return json;
 }
 
+// ── MAP ROW: sheet field names → internal model ──────────────────────────────
+// Sheet columns: datum, type, titel, detail, km, feedback, fase (+ rowIndex)
+// Internal model: date, type (normalized), title, details, distance, feedback, phase
+function mapRow(r){
+  return {
+    // keep rowIndex for sheet operations
+    rowIndex: r.rowIndex,
+    // canonical names
+    date:     r.datum||r.date||'',
+    type:     normalizeType(r.type||r.activity||''),
+    title:    r.titel||r.title||'',
+    details:  r.detail||r.details||'',
+    distance: r.km||r.distance||'',
+    feedback: r.feedback||'',
+    phase:    r.fase||r.phase||'',
+    // keep originals for sheet writes (sheet expects Dutch column names)
+    datum:    r.datum||r.date||'',
+    titel:    r.titel||r.title||'',
+    detail:   r.detail||r.details||'',
+    km:       r.km||r.distance||'',
+    fase:     r.fase||r.phase||'',
+  };
+}
+
 async function fetchData(){
   if(!state.scriptUrl){hideLoading();renderActiveView();renderHeader();return;}
   try{
     const json=await apiCall(apiParams({action:'getAll'}));
-    state.data=json.rows; // each row has rowIndex
+    state.data=json.rows.map(mapRow); // normalize field names
     updateConnectionStatus(true);
   }catch(e){updateConnectionStatus(false,e.message);}
   hideLoading();renderActiveView();renderHeader();
@@ -413,7 +454,7 @@ async function submitFeedback(datum,rating,tekst){
   if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return false;}
   try{
     // Find the rowIndex of the first trainable row for this datum
-    const row=state.data?.find(r=>r.datum===datum&&r.type!=='werk'&&r.type!=='rust');
+    const row=state.data?.find(r=>r.datum===datum&&r.type!=='work'&&r.type!=='rest');
     const extra=row?.rowIndex?{rowIndex:String(row.rowIndex)}:{};
     const json=await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
     if(row){const e=['😵','😓','😐','💪','🔥'];row.feedback=`${rating}/5 ${e[rating-1]}${tekst?' – '+tekst:''}`;}
@@ -457,7 +498,7 @@ function setTheme(t){
 // ── HEADER ────────────────────────────────────────────────────────────────────
 function openDayFromRacesBar(datum){
   // Open race edit modal directly
-  const r=state.data?.find(row=>row.datum===datum&&isRace(row.type));
+  const r=state.data?.find(row=>row.datum===datum&&row.type==='race');
   if(r?.rowIndex)openRaceModalFromSheet(r.rowIndex);
   else openDayModal(datum);
 }
@@ -472,7 +513,7 @@ function renderRacesBar(){
   const bar=document.getElementById('racesBar');if(!bar)return;
   // C38: sheet primary, localStorage fallback
   let sheetRaces=(state.data||[])
-    .filter(r=>isRace(r.type)&&r.datum)
+    .filter(r=>r.type==='race'&&r.datum)
     .sort((a,b)=>a.datum.localeCompare(b.datum))
     .filter(r=>daysUntil(r.datum)>=-1)
     .slice(0,4);
@@ -537,7 +578,7 @@ function renderToday(){
   let faseKicker='';
   if(state.data){const tr=state.data.find(r=>r.datum===t);if(tr?.fase)faseKicker=tr.fase;}
   // C34: if today is a race day, reflect that
-  const todayIsRace=state.data?.some(r=>r.datum===t&&isRace(r.type));
+  const todayIsRace=state.data?.some(r=>r.datum===t&&r.type==='race');
 
   const kicker=`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}${faseKicker?' · '+faseKicker:''}`;
   let h=`<div class="page-title"><div><div class="pt-kicker">${kicker}</div><div class="pt-h">Vandaag</div></div><button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button></div>`;
@@ -553,7 +594,7 @@ function renderToday(){
   const row=todayRows[0]||null;
   h+=`<div style="padding:0 16px">`;
 
-  if(!row||isRust(row.type)){
+  if(!row||row.type==='rest'){
     h+=`<div class="card">
       <div class="rest-card-inner">
         <div class="rest-emoji">😴</div>
@@ -562,11 +603,11 @@ function renderToday(){
     </div>`;
   }else{
     // Render ALL today rows
-    const activeRows=todayRows.filter(r=>!isRust(r.type));
+    const activeRows=todayRows.filter(r=>!r.type==='rest');
     activeRows.forEach(row=>{
       const ti=typeOf(row.type);
       const isRun=hasType(row.type,'run');
-      const border=isWork(row.type)?'work-border':isRace(row.type)?'race-border':'';
+      const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
       const detail=row.detail||'';
       const paceMatch=detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/);
       const hrMatch=detail.match(/<?\s*(\d+)\s*bpm/i)||detail.match(/HR\s*<?(\d+)/i);
@@ -591,7 +632,7 @@ function renderToday(){
       h+=`</div>`;
     });
     // Feedback is per-day — show once, after all activity cards
-    const fbRow=activeRows.find(r=>!isWork(r.type));
+    const fbRow=activeRows.find(r=>!r.type==='work');
     if(fbRow)h+=feedbackHtml(fbRow.datum,fbRow.feedback);
   }
 
@@ -609,7 +650,7 @@ function renderToday(){
     </div>`;
   }
 
-  if(!row||isMob(row?.type)){
+  if(!row||row?.type==='mobility'){
     h+=`<div class="mob-reminder"><div class="mob-title">${T('mob_reminder')}</div><div class="mob-text">${T('mob_text')}</div></div>`;
   }
 
@@ -687,7 +728,7 @@ function renderWeek(){
   const weekLabel=`${d0.getDate()}–${d6.getDate()} ${months[d0.getMonth()]}`;
   const plannedKm=wd.reduce((s,{rows})=>s+rows.reduce((a,r)=>a+(parseFloat(r.km)||0),0),0);
   const doneKm=wd.filter(({date})=>date<=t).reduce((s,{rows})=>s+rows.reduce((a,r)=>a+(parseFloat(r.km)||0),0),0);
-  const workDays=wd.filter(({rows})=>rows.some(r=>isWork(r.type))).length;
+  const workDays=wd.filter(({rows})=>rows.some(r=>r.type==='work')).length;
   const fbDone=wd.filter(({rows})=>rows.some(r=>r.feedback)).length;
   const pct=plannedKm>0?Math.min(100,Math.round(doneKm/plannedKm*100)):0;
 
@@ -746,7 +787,7 @@ function renderWeek(){
   else{
     // Week: show active days (exclude rust/werk), include past days greyed
     // All active rows grouped by date
-    const activeDays=wd.map(({date,rows})=>({date,activeRows:rows.filter(r=>r.type&&!isWork(r.type)&&!isRust(r.type))})).filter(({activeRows})=>activeRows.length);
+    const activeDays=wd.map(({date,rows})=>({date,activeRows:rows.filter(r=>r.type&&!r.type==='work'&&!r.type==='rest')})).filter(({activeRows})=>activeRows.length);
     if(activeDays.length){
       h+=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('week_todo')}</div>`;
       activeDays.forEach(({date,activeRows})=>{
@@ -785,7 +826,7 @@ function renderPlan(){
 
   // PageTitle — C34: sheet races
   if(titleEl){
-    const sheetRaceRows=(state.data||[]).filter(r=>isRace(r.type)&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+    const sheetRaceRows=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
     const nextRace=sheetRaceRows.find(r=>daysUntil(r.datum)>=0);
     const _cd=nextRace?countdownDisplay(daysUntil(nextRace.datum)):null;
     const kicker=nextRace?`Next race: ${esc(nextRace.titel||nextRace.datum)} · ${_cd.val} ${_cd.unit}`:'Training';
@@ -895,7 +936,7 @@ function renderPlanRows(rows,t,faseBadge=''){
   h+='<div class="plan-table">';
 
   rows.forEach(row=>{
-    const isPast=row.datum<t,isTdy=row.datum===t,work=isWork(row.type),ti=typeOf(row.type);
+    const isPast=row.datum<t,isTdy=row.datum===t,work=row.type==='work',ti=typeOf(row.type);
     const parts=fmtDate(row.datum).split(' ');
     const rowId='pr-'+(row.rowIndex||row.datum);
 
@@ -1019,8 +1060,8 @@ function openDayModal(dateStr,targetRowIndex){
 
   if(!row){
     // C28: empty day — type picker at top, then training details, notes at bottom (smaller)
-    const typeOptions=Object.entries(TYPES).map(([k,v])=>
-      `<option value="${k}"${k==='rust'?' selected':''}>${T(v.i18n)}</option>`
+    const typeOptions=ACTIVITY_OPTIONS.map(o=>
+      `<option value="${o.value}"${o.value==='rest'?' selected':''}>${o.nl}</option>`
     ).join('');
     h+=`<div class="feedback-section" style="margin-bottom:10px">
       <div class="feedback-title">${T('add_training')}</div>
@@ -1053,12 +1094,12 @@ function openDayModal(dateStr,targetRowIndex){
       <button class="btn-secondary" style="margin-top:0" onclick="saveModalNote('${dateStr}')">${T('notes_save')}</button>
     </div>`;
   }else{
-    const border=isWork(row.type)?'work-border':isRace(row.type)?'race-border':'';
+    const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
     // C37: cleaner card, C34: show all rows if multiple
     rows.forEach((r,idx)=>{
       const rti=typeOf(r.type);
-      const rb=isWork(r.type)?'work-border':isRace(r.type)?'race-border':'';
-      const isRaceRow=isRace(r.type);
+      const rb=r.type==='work'?'work-border':r.type==='race'?'race-border':'';
+      const isRaceRow=r.type==='race';
       // Parse raceType from detail (format: "dist · raceType · Doel: xx")
       const detailParts=(r.detail||'').split('·').map(s=>s.trim()).filter(Boolean);
       const parsedRaceType=isRaceRow&&detailParts.length>1?detailParts[1].replace(/Doel:.*/,'').trim():'';
@@ -1080,7 +1121,7 @@ function openDayModal(dateStr,targetRowIndex){
     });
 
     // Feedback — dag level, one block, collapsed by default
-    const fbRow=rows.find(r=>!isWork(r.type)&&!isRust(r.type))||null;
+    const fbRow=rows.find(r=>!r.type==='work'&&!r.type==='rest')||null;
     const existingFb=fbRow?.feedback||'';
     if(fbRow){
       if(isPast){
@@ -1105,8 +1146,8 @@ function openDayModal(dateStr,targetRowIndex){
     }
 
     // Edit section — collapsible
-    const typeOptions=Object.entries(TYPES).map(([k,v])=>
-      `<option value="${k}"${row.type===k?' selected':''}>${T(v.i18n)}</option>`
+    const typeOptions=ACTIVITY_OPTIONS.map(o=>
+      `<option value="${o.value}"${row.type===o.value?' selected':''}>${o.nl}</option>`
     ).join('');
     h+=`<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px">
       <button onclick="document.getElementById('editFields').style.display=document.getElementById('editFields').style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase;width:100%;text-align:left;margin-bottom:6px">› Activiteit bewerken</button>
@@ -1209,7 +1250,8 @@ async function saveModalNote(datum){
 
 async function saveDayEdit(datum){
   const titel=document.getElementById('edit-titel')?.value.trim()||'';
-  const type=document.getElementById('edit-type')?.value.trim()||'';
+  const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
+  const type=toSheetType(typeRaw)||typeRaw;
   const km=document.getElementById('edit-km')?.value.trim()||'';
   const detail=document.getElementById('edit-detail')?.value.trim()||'';
   const fields={datum,titel,type,km,detail};
@@ -1332,7 +1374,7 @@ function openStats(){
   const fbRows=past.filter(r=>r.feedback);
   const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
   const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
-  const sheetRaceRows3=(state.data||[]).filter(r=>isRace(r.type)&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const sheetRaceRows3=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
   const nextRace3=sheetRaceRows3.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows3[0];
   const daysLeft=nextRace3?daysUntil(nextRace3.datum):0;
   const mondayStr=getMondayStr();
@@ -1455,7 +1497,7 @@ function renderCalendar(){
   while(cells.length%7!==0){const p=cells[cells.length-1].date;const nd=new Date(p);nd.setDate(p.getDate()+1);cells.push({date:nd,other:true});}
 
   // C34: all races come from sheet; no localStorage races
-  const sheetRaces=(state.data||[]).filter(r=>isRace(r.type)&&r.datum);
+  const sheetRaces=(state.data||[]).filter(r=>r.type==='race'&&r.datum);
   // Build training day marks from data
   const trainingDates=new Set();
   const doneDates=new Set();
@@ -1465,8 +1507,8 @@ function renderCalendar(){
     state.data.forEach(r=>{
       if(!r.datum)return;
       // C43: skip werk and rust from calendar dots
-      if(isWork(r.type)||isRust(r.type))return;
-      if(!isRace(r.type)){
+      if(r.type==='work'||r.type==='rest')return;
+      if(!r.type==='race'){
         trainingDates.add(r.datum);
         if(r.feedback)doneDates.add(r.datum);
       }
@@ -1524,11 +1566,11 @@ function renderCalendar(){
   if(state.calSelectedDate){
     // C34: show all sheet rows for this date
     const selRows=(state.data||[]).filter(r=>r.datum===state.calSelectedDate);
-    const selRaceRows=selRows.filter(r=>isRace(r.type));
+    const selRaceRows=selRows.filter(r=>r.type==='race');
     if(selRows.length){
       selRows.forEach(r=>{
         const ti=typeOf(r.type);
-        h+=`<div style="background:${isRace(r.type)?'rgba(244,67,54,0.06)':'rgba(255,255,255,0.02)'};border:1px solid ${isRace(r.type)?'rgba(244,67,54,0.3)':'var(--border)'};padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="openDayModal('${state.calSelectedDate}')">
+        h+=`<div style="background:${r.type==='race'?'rgba(244,67,54,0.06)':'rgba(255,255,255,0.02)'};border:1px solid ${r.type==='race'?'rgba(244,67,54,0.3)':'var(--border)'};padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="openDayModal('${state.calSelectedDate}')">
           <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${RXIcon(r.type?.split(',')[0].trim()||'run',18,'var(--text)','var(--accent)')}</div>
           <div style="flex:1;min-width:0">
             <div style="font-family:var(--font-m);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${ti.text};margin-bottom:2px">${T(ti.i18n)}</div>
@@ -1688,7 +1730,7 @@ async function saveRace(){
   if(state.currentTab==='calendar')renderCalendar();else switchTab('calendar');
 
   // Sheet: write titel + km + (Doel: xx:xx) appended to detail
-  const existingDetail=(state.data?.find(r=>r.datum===date&&isRace(r.type))?.detail||'')
+  const existingDetail=(state.data?.find(r=>r.datum===date&&r.type==='race')?.detail||'')
     .replace(/\s*\(Doel:[^)]*\)/,'').trim();
   const raceDetail=goal?`${existingDetail?existingDetail+' ':''}(Doel: ${goal})`:existingDetail;
   const raceFields={datum:date,titel:name,type:'race',detail:raceDetail,km:dist||''};
@@ -1696,7 +1738,7 @@ async function saveRace(){
   if(state.scriptUrl){
     try{
       const sheetRowIndex=state._raceFromSheet?._rowIndex||null;
-      const existingRow=state.data?.find(r=>r.datum===date&&isRace(r.type));
+      const existingRow=state.data?.find(r=>r.datum===date&&r.type==='race');
       const targetRowIndex=sheetRowIndex||existingRow?.rowIndex||null;
       if(targetRowIndex)await sheetUpdateRow(targetRowIndex,raceFields);
       else await sheetAddRow(raceFields);
@@ -1706,7 +1748,7 @@ async function saveRace(){
     }catch(e){showToast('❌ '+e.message);}
   }else{
     if(state.data){
-      const ex=state.data.find(r=>r.datum===date&&isRace(r.type));
+      const ex=state.data.find(r=>r.datum===date&&r.type==='race');
       if(ex)Object.assign(ex,raceFields);
       else state.data.push({...raceFields,feedback:'',rowIndex:null});
     }
@@ -1739,7 +1781,7 @@ function renderStats(){
   const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
   const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
   // C34: races from sheet
-  const sheetRaceRows2=(state.data||[]).filter(r=>isRace(r.type)&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const sheetRaceRows2=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
   const nextRace2=sheetRaceRows2.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows2[0];
   const daysLeft=nextRace2?daysUntil(nextRace2.datum):0;
   const raceName=nextRace2?.titel||nextRace2?.datum||'—';
