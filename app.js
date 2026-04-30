@@ -399,8 +399,10 @@ async function apiCall(params){
 // Internal model: date, type (normalized), title, details, distance, feedback, phase
 function mapRow(r){
   return {
-    // keep rowIndex for sheet operations
-    rowIndex: r.rowIndex,
+    rowIndex:   r.rowIndex,
+    // system fields
+    id:         r.id||null,
+    updated_at: r.updated_at||null,
     // canonical names
     date:     r.datum||r.date||'',
     type:     normalizeType(r.type||r.activity||''),
@@ -409,7 +411,7 @@ function mapRow(r){
     distance: r.km||r.distance||'',
     feedback: r.feedback||'',
     phase:    r.fase||r.phase||'',
-    // keep originals for sheet writes (sheet expects Dutch column names)
+    // originals for sheet writes
     datum:    r.datum||r.date||'',
     titel:    r.titel||r.title||'',
     detail:   r.detail||r.details||'',
