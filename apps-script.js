@@ -51,7 +51,18 @@ function buildResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-const FIELDS = ['datum', 'type', 'titel', 'detail', 'km', 'feedback', 'fase'];
+const FIELDS = ['datum', 'type', 'titel', 'detail', 'km', 'feedback', 'fase', 'id', 'updated_at'];
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function nowISO() {
+  return new Date().toISOString();
+}
 
 function getHeaders(sheet) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
@@ -96,9 +107,13 @@ function addRow(e) {
   const headers = getHeaders(sheet);
   const newRow = new Array(headers.length).fill('');
   FIELDS.forEach(f => { const c = headers.indexOf(f); if (c >= 0 && e.parameter[f] !== undefined) newRow[c] = e.parameter[f]; });
+  // Auto-generate id and updated_at if columns exist
+  const idCol = headers.indexOf('id');
+  const updCol = headers.indexOf('updated_at');
+  if (idCol >= 0) newRow[idCol] = e.parameter.id || generateUUID();
+  if (updCol >= 0) newRow[updCol] = nowISO();
   sheet.appendRow(newRow);
   sortSheet(sheet);
-  // rowIndex after sort is unknown — caller should re-fetch
   return { status: 'ok', action: 'added' };
 }
 
@@ -108,6 +123,9 @@ function updateRow(e) {
   const sheet = getSheet(e);
   const headers = getHeaders(sheet);
   FIELDS.forEach(f => { const c = headers.indexOf(f); if (c >= 0 && e.parameter[f] !== undefined) sheet.getRange(rowIndex, c + 1).setValue(e.parameter[f]); });
+  // Always update updated_at
+  const updCol = headers.indexOf('updated_at');
+  if (updCol >= 0) sheet.getRange(rowIndex, updCol + 1).setValue(nowISO());
   sortSheet(sheet);
   return { status: 'ok', action: 'updated' };
 }
