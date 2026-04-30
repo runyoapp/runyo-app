@@ -1297,15 +1297,28 @@ async function saveDayEdit(datum){
 async function deleteActivity(rowIndex){
   if(!rowIndex)return;
   if(!confirm('Activiteit verwijderen?'))return;
-  closeDayModal();
-  try{
-    await deleteActivityById(rowIndex);
-    showToast('Verwijderd', true);
-  }catch(e){
-    showToast('Fout: '+e.message);
+  // Buffer first, close modal immediately — don't wait for sheet
+  const row=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(row){
+    clearTimeout(state._undoBuffer?.timeout);
+    state._undoBuffer={row, timeout:setTimeout(()=>{state._undoBuffer=null;},10000)};
+    // Optimistic: remove from local cache immediately
+    if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
   }
   state.editingRowIndex=null;
+  closeDayModal();
   renderActiveView();renderHeader();
+  showToast('Verwijderd',true);
+  // Delete from sheet in background
+  if(state.scriptUrl){
+    try{await sheetDeleteRow(rowIndex);}
+    catch(e){
+      // Rollback: re-add to local cache
+      if(row&&state.data)state.data.push(row);
+      showToast('❌ Verwijderen mislukt');
+      renderActiveView();
+    }
+  }
 }
 
 // C44: open ADD mode (new activity), independent of existing row
