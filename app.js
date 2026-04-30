@@ -1296,7 +1296,15 @@ async function saveDayEdit(datum){
 
 async function deleteActivity(rowIndex){
   if(!rowIndex)return;
-  if(!confirm('Activiteit verwijderen?'))return;
+  // Show inline confirmation instead of blocking confirm()
+  const btn=document.querySelector(`[onclick="deleteActivity(${rowIndex})"]`);
+  if(btn&&!btn.dataset.confirming){
+    btn.dataset.confirming='1';
+    btn.textContent='Zeker weten? Klik opnieuw';
+    btn.style.color='var(--race-text)';
+    setTimeout(()=>{if(btn){btn.textContent='Verwijderen';btn.style.color='';delete btn.dataset.confirming;}},3000);
+    return;
+  }
   // Buffer first, close modal immediately — don't wait for sheet
   const row=state.data?.find(r=>r.rowIndex===rowIndex);
   if(row){
