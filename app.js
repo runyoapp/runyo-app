@@ -84,6 +84,19 @@ function getActivities(filters={}){
   return rows;
 }
 
+// C52: find the fase for a given date from existing data
+function getFaseForDate(datum){
+  if(!state.data||!datum)return'';
+  // Find rows around this date to determine fase
+  const sorted=[...state.data].filter(r=>r.fase&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  let fase='';
+  for(const r of sorted){
+    if(r.datum<=datum)fase=r.fase;
+    else break;
+  }
+  return fase;
+}
+
 async function createActivity(fields){
   // fields: {datum, type, titel, detail, km, fase}
   const normalized={...fields, type: fields.type||'rest'};
@@ -248,6 +261,7 @@ const state={
   calSelectedDate:null,
   editingRaceId:null,
   weekOffset:0,
+  dayOffset:0, // C53: vandaag swipe offset
   editingRowIndex:null,
   _prs:null,_races:null,
   swReg:null,
@@ -490,12 +504,15 @@ async function devForceRefresh(){
 
 function applyTheme(){
   document.documentElement.dataset.theme=state.theme;
-  document.querySelector('#themeBtnDark')?.classList.toggle('active',state.theme==='dark');
-  document.querySelector('#themeBtnLight')?.classList.toggle('active',state.theme==='light');
+  const btn=document.getElementById('themeToggleBtn');
+  if(btn)btn.textContent=state.theme==='dark'?'🌙':'☀️';
 }
 function setTheme(t){
   state.theme=t;localStorage.setItem('theme',t);
   applyTheme();
+}
+function toggleTheme(){
+  setTheme(state.theme==='dark'?'light':'dark');
 }
 
 // ── HEADER ────────────────────────────────────────────────────────────────────
@@ -572,7 +589,11 @@ function renderRacesBar(){
 // ── TODAY ─────────────────────────────────────────────────────────────────────
 function renderToday(){
   const el=document.getElementById('todayContent');
-  const t=todayStr();
+  const today=todayStr();
+  const off=state.dayOffset||0;
+  const tDate=new Date();tDate.setDate(tDate.getDate()+off);tDate.setHours(12,0,0,0);
+  const ty=tDate.getFullYear(),tm=String(tDate.getMonth()+1).padStart(2,'0'),td=String(tDate.getDate()).padStart(2,'0');
+  const t=`${ty}-${tm}-${td}`;
   const days=state.lang==='en'?DAYS_EN:DAYS_NL;
   const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
   const d=parseDate(t);
@@ -584,7 +605,16 @@ function renderToday(){
   const todayIsRace=state.data?.some(r=>r.datum===t&&r.type==='race');
 
   const kicker=`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}${faseKicker?' · '+faseKicker:''}`;
-  let h=`<div class="page-title"><div><div class="pt-kicker">${kicker}</div><div class="pt-h">Vandaag</div></div><button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button></div>`;
+  let h=`<div class="page-title" id="todayPageTitle" style="touch-action:pan-y">
+    <div>
+      <div class="pt-kicker">${kicker}</div>
+      <div class="pt-h">${off===0?'Vandaag':days[dayIdx(d)]+' '+d.getDate()+' '+mf[d.getMonth()]}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:none;border:1px solid var(--border);padding:4px 8px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px">Nu</button>`:''}
+      <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
+    </div>
+  </div>`;
 
   if(!state.data){
     h+=`<div style="padding:0 16px">`;
@@ -660,6 +690,21 @@ function renderToday(){
   h+=`</div>`;
   el.innerHTML=h;
   attachStarListeners();
+  // C53: swipe left/right to change day
+  const scrollEl=document.getElementById('scrollArea');
+  if(scrollEl&&!scrollEl._daySwipe){
+    scrollEl._daySwipe=true;
+    let sx=0,sy=0;
+    scrollEl.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+    scrollEl.addEventListener('touchend',e=>{
+      if(state.currentTab!=='today')return;
+      const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
+        state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);
+        renderToday();
+      }
+    },{passive:true});
+  }
 }
 
 function noSchemaHint(){
@@ -759,7 +804,10 @@ function renderWeek(){
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:6px">
       <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
-      <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${fbDone>0?`✓ ${fbDone} feedback · `:''}${workDays>0?`${workDays} werk`:''}</span>
+      <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
+        const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run')).length;
+        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} runs`:'');
+      })()}</span>
     </div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px">`;
@@ -915,18 +963,23 @@ function renderPlanRows(rows,t,faseBadge=''){
   const el=document.getElementById('planContent');
   if(!rows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;return;}
 
-  // C49: type filter pills
-  const activeTypes=[...new Set(rows.map(r=>r.type?.split(',')[0].trim()).filter(Boolean))];
-  let filterH='';
-  if(activeTypes.length>1){
-    const types=['all',...activeTypes];
-    filterH=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
-    types.forEach(tp=>{
-      const isAll=tp==='all';
-      const active=state.planTypeFilter===tp||(isAll&&(!state.planTypeFilter||state.planTypeFilter==='all'));
-      const label=isAll?'Alles':T(TYPES[tp]?.i18n||tp);
-      const icon=isAll?'':RXIcon(tp,14,active?'#000':'var(--muted)',active?'#000':'var(--accent)');
-      filterH+=`<button onclick="state.planTypeFilter='${tp}';renderPlan()" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:${active?'var(--accent)':'var(--surface)'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'#000':'var(--muted)'};font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent">${icon}${label}</button>`;
+  // C49: filter behind icon, deselectable
+  const activeTypes=[...new Set(rows.map(r=>r.type).filter(Boolean))];
+  const filterOpen=state.planFilterOpen||false;
+  let filterH=`<div style="display:flex;justify-content:flex-end;margin-bottom:${filterOpen?'8':'0'}px">
+    <button onclick="state.planFilterOpen=!state.planFilterOpen;renderPlan()" style="background:${state.planTypeFilter&&state.planTypeFilter!=='all'?'var(--accent)':'none'};border:1px solid ${state.planTypeFilter&&state.planTypeFilter!=='all'?'var(--accent)':'var(--border)'};padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;color:${state.planTypeFilter&&state.planTypeFilter!=='all'?'#000':'var(--muted)'};-webkit-tap-highlight-color:transparent">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="3,4 21,4 14,12 14,20 10,18 10,12"/></svg>
+      ${state.planTypeFilter&&state.planTypeFilter!=='all'?T(TYPES[state.planTypeFilter]?.i18n||state.planTypeFilter):''}
+    </button>
+  </div>`;
+  if(filterOpen&&activeTypes.length>1){
+    filterH+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
+    activeTypes.forEach(tp=>{
+      const active=state.planTypeFilter===tp;
+      const label=T(TYPES[tp]?.i18n||tp);
+      // Clicking active filter deselects it
+      const onclick=active?`state.planTypeFilter='all';renderPlan()`:`state.planTypeFilter='${tp}';renderPlan()`;
+      filterH+=`<button onclick="${onclick}" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:${active?'var(--accent)':'var(--surface)'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'#000':'var(--muted)'};font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent">${RXIcon(tp,14,active?'#000':'var(--muted)',active?'#000':'var(--accent)')}${label}</button>`;
     });
     filterH+='</div>';
   }
@@ -938,32 +991,51 @@ function renderPlanRows(rows,t,faseBadge=''){
   h+='<div class="plan-swipe-wrapper" id="planSwipeWrapper"><div class="plan-swipe-inner" id="planSwipeInner">';
   h+='<div class="plan-table">';
 
+  // C57: group by date, show all activities per day
+  const byDate=[];
   rows.forEach(row=>{
-    const isPast=row.datum<t,isTdy=row.datum===t,work=row.type==='work',ti=typeOf(row.type);
-    const parts=fmtDate(row.datum).split(' ');
-    const rowId='pr-'+(row.rowIndex||row.datum);
+    const last=byDate[byDate.length-1];
+    if(last&&last.datum===row.datum)last.rows.push(row);
+    else byDate.push({datum:row.datum,rows:[row]});
+  });
 
-    // C29: insert floating fase label when fase changes
+  byDate.forEach(({datum:rowDatum,rows:dayRows})=>{
+    const isPast=rowDatum<t,isTdy=rowDatum===t;
+    const parts=fmtDate(rowDatum).split(' ');
+    const rowId='pr-'+rowDatum;
+    const row=dayRows[0];
+    const work=dayRows.every(r=>r.type==='work');
+    const ti=typeOf(row.type);
+
+    // C29: fase float label when fase changes
     if(row.fase&&row.fase!==lastFase){
       h+=`</div><div class="fase-float">${esc(row.fase)}</div><div class="plan-table" style="border-top:none;border-radius:0 0 6px 6px">`;
       lastFase=row.fase;
-    }else if(!lastFase&&!row.fase){
-      // no fase at all, normal rendering
     }
 
+    // (fase-float is now handled at top of byDate.forEach above)
+
     h+=`<div>
-      <div class="plan-row${isPast?' is-past':''}${isTdy?' is-today':''}${work?' is-work':''}" onclick="togglePlanRow('${rowId}','${row.datum}')" style="padding:12px 12px">
+      <div class="plan-row${isPast?' is-past':''}${isTdy?' is-today':''}${work?' is-work':''}" onclick="togglePlanRow('${rowId}')">
         <div class="plan-row-date"><strong>${parts[0]} ${parts[1]}</strong>${parts[2]}</div>
-        <div class="plan-row-emoji">${RXIcon(normalizeType(row.type||'rest'),16,'var(--muted)','var(--accent)')}</div>
-        <div class="plan-row-body"><div class="plan-row-title" style="font-size:16px;font-weight:700">${esc(row.titel||'—')}</div></div>
-        ${row.km?`<div class="plan-row-km">${esc(row.km)}km</div>`:'<div class="plan-row-km"></div>'}
-        ${row.feedback?'<div class="plan-row-feedback"></div>':''}
+        <div class="plan-row-emoji">${RXIcon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
+        <div class="plan-row-body"><div class="plan-row-title">${dayRows.map(r=>esc(r.title||r.titel||'—')).join(' · ')}</div></div>
+        <div class="plan-row-km">${dayRows.map(r=>r.km||r.distance).filter(Boolean).map(k=>k+'km').join('+')}</div>
+        ${dayRows.some(r=>r.feedback)?'<div class="plan-row-feedback"></div>':''}
       </div>
       <div class="plan-row-detail" id="${rowId}">
-        <span class="badge" style="background:${ti.bg};color:${ti.text};margin-bottom:6px">${T(ti.i18n)}</span>
-        ${row.detail?`<div style="margin-top:4px;color:var(--muted)">${esc(row.detail)}</div>`:''}
-        ${row.feedback?`<div class="plan-feedback-text">✓ ${esc(row.feedback)}</div>`:''}
-        <button style="margin-top:8px;background:none;border:1px solid var(--border);padding:5px 12px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:color 0.12s,border-color 0.12s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='';this.style.borderColor=''" onclick="openDayModalRow(${row.rowIndex},'${row.datum}');event.stopPropagation()">Bewerken</button>
+        ${dayRows.map(r=>{const rti=typeOf(r.type);return`
+          <div style="padding:8px 0;${dayRows.length>1?'border-bottom:1px solid var(--border)':''}">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              ${RXIcon(r.type,14,'var(--muted)','var(--accent)')}
+              <span class="badge" style="background:${rti.bg};color:${rti.text}">${T(rti.i18n)}</span>
+              ${r.km||r.distance?`<span style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(r.km||r.distance)}km</span>`:''}
+            </div>
+            <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
+            ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
+            ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
+            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
+          </div>`;}).join('')}
       </div>
     </div>`;
   });
@@ -1067,7 +1139,7 @@ function openDayModal(dateStr,targetRowIndex){
       `<option value="${o.value}"${o.value==='rest'?' selected':''}>${o.nl}</option>`
     ).join('');
     h+=`<div class="feedback-section" style="margin-bottom:10px">
-      <div class="feedback-title">${T('add_training')}</div>
+      <div class="feedback-title">${'Activiteit toevoegen'}</div>
       <div style="margin-bottom:8px">
         <label class="settings-label">${T('type_label')}</label>
         <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px">
@@ -1080,7 +1152,7 @@ function openDayModal(dateStr,targetRowIndex){
       </div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <div style="flex:1">
-          <label class="settings-label">${T('field_km')}</label>
+          <label class="settings-label">${'Afstand'}</label>
           <input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">
         </div>
   
@@ -1171,7 +1243,7 @@ function openDayModal(dateStr,targetRowIndex){
           <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
         </div>
         <div style="margin-bottom:8px">
-          <label class="settings-label">${T('field_km')}</label>
+          <label class="settings-label">${'Afstand'}</label>
           <input class="plan-edit-field" id="edit-km" value="${esc(row?.km||'')}" placeholder="0" type="number" step="0.1">
         </div>
         <div style="margin-bottom:8px">
@@ -1257,7 +1329,8 @@ async function saveDayEdit(datum){
   const type=toSheetType(typeRaw)||typeRaw;
   const km=document.getElementById('edit-km')?.value.trim()||'';
   const detail=document.getElementById('edit-detail')?.value.trim()||'';
-  const fields={datum,titel,type,km,detail};
+  const fase=getFaseForDate(datum);
+  const fields={datum,titel,type,km,detail,fase};
 
   // Use only the explicitly set editingRowIndex — never infer from datum
   const editingRowIndex=state.editingRowIndex||null;
@@ -1356,7 +1429,7 @@ function openAddActivity(dateStr){
     <div style="font-family:var(--font-d);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
   </div>
   <div class="feedback-section">
-    <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">${T('add_training')}</div>
+    <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">${'Activiteit toevoegen'}</div>
     <div style="margin-bottom:8px">
       <label class="settings-label">${T('type_label')}</label>
       <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px">${typeOptions}</select>
@@ -1366,7 +1439,7 @@ function openAddActivity(dateStr){
       <input class="plan-edit-field" id="edit-titel" value="" placeholder="${T('field_titel')}">
     </div>
     <div style="margin-bottom:8px">
-      <label class="settings-label">${T('field_km')}</label>
+      <label class="settings-label">${'Afstand'}</label>
       <input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">
     </div>
     <div style="margin-bottom:8px">
@@ -1633,6 +1706,16 @@ function renderCalendar(){
   h+='</div>';
   h+='</div>'; // close padding wrapper
   el.innerHTML=h;
+  // C58: calendar swipe
+  if(!el._calSwipe){
+    el._calSwipe=true;
+    let sx=0;
+    el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});
+    el.addEventListener('touchend',e=>{
+      const dx=e.changedTouches[0].clientX-sx;
+      if(Math.abs(dx)>50){dx<0?calNext():calPrev();}
+    },{passive:true});
+  }
 }
 
 function selectCalDate(ds){state.calSelectedDate=state.calSelectedDate===ds?null:ds;renderCalendar();}
