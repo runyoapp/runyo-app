@@ -180,8 +180,8 @@
         <div class="settings-section">
           <div class="settings-title" data-i18n="lang_title"></div>
           <div class="lang-toggle-row">
-            <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')">NL Nederlands</button>
-            <button class="lang-btn" id="langBtnEn" onclick="setLang('en')">EN English</button>
+            <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:20px">🇳🇱</button>
+            <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px">🇬🇧</button>
           </div>
         </div>
       </div>
@@ -208,12 +208,11 @@
       <div class="settings-group">
         <div class="settings-group-title" data-i18n="sg_app"></div>
         <div class="settings-section">
-          <div class="settings-title" style="margin-bottom:8px">Thema</div>
-          <div class="lang-toggle-row">
-            <button class="lang-btn" id="themeBtnDark" onclick="setTheme('dark')">Donker</button>
-            <button class="lang-btn" id="themeBtnLight" onclick="setTheme('light')">Licht</button>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="settings-title">Thema</div>
+            <button onclick="toggleTheme()" id="themeToggleBtn" style="background:none;border:1px solid var(--border);padding:6px 12px;cursor:pointer;font-size:18px;border-radius:999px;-webkit-tap-highlight-color:transparent">🌙</button>
           </div>
-          <div style="font-size:11px;color:var(--faint);font-family:var(--font-m);line-height:1.8;margin-top:12px">RunningX v2.4.0</div>
+          <div style="font-size:11px;color:var(--faint);font-family:var(--font-m);line-height:1.8;margin-top:12px">RunningX v2.5.0</div>
         </div>
       </div>
     </div>
