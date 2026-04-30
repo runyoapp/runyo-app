@@ -38,6 +38,7 @@ function doGet(e) {
     if (action === 'deleteRow')   return buildResponse(deleteRow(e));
     if (action === 'setFeedback') return buildResponse(setFeedback(e));
     if (action === 'setDay')      return buildResponse(setDayLegacy(e));
+    if (action === 'backfillIds')  return buildResponse(backfillIds(e));
     if (action === 'getToday')    return buildResponse(getTodayRow(e));
     return buildResponse({ status: 'error', message: 'Onbekende actie: ' + action });
   } catch(err) {
@@ -51,7 +52,7 @@ function buildResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-const FIELDS = ['datum', 'type', 'titel', 'detail', 'km', 'feedback', 'fase', 'id', 'updated_at'];
+const FIELDS = ['datum', 'type', 'titel', 'detail', 'km', 'feedback', 'fase', 'id', 'updated_at', 'created_at', 'race_type'];
 
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -111,7 +112,10 @@ function addRow(e) {
   const idCol = headers.indexOf('id');
   const updCol = headers.indexOf('updated_at');
   if (idCol >= 0) newRow[idCol] = e.parameter.id || generateUUID();
-  if (updCol >= 0) newRow[updCol] = nowISO();
+  const now = nowISO();
+  if (updCol >= 0) newRow[updCol] = now;
+  const createdCol = headers.indexOf('created_at');
+  if (createdCol >= 0) newRow[createdCol] = now;
   sheet.appendRow(newRow);
   sortSheet(sheet);
   return { status: 'ok', action: 'added' };
@@ -164,6 +168,33 @@ function setFeedback(e) {
     return { status: 'ok', datum, feedback: feedbackStr, rowIndex: i + 1 };
   }
   throw new Error('Rij niet gevonden: ' + datum);
+}
+
+// ── BACKFILL: fill empty id + updated_at for existing rows ──────────────────
+function backfillIds(e) {
+  const sheet = getSheet(e);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).toLowerCase().trim());
+  const idCol = headers.indexOf('id');
+  const updCol = headers.indexOf('updated_at');
+  if (idCol === -1) throw new Error('Kolom "id" niet gevonden');
+  let filled = 0;
+  for (let i = 1; i < data.length; i++) {
+    const rowId = String(data[i][idCol] || '').trim();
+    if (!rowId) {
+      sheet.getRange(i + 1, idCol + 1).setValue(generateUUID());
+      filled++;
+    }
+    const now2 = nowISO();
+    if (updCol >= 0 && !String(data[i][updCol] || '').trim()) {
+      sheet.getRange(i + 1, updCol + 1).setValue(now2);
+    }
+    const createdCol2 = headers.indexOf('created_at');
+    if (createdCol2 >= 0 && !String(data[i][createdCol2] || '').trim()) {
+      sheet.getRange(i + 1, createdCol2 + 1).setValue(now2);
+    }
+  }
+  return { status: 'ok', filled };
 }
 
 function setDayLegacy(e) {
