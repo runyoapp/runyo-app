@@ -605,7 +605,7 @@ function renderToday(){
     </div>`;
   }else{
     // Render ALL today rows
-    const activeRows=todayRows.filter(r=>!r.type==='rest');
+    const activeRows=todayRows.filter(r=>r.type!=='rest');
     activeRows.forEach(row=>{
       const ti=typeOf(row.type);
       const isRun=hasType(row.type,'run');
@@ -634,7 +634,7 @@ function renderToday(){
       h+=`</div>`;
     });
     // Feedback is per-day — show once, after all activity cards
-    const fbRow=activeRows.find(r=>!r.type==='work');
+    const fbRow=activeRows.find(r=>r.type!=='work');
     if(fbRow)h+=feedbackHtml(fbRow.datum,fbRow.feedback);
   }
 
@@ -789,7 +789,7 @@ function renderWeek(){
   else{
     // Week: show active days (exclude rust/werk), include past days greyed
     // All active rows grouped by date
-    const activeDays=wd.map(({date,rows})=>({date,activeRows:rows.filter(r=>r.type&&!r.type==='work'&&!r.type==='rest')})).filter(({activeRows})=>activeRows.length);
+    const activeDays=wd.map(({date,rows})=>({date,activeRows:rows.filter(r=>r.type&&r.type!=='work'&&r.type!=='rest')})).filter(({activeRows})=>activeRows.length);
     if(activeDays.length){
       h+=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('week_todo')}</div>`;
       activeDays.forEach(({date,activeRows})=>{
@@ -1123,7 +1123,7 @@ function openDayModal(dateStr,targetRowIndex){
     });
 
     // Feedback — dag level, one block, collapsed by default
-    const fbRow=rows.find(r=>!r.type==='work'&&!r.type==='rest')||null;
+    const fbRow=rows.find(r=>r.type!=='work'&&r.type!=='rest')||null;
     const existingFb=fbRow?.feedback||'';
     if(fbRow){
       if(isPast){
