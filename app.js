@@ -403,6 +403,7 @@ function mapRow(r){
     // system fields
     id:         r.id||null,
     updated_at: r.updated_at||null,
+    created_at: r.created_at||null,
     // canonical names
     date:     r.datum||r.date||'',
     type:     normalizeType(r.type||r.activity||''),
