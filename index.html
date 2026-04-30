@@ -111,6 +111,7 @@
         <rect x="17" y="4" width="4" height="17" rx="1"/>
       </svg>
     </button>
+    <button onclick="toggleTheme()" id="themeToggleBtn" class="topbar-gear" title="Thema" style="margin-right:4px;font-size:16px">🌙</button>
     <!-- DEV: force refresh button — remove when done -->
     <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="margin-right:4px;color:#ff6b35">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -177,13 +178,6 @@
           </div>
           <div id="prFields"></div>
         </div>
-        <div class="settings-section">
-          <div class="settings-title" data-i18n="lang_title"></div>
-          <div class="lang-toggle-row">
-            <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:20px">🇳🇱</button>
-            <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px">🇬🇧</button>
-          </div>
-        </div>
       </div>
       <div class="settings-group">
         <div class="settings-group-title" data-i18n="sg_notif"></div>
@@ -208,11 +202,13 @@
       <div class="settings-group">
         <div class="settings-group-title" data-i18n="sg_app"></div>
         <div class="settings-section">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div class="settings-title">Thema</div>
-            <button onclick="toggleTheme()" id="themeToggleBtn" style="background:none;border:1px solid var(--border);padding:6px 12px;cursor:pointer;font-size:18px;border-radius:999px;-webkit-tap-highlight-color:transparent">🌙</button>
-          </div>
-          <div style="font-size:11px;color:var(--faint);font-family:var(--font-m);line-height:1.8;margin-top:12px">RunningX v2.5.0</div>
+          <div style="font-size:11px;color:var(--faint);font-family:var(--font-m);line-height:1.8">RunningX v2.5.0</div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-section" style="display:flex;align-items:center;justify-content:center;gap:16px;padding:16px">
+          <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:24px;background:none;border:none;cursor:pointer;opacity:0.5;transition:opacity 0.15s">🇳🇱</button>
+          <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:24px;background:none;border:none;cursor:pointer;opacity:0.5;transition:opacity 0.15s">🇬🇧</button>
         </div>
       </div>
     </div>
