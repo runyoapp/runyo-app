@@ -3,13 +3,14 @@
 // Token stored in localStorage; re-auth prompt when expired
 
 const GAUTH = {
+  AUTH_BACKEND: 'https://runningx-auth-production.up.railway.app',
   CLIENT_ID: '724112309611-37u5dgrvat37l81tm1lamb1mq06l8erq.apps.googleusercontent.com',
   SCOPES: [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/userinfo.email',
   ].join(' '),
-  REDIRECT_URI: window.location.origin + window.location.pathname.replace(/\/$/, ''),
+  REDIRECT_URI: window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/oauth-callback.html',
   TOKEN_KEY: 'gauth_token',
   EXPIRY_KEY: 'gauth_expiry',
   EMAIL_KEY:  'gauth_email',
@@ -38,20 +39,18 @@ function authSaveToken(token,expiresIn){
   localStorage.setItem(GAUTH.EXPIRY_KEY,String(Date.now()+expiresIn*1000));
 }
 function authClear(){
-  [GAUTH.TOKEN_KEY,GAUTH.EXPIRY_KEY,GAUTH.EMAIL_KEY].forEach(k=>localStorage.removeItem(k));
+  [GAUTH.TOKEN_KEY,GAUTH.EXPIRY_KEY,GAUTH.EMAIL_KEY,'gauth_refresh'].forEach(k=>localStorage.removeItem(k));
 }
 function authEmail(){return localStorage.getItem(GAUTH.EMAIL_KEY)||'';}
 function authSheetId(){return localStorage.getItem(GAUTH.SHEET_ID_KEY)||'';}
 function authSetSheetId(id){localStorage.setItem(GAUTH.SHEET_ID_KEY,id);}
 
-// ── OAuth flow — redirect-based (PKCE) ───────────────────────────────────────
-// Redirects the current page to Google OAuth. After consent, Google redirects
-// back to REDIRECT_URI with ?code=... which init() picks up and exchanges.
+// ── OAuth flow — popup-based (PKCE + postMessage) ────────────────────────────
+// Opens a popup. After consent Google redirects popup to REDIRECT_URI which
+// loads a tiny receiver page that posts the code back via postMessage.
 async function authSignIn(){
   const {verifier,challenge}=await _pkce();
-  // Store verifier in localStorage (survives the redirect)
   localStorage.setItem('pkce_verifier',verifier);
-  localStorage.setItem('oauth_return_tab', 'settings');
 
   const params=new URLSearchParams({
     client_id:    GAUTH.CLIENT_ID,
@@ -60,34 +59,56 @@ async function authSignIn(){
     scope:        GAUTH.SCOPES,
     code_challenge:        challenge,
     code_challenge_method: 'S256',
-    access_type:  'online',
-    prompt:       'select_account',
+    access_type:  'offline',
+    prompt:       'consent',
   });
 
-  window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
-  // Page will reload — execution stops here
-  return new Promise(()=>{}); // never resolves, redirect takes over
+  const url='https://accounts.google.com/o/oauth2/v2/auth?'+params;
+
+  return new Promise((resolve,reject)=>{
+    const popup=window.open(url,'gauth','width=520,height=640,left=200,top=80');
+    if(!popup){reject(new Error('Popup geblokkeerd — sta popups toe voor deze pagina'));return;}
+
+    // Listen for postMessage from the popup (sent by oauth-callback.html)
+    function onMessage(e){
+      if(e.origin!==window.location.origin)return;
+      if(e.data?.type!=='OAUTH_CODE')return;
+      window.removeEventListener('message',onMessage);
+      clearInterval(closedTimer);
+      popup.close();
+      if(e.data.error){reject(new Error(e.data.error));return;}
+      _exchangeCode(e.data.code).then(resolve).catch(reject);
+    }
+    window.addEventListener('message',onMessage);
+
+    // Fallback: detect popup closed without posting
+    const closedTimer=setInterval(()=>{
+      if(popup.closed){
+        clearInterval(closedTimer);
+        window.removeEventListener('message',onMessage);
+        reject(new Error('Inloggen geannuleerd'));
+      }
+    },500);
+  });
 }
 
 async function _exchangeCode(code){
-  // PKCE exchange via Google token endpoint
-  // Note: for public clients Google supports no-secret PKCE exchange
   const verifier=localStorage.getItem('pkce_verifier');
   localStorage.removeItem('pkce_verifier');
-  const res=await fetch('https://oauth2.googleapis.com/token',{
+  const res=await fetch(GAUTH.AUTH_BACKEND+'/auth/token',{
     method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:new URLSearchParams({
-      client_id:     GAUTH.CLIENT_ID,
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
       code,
       code_verifier: verifier,
-      grant_type:    'authorization_code',
       redirect_uri:  GAUTH.REDIRECT_URI,
     }),
   });
   const json=await res.json();
   if(json.error)throw new Error(json.error_description||json.error);
   authSaveToken(json.access_token,json.expires_in||3600);
+  // Store refresh token for silent re-auth
+  if(json.refresh_token)localStorage.setItem('gauth_refresh',json.refresh_token);
   // Fetch user email
   try{
     const me=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{
@@ -99,10 +120,29 @@ async function _exchangeCode(code){
   return json.access_token;
 }
 
+async function _refreshToken(){
+  const refresh=localStorage.getItem('gauth_refresh');
+  if(!refresh)throw new Error('Geen refresh token');
+  const res=await fetch(GAUTH.AUTH_BACKEND+'/auth/refresh',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({refresh_token:refresh}),
+  });
+  const json=await res.json();
+  if(json.error)throw new Error(json.error_description||json.error);
+  authSaveToken(json.access_token,json.expires_in||3600);
+  return json.access_token;
+}
+
 // Ensure valid token — re-auth if expired
 async function authEnsureToken(){
   if(authGetToken()&&!authIsExpired())return authGetToken();
-  // Token expired — trigger re-auth
+  // Try silent refresh first
+  try{
+    const token=await _refreshToken();
+    return token;
+  }catch{}
+  // Refresh failed — show re-auth banner
   showOAuthExpiredBanner();
   throw new Error('Sessie verlopen — log opnieuw in');
 }
@@ -405,9 +445,15 @@ async function fetchDataOAuth(){
 // ── Connect UI ────────────────────────────────────────────────────────────────
 async function oauthConnectFlow(){
   const btn=document.getElementById('oauthConnectBtn');
-  if(btn){btn.disabled=true;btn.textContent='Doorsturen naar Google…';}
-  // authSignIn() does a full page redirect — no return
-  await authSignIn();
+  if(btn){btn.disabled=true;btn.textContent='Bezig…';}
+  try{
+    await authSignIn();
+    if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
+    showOAuthConnectSheet();
+  }catch(e){
+    showToast('❌ '+e.message);
+    if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
+  }
 }
 
 function showOAuthConnectSheet(){
