@@ -1406,62 +1406,9 @@ function closeDayModal(e){
 // ── STATS OVERLAY ─────────────────────────────────────────────────────────────
 function openStats(){
   const el=document.getElementById('statsOverlay');
-  const content=document.getElementById('statsContent');
-  if(!el||!content)return;
-  const t=todayStr();
-  const past=state.data?state.data.filter(r=>r.datum<=t):[];
-  const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const runCount=past.filter(r=>hasType(r.type,'run')).length;
-  const fbRows=past.filter(r=>r.feedback);
-  const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
-  const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
-  const sheetRaceRows3=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
-  const nextRace3=sheetRaceRows3.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows3[0];
-  const daysLeft=nextRace3?daysUntil(nextRace3.datum):0;
-  const mondayStr=getMondayStr();
-  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-
-  const tiles=[
-    {label:T('stats_total'),val:totalKm.toFixed(0),unit:T('stats_done'),hi:true},
-    {label:T('stats_days'),val:daysLeft,unit:nextRace3?.titel||nextRace3?.datum||'—',hi:true},
-    {label:T('stats_runs'),val:runCount,unit:T('stats_sessions'),hi:false},
-    {label:T('stats_week'),val:weekKm.toFixed(0),unit:T('stats_week_sub'),hi:true},
-    avgRating>0?{label:T('stats_feel'),val:avgRating.toFixed(1),unit:`/5 · ${ratingRows.length} ${T('stats_fb_sub')}`,hi:false}:null,
-    {label:T('stats_feedback'),val:fbRows.length,unit:T('stats_fb_sub'),hi:false},
-  ].filter(Boolean);
-
-  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">Stats · all-time</div>
-      <div style="font-family:var(--font-d);font-weight:800;font-size:22px;text-transform:uppercase;margin-top:2px">Jouw run</div>
-    </div>
-    <button onclick="closeStats()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sluit ✕</button>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">`;
-  tiles.forEach(t=>{
-    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px">
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${esc(t.label)}</div>
-      <div style="font-family:var(--font-d);font-weight:800;font-size:32px;line-height:1;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:4px">${esc(t.unit)}</div>
-    </div>`;
-  });
-  h+='</div>';
-  if(fbRows.length){
-    h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('stats_recent')}</div>`;
-    fbRows.slice(-3).reverse().forEach(row=>{
-      const d=parseDate(row.datum);
-      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between">
-          <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'Training')}</div>
-          <span style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
-        </div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--text);margin-top:4px;line-height:1.5">${esc(row.feedback)}</div>
-      </div>`;
-    });
-  }
-  content.innerHTML=h;
+  if(!el)return;
   el.style.display='flex';
+  renderStats();
 }
 
 function closeStats(e){
