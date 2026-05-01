@@ -476,7 +476,7 @@ async function submitFeedback(datum,rating,tekst){
     const extra=row?.rowIndex?{rowIndex:String(row.rowIndex)}:{};
     const json=await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
     if(row){const e=['😵','😓','😐','💪','🔥'];row.feedback=`${rating}/5 ${e[rating-1]}${tekst?' – '+tekst:''}`;}
-    showToast(T('feedback_logged'));return true;
+    showToast('✓ '+T('feedback_logged'));return true;
   }catch(e){showToast('❌ '+e.message);return false;}
 }
 
@@ -593,19 +593,19 @@ function renderRacesBar(){
     const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
     const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
     const isMain=!!lr?.mainGoal;
+    // Title font: larger for short names
     const titleLen=(r.titel||'').length;
-    const titleSize=titleLen<=6?'15px':titleLen<=10?'13px':titleLen<=16?'11px':'10px';
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:88px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      <div style="flex:1">
-        ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ DOEL</div>`:''}
-        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-          <div style="margin-top:2px;flex-shrink:0">${RXIcon(iconKey,11,'var(--race-text)','var(--race-text)')}</div>
-          <div class="rb-title" style="font-size:${titleSize};line-height:1.2">${esc(r.titel||r.datum)}</div>
-        </div>
-        ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-        ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
+      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
+        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
       </div>
-      <div class="rb-countdown" style="margin-top:6px">${cd.val}<span>${cd.unit}</span></div>
+      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+      <div style="flex:1"></div>
+      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
   // C50: always show + to add race
@@ -639,7 +639,7 @@ function renderToday(){
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <div style="display:flex;align-items:center;gap:6px">
-        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Terug naar vandaag</button>`:''}
+        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Vandaag</button>`:''}
         <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
       </div>
     </div>
@@ -690,18 +690,18 @@ function renderToday(){
         h+=`<div style="font-family:var(--font-d);font-weight:800;font-size:36px;line-height:1;margin-top:8px">${esc(row.km)} KM</div>`;
       }
       if(detail){h+=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5;padding-top:12px;border-top:1px solid var(--border)">${esc(detail)}</div>`;}
-      if(!row.feedback&&isRun){h+=`<button class="btn-cta" onclick="toggleTodayFeedback(event)">Beoordeel run &rarr;</button>`;}
+      if(!row.feedback&&isRun){h+=`<button class="btn-cta">Start run →</button>`;}
       h+=`</div>`;
     });
-    // Feedback is per-day — show once, hidden by default, opened via Beoordeel run button
+    // Feedback is per-day — show once, after all activity cards
     const fbRow=activeRows.find(r=>r.type!=='work');
-    if(fbRow){const hiddenByDefault=!fbRow.feedback&&!state.editingFeedback;h+=`<div id="todayFeedback" style="display:${hiddenByDefault?'none':'block'}">${feedbackHtml(fbRow.datum,fbRow.feedback)}</div>`;}
+    if(fbRow)h+=feedbackHtml(fbRow.datum,fbRow.feedback);
   }
 
   // Tomorrow — only show when on today
   if(off!==0){h+=`</div>`;el.innerHTML=h;attachStarListeners();
   const scrollEl2=document.getElementById('scrollArea');
-  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)*1.5&&Math.abs(dx)>60){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
+  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
   return;}
   const tmrDate=new Date();tmrDate.setDate(tmrDate.getDate()+1);
   const tmr=state.data.find(r=>r.datum===tmrDate.toISOString().split('T')[0]);
@@ -732,7 +732,7 @@ function renderToday(){
     scrollEl.addEventListener('touchend',e=>{
       if(state.currentTab!=='today')return;
       const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
-      if(Math.abs(dx)>Math.abs(dy)*1.5&&Math.abs(dx)>60){
+      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
         state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);
         renderToday();
       }
@@ -770,12 +770,6 @@ function feedbackHtml(datum,existing){
     <button class="btn-primary" id="submitBtn" onclick="handleFeedbackSubmit('${esc(datum)}')">${isEdit?T('feedback_update'):T('feedback_save')}</button>
     ${isEdit?`<button class="btn-secondary" onclick="state.editingFeedback=false;renderToday()">${T('feedback_cancel')}</button>`:''}
   </div>`;
-}
-
-function toggleTodayFeedback(e){
-  e.stopPropagation();
-  const el=document.getElementById('todayFeedback');if(!el)return;
-  el.style.display=el.style.display==='none'?'block':'none';
 }
 
 function attachStarListeners(scope){
@@ -831,7 +825,7 @@ function renderWeek(){
   </div>
   <div style="display:flex;gap:4px;padding:0 20px 8px;align-items:center">
     <button onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">‹</button>
-    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">← Terug naar nu</button>`:''}
+    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">Nu</button>`:''}
     <div style="flex:1"></div>
     <button onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">›</button>
   </div>
@@ -848,8 +842,7 @@ function renderWeek(){
       <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
       <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
         const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run'||r.type==='race')).length;
-        const runLabel=state.lang==='en'?(runs===1?'run':'runs'):(runs===1?'run':'runs');
-        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runLabel}`:'');
+        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runs===1?'run':'runs'}`:'');
       })()}</span>
     </div>
   </div>
@@ -1152,241 +1145,202 @@ function swipePlanFase(dir){
   if(btn)selectFase(btn,next);
 }
 
-// ── DAY MODAL (C22 + C28) ─────────────────────────────────────────────────────
-function openDayModal(dateStr,targetRowIndex){
-  // C34: support multiple rows per date
-  const rows=state.data?.filter(r=>r.datum===dateStr)||[];
-  // If targetRowIndex given, show that specific row; else show all
-  // Priority: state.editingRowIndex > targetRowIndex > first row
-  const resolvedIdx=state.editingRowIndex||targetRowIndex||null;
-  const row=resolvedIdx
-    ?rows.find(r=>r.rowIndex===resolvedIdx)||rows[0]||null
-    :rows[0]||null;
-  const t=todayStr(),isPast=dateStr<=t;
-  const ti=row?typeOf(row.type):null;
-  const content=document.getElementById('dayModalContent');
-  state.editingFeedback=false;state.selectedRating=0;
+// ── UNIFIED ACTIVITY MODAL (C59) ─────────────────────────────────────────────
+// Single modal for all activity types. Race fields shown conditionally.
 
-  // C37: date kicker + title layout
+function openActivityModal(dateStr, rowIndex=null){
+  state.editingFeedback=false;state.selectedRating=0;
+  state.editingRowIndex=rowIndex;
+  const rows=(state.data||[]).filter(r=>r.datum===dateStr);
+  const row=rowIndex?rows.find(r=>r.rowIndex===rowIndex)||null:rows[0]||null;
+  const t=todayStr(),isPast=dateStr<=t;
   const d=parseDate(dateStr);
   const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
   const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  let h=`<div style="margin-bottom:16px">
+  const isNew=!row;
+  const isRaceRow=row?.type==='race';
+
+  const RACE_TYPES=['Weg','Baan','Trail','Ultra','Virtueel'];
+  const RACE_DISTS=['5 km','10 km','10 mile','Halve marathon','Marathon'];
+  // For existing race: pull raceType+goal from localStorage
+  const localRaces=loadRaces();
+  const lr=isRaceRow?localRaces.find(l=>l.date===dateStr):null;
+  const savedRaceType=lr?.raceType||'';
+  const savedGoal=lr?.goal||(row?.detail||'').match(/\(Doel:\s*([^)]+)\)/)?.[1]||'';
+  const savedDist=lr?.dist||row?.km||'';
+
+  const typeOptions=ACTIVITY_OPTIONS.map(o=>
+    `<option value="${o.value}"${(row?row.type===o.value:o.value==='run')?' selected':''}>${o.nl}</option>`
+  ).join('');
+
+  const raceTypeOptions=RACE_TYPES.map(t=>
+    `<option value="${t}"${savedRaceType===t?' selected':''}>${t}</option>`
+  ).join('');
+
+  const raceDistOptions=RACE_DISTS.map(d=>{
+    const match=savedDist===d||savedDist.replace(/^(\d+)\s*km?$/i,'$1 km')===d;
+    return `<option value="${d}"${match?' selected':''}>${d}</option>`;
+  }).join('');
+
+  const showRace=isRaceRow||isNew?'':'none';
+
+  const content=document.getElementById('dayModalContent');
+  let h=`<div style="margin-bottom:14px">
     <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">${dayNames[dayIdx(d)]} · ${mNames[d.getMonth()]} ${d.getFullYear()}</div>
-    <div style="font-family:var(--font-d);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
+    <div style="font-family:var(--font-d);font-weight:800;font-size:26px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
   </div>`;
 
-  if(!row){
-    // C28: empty day — type picker at top, then training details, notes at bottom (smaller)
-    const typeOptions=ACTIVITY_OPTIONS.map(o=>
-      `<option value="${o.value}"${o.value==='rest'?' selected':''}>${o.nl}</option>`
-    ).join('');
-    h+=`<div class="feedback-section" style="margin-bottom:10px">
-      <div class="feedback-title">${'Activiteit toevoegen'}</div>
-      <div style="margin-bottom:8px">
-        <label class="settings-label">${T('type_label')}</label>
-        <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px">
-          ${typeOptions}
-        </select>
-      </div>
-      <div style="margin-bottom:8px">
-        <label class="settings-label">${T('field_titel')}</label>
-        <input class="plan-edit-field" id="edit-titel" value="" placeholder="${T('field_titel')}">
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <div style="flex:1">
-          <label class="settings-label">${'Afstand'}</label>
-          <input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">
-        </div>
-  
-      </div>
-      <div style="margin-bottom:8px">
-        <label class="settings-label">${T('field_detail')}</label>
-        <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none"></textarea>
-      </div>
-      <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
-    </div>
-    <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:0;padding:10px 14px;margin-bottom:10px">
-      <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:6px">${T('notes_q')}</div>
-      <textarea class="feedback-textarea" id="modalNoteText" style="height:56px;margin-bottom:8px"></textarea>
-      <button class="btn-secondary" style="margin-top:0" onclick="saveModalNote('${dateStr}')">${T('notes_save')}</button>
-    </div>`;
-  }else{
-    const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
-    // C37: cleaner card, C34: show all rows if multiple
+  // ── Activity card (view mode, existing rows) ─────────────────────────────
+  if(!isNew){
     rows.forEach((r,idx)=>{
       const rti=typeOf(r.type);
-      const rb=r.type==='work'?'work-border':r.type==='race'?'race-border':'';
-      const isRaceRow=r.type==='race';
-      // Parse raceType from detail (format: "dist · raceType · Doel: xx")
-      const detailParts=(r.detail||'').split('·').map(s=>s.trim()).filter(Boolean);
-      const parsedRaceType=isRaceRow&&detailParts.length>1?detailParts[1].replace(/Doel:.*/,'').trim():'';
-      const iconKey=isRaceRow?raceTypeIconKey(parsedRaceType,r.km):(r.type?.split(',')[0].trim()||'run');
-      const clickHandler=isRaceRow?`openRaceModalFromSheet(${r.rowIndex})`:`openDayModal(this.dataset.date)`;
-      h+=`<div class="card ${rb}" onclick="${clickHandler}" data-date="${dateStr}" style="padding:14px 16px;margin-bottom:${idx<rows.length-1?'8':'10'}px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+      const isRace=r.type==='race';
+      const iconKey=isRace?raceTypeIconKey(savedRaceType,r.km):(r.type?.split(',')[0].trim()||'run');
+      const rb=isRace?'race-border':r.type==='work'?'work-border':'';
+      h+=`<div class="card ${rb}" style="padding:14px 16px;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:${r.detail?'10':'0'}px">
           <div style="width:32px;height:32px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            ${RXIcon(iconKey,18,isRaceRow?'var(--race-text)':'var(--text)',isRaceRow?'var(--race-text)':'var(--accent)')}
+            ${RXIcon(iconKey,18,isRace?'var(--race-text)':'var(--text)',isRace?'var(--race-text)':'var(--accent)')}
           </div>
           <div style="flex:1;min-width:0">
-            <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:${rti.text};margin-bottom:2px">${T(rti.i18n)}${parsedRaceType?' · '+esc(parsedRaceType):''}</div>
+            <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:${rti.text};margin-bottom:2px">${T(rti.i18n)}</div>
             <div style="font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1">${esc(r.titel||'Training')}</div>
           </div>
-          ${r.km?`<div style="font-family:var(--font-d);font-weight:800;font-size:22px;color:${isRaceRow?'var(--race-text)':'var(--accent)'};flex-shrink:0">${esc(r.km)}<span style="font-size:12px;color:var(--muted)">km</span></div>`:''}
+          ${r.km?`<div style="font-family:var(--font-d);font-weight:800;font-size:22px;color:${isRace?'var(--race-text)':'var(--accent)'};flex-shrink:0">${esc(r.km)}<span style="font-size:12px;color:var(--muted)">km</span></div>`:''}
         </div>
         ${r.detail?`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;padding-top:10px;border-top:1px solid var(--border)">${esc(r.detail)}</div>`:''}
       </div>`;
     });
 
-    // Feedback — dag level, one block, collapsed by default
+    // Feedback
     const fbRow=rows.find(r=>r.type!=='work'&&r.type!=='rest')||null;
     const existingFb=fbRow?.feedback||'';
-    if(fbRow){
-      if(isPast){
-        if(existingFb&&!state.editingFeedback){
-          // Show compact "given" state + edit link
-          h+=`<div class="prev-feedback" style="margin-bottom:10px">
-            <div class="prev-feedback-header">
-              <span class="prev-feedback-label">${T('feedback_logged')}</span>
-              <button class="edit-link" onclick="state.editingFeedback=true;openDayModal('${dateStr}',${row?.rowIndex||'null'})">${T('feedback_edit')}</button>
-            </div>
-            <div class="prev-feedback-text">${esc(existingFb)}</div>
-          </div>`;
-        }else{
-          // Collapsed — show "Geef feedback" link that expands inline
-          h+=`<div id="fbCollapse" style="margin-bottom:10px">
-            ${!existingFb?`<button onclick="expandFeedback('${dateStr}')" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase">› ${T('feedback_q')}</button>`:''}
-            ${existingFb?feedbackHtmlModal(dateStr,existingFb):''}
-          </div>`;
-          // expandFeedback() is called by the button onclick
-        }
+    if(fbRow&&isPast){
+      if(existingFb&&!state.editingFeedback){
+        h+=`<div class="prev-feedback" style="margin-bottom:10px">
+          <div class="prev-feedback-header">
+            <span class="prev-feedback-label">${T('feedback_logged')}</span>
+            <button class="edit-link" onclick="state.editingFeedback=true;openActivityModal('${dateStr}',${row?.rowIndex||'null'})">${T('feedback_edit')}</button>
+          </div>
+          <div class="prev-feedback-text">${esc(existingFb)}</div>
+        </div>`;
+      }else{
+        h+=`<div id="fbCollapse" style="margin-bottom:10px">
+          ${!existingFb?`<button onclick="expandFeedback('${dateStr}')" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase">› ${T('feedback_q')}</button>`:''}
+          ${existingFb?feedbackHtmlModal(dateStr,existingFb):''}
+        </div>`;
       }
     }
+  }
 
-    // Edit section — collapsible
-    const typeOptions=ACTIVITY_OPTIONS.map(o=>
-      `<option value="${o.value}"${row.type===o.value?' selected':''}>${o.nl}</option>`
-    ).join('');
-    h+=`<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px">
-      <button onclick="document.getElementById('editFields').style.display=document.getElementById('editFields').style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase;width:100%;text-align:left;margin-bottom:6px">› Activiteit bewerken</button>
-      <div id="editFields" style="display:none">
-        <div style="margin-bottom:8px">
-          <label class="settings-label">${T('field_titel')}</label>
-          <input class="plan-edit-field" id="edit-titel" value="${esc(row?.titel||'')}" placeholder="${T('field_titel')}">
+  // ── Edit / Add form ──────────────────────────────────────────────────────
+  const formTitle=isNew?'Activiteit toevoegen':'› Activiteit bewerken';
+  const formStyle=isNew?'':'display:none';
+  const wrapStyle=isNew?'':'border-top:1px solid var(--border);margin-top:4px;padding-top:10px';
+
+  h+=`<div style="${wrapStyle}">
+    ${isNew?'':`<button onclick="document.getElementById('editFields').style.display=document.getElementById('editFields').style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase;width:100%;text-align:left;margin-bottom:6px">${formTitle}</button>`}
+    <div id="editFields" style="${formStyle}">
+      <div style="margin-bottom:8px">
+        <label class="settings-label">${T('type_label')}</label>
+        <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="uamOnTypeChange(this.value)">
+          ${typeOptions}
+        </select>
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="settings-label">${T('field_titel')}</label>
+        <input class="plan-edit-field" id="edit-titel" value="${esc(row?.titel||'')}" placeholder="${T('field_titel')}">
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="settings-label">Afstand</label>
+        <div id="uam-dist-wrap">
+          ${isRaceRow?`<select class="plan-edit-field" id="edit-km-race" style="width:100%;padding:8px 10px;margin-bottom:4px">
+            <option value="">—</option>${raceDistOptions}
+            <option value="__custom"${!RACE_DISTS.some(d=>d===savedDist||savedDist.replace(/^(\d+)\s*km?$/i,'$1 km')===d)&&savedDist?' selected':''}>Anders…</option>
+          </select>
+          <input class="plan-edit-field" id="edit-km" style="display:${(!RACE_DISTS.some(d=>d===savedDist||savedDist.replace(/^(\d+)\s*km?$/i,'$1 km')===d)&&savedDist)?'block':'none'}" value="${esc((!RACE_DISTS.some(d=>d===savedDist||savedDist.replace(/^(\d+)\s*km?$/i,'$1 km')===d))?savedDist:'')}" placeholder="bijv. 800 m" type="text">`
+          :`<input class="plan-edit-field" id="edit-km" value="${esc(row?.km||'')}" placeholder="0" type="number" step="0.1">`}
         </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="settings-label">${T('field_detail')}</label>
+        <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none">${esc(row?.detail||'')}</textarea>
+      </div>
+      <div id="uam-race-fields" style="display:${isRaceRow||isNew&&false?'block':'none'}">
         <div style="margin-bottom:8px">
-          <label class="settings-label">${T('type_label')}</label>
-          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="document.getElementById('raceGoalWrap')&&(document.getElementById('raceGoalWrap').style.display=this.value==='race'?'block':'none')">
-            ${typeOptions}
-            <option value="${esc(row.type||'')}"${!TYPES[row.type]?' selected':''}>${esc(row.type||'')}</option>
+          <label class="settings-label">Type race</label>
+          <select class="plan-edit-field" id="edit-race-type" style="width:100%;padding:8px 10px">
+            <option value="">—</option>${raceTypeOptions}
+            <option value="Anders">Anders</option>
           </select>
         </div>
-        <div id="raceGoalWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
+        <div style="margin-bottom:8px">
           <label class="settings-label">Doeltijd (optioneel)</label>
-          <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
+          <input class="plan-edit-field" id="edit-goal" value="${esc(savedGoal)}" placeholder="bijv. 37:30">
         </div>
-        <div style="margin-bottom:8px">
-          <label class="settings-label">${'Afstand'}</label>
-          <input class="plan-edit-field" id="edit-km" value="${esc(row?.km||'')}" placeholder="0" type="number" step="0.1">
+        <div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="edit-main-goal" ${lr?.mainGoal?'checked':''} style="width:16px;height:16px;accent-color:var(--accent)">
+          <label for="edit-main-goal" class="settings-label" style="margin:0">Hoofddoel</label>
         </div>
-        <div style="margin-bottom:8px">
-          <label class="settings-label">${T('field_detail')}</label>
-          <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none">${esc(row?.detail||'')}</textarea>
-        </div>
-        <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
-        ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px;color:var(--race-text);border-color:rgba(244,67,54,0.4)" onclick="deleteActivity(${row.rowIndex})">Verwijderen</button>`:''}
       </div>
-    </div>`;
-  }
+      <button class="btn-primary" onclick="saveActivityModal('${dateStr}')">${T('save_changes')}</button>
+      ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px;color:var(--race-text);border-color:rgba(244,67,54,0.4)" onclick="deleteActivity(${row.rowIndex})">Verwijderen</button>`:''}
+    </div>
+  </div>`;
 
   content.innerHTML=h;
   attachStarListeners('dayModalContent');
-  // Store rowIndex for saveDayEdit to use
-  state.editingRowIndex=row?.rowIndex||null;
   document.getElementById('dayModal').classList.add('open');
 }
 
-function feedbackHtmlModal(datum,existing){
-  const isEdit=!!existing;let rating=0,text='';
-  if(isEdit){const m=existing.match(/^(\d)/);if(m)rating=parseInt(m[1]);const mt=existing.match(/–\s*(.+)$/);if(mt)text=mt[1];}
-  if(isEdit&&!state.editingFeedback){
-    return `<div class="prev-feedback">
-      <div class="prev-feedback-header">
-        <span class="prev-feedback-label">${T('feedback_logged')}</span>
-        <button class="edit-link" onclick="state.editingFeedback=true;openDayModal('${datum}')">${T('feedback_edit')}</button>
-      </div>
-      <div class="prev-feedback-text">${esc(existing)}</div>
-    </div>`;
+function uamOnTypeChange(val){
+  const raceFields=document.getElementById('uam-race-fields');
+  const distWrap=document.getElementById('uam-dist-wrap');
+  if(!raceFields||!distWrap)return;
+  const isRace=val==='race';
+  raceFields.style.display=isRace?'block':'none';
+  if(isRace){
+    // Switch distance input to dropdown
+    if(!document.getElementById('edit-km-race')){
+      const RACE_DISTS=['5 km','10 km','10 mile','Halve marathon','Marathon'];
+      distWrap.innerHTML=`<select class="plan-edit-field" id="edit-km-race" style="width:100%;padding:8px 10px;margin-bottom:4px" onchange="document.getElementById('edit-km').style.display=this.value==='__custom'?'block':'none'">
+        <option value="">—</option>${RACE_DISTS.map(d=>`<option value="${d}">${d}</option>`).join('')}
+        <option value="__custom">Anders…</option>
+      </select>
+      <input class="plan-edit-field" id="edit-km" style="display:none" value="" placeholder="bijv. 800 m" type="text">`;
+    }
+  }else{
+    // Switch back to plain number input
+    if(document.getElementById('edit-km-race')){
+      distWrap.innerHTML=`<input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">`;
+    }
   }
-  const stars=['😵','😓','😐','💪','🔥'].map((e,i)=>
-    `<button class="star-btn${rating>0&&(i+1)<=rating?' active':''}" data-val="${i+1}">${e}</button>`
-  ).join('');
-  return `<div class="feedback-section">
-    <div class="feedback-title">${T('feedback_q')}</div>
-    <div class="feedback-stars">${stars}</div>
-    <textarea class="feedback-textarea" id="modalFbText">${esc(text)}</textarea>
-    <button class="btn-primary" id="modalSubmitBtn" onclick="handleModalFeedback('${esc(datum)}')">${isEdit?T('feedback_update'):T('feedback_save')}</button>
-    ${isEdit?`<button class="btn-secondary" onclick="state.editingFeedback=false;openDayModal('${datum}')">${T('feedback_cancel')}</button>`:''}
-  </div>`;
 }
 
-function expandFeedback(datum){
-  const el=document.getElementById('fbCollapse');if(!el)return;
-  const stars=['😵','😓','😐','💪','🔥'].map((e,i)=>
-    `<button class="star-btn" data-val="${i+1}">${e}</button>`).join('');
-  el.innerHTML=`<div class="feedback-section">
-    <div class="feedback-title">${T('feedback_q')}</div>
-    <div class="feedback-stars">${stars}</div>
-    <textarea class="feedback-textarea" id="modalFbText"></textarea>
-    <button class="btn-primary" id="modalSubmitBtn" onclick="handleModalFeedback('${esc(datum)}')">${T('feedback_save')}</button>
-  </div>`;
-  attachStarListeners('fbCollapse');
-}
-
-async function handleModalFeedback(datum){
-  if(!state.selectedRating){showToast(T('select_score'));return;}
-  const btn=document.getElementById('modalSubmitBtn');
-  const tekst=document.getElementById('modalFbText')?.value||'';
-  btn.disabled=true;btn.textContent='…';
-  const ok=await submitFeedback(datum,state.selectedRating,tekst);
-  if(ok){state.editingFeedback=false;state.selectedRating=0;closeDayModal();renderActiveView();}
-  else{btn.disabled=false;btn.textContent=T('feedback_save');}
-}
-
-async function saveModalNote(datum){
-  const tekst=document.getElementById('modalNoteText')?.value||'';
-  if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return;}
-  try{
-    const params=new URLSearchParams({action:'setFeedback',datum,rating:0,tekst});
-    if(state.sheetName)params.set('sheetName',state.sheetName);
-    const json=await(await fetch(state.scriptUrl+'?'+params)).json();
-    if(json.status!=='ok')throw new Error(json.message);
-    if(state.data){const row=state.data.find(r=>r.datum===datum);if(row)row.feedback=tekst;}
-    showToast('✓ '+T('notes_save'));closeDayModal();
-  }catch(e){showToast('❌ '+e.message);}
-}
-
-async function saveDayEdit(datum){
+async function saveActivityModal(datum){
   const titel=document.getElementById('edit-titel')?.value.trim()||'';
   const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
+  const isRace=typeRaw==='race';
   const type=toSheetType(typeRaw)||typeRaw;
-  const km=document.getElementById('edit-km')?.value.trim()||'';
+  const kmRaceSel=document.getElementById('edit-km-race')?.value;
+  const kmRaw=kmRaceSel==='__custom'||!kmRaceSel
+    ?(document.getElementById('edit-km')?.value.trim()||'')
+    :(kmRaceSel||'');
+  const km=kmRaw.replace(/\s*km$/i,'').trim();
   const detail=document.getElementById('edit-detail')?.value.trim()||'';
   const fase=getFaseForDate(datum);
-  const fields={datum,titel,type,km,detail,fase};
+  const goal=isRace?(document.getElementById('edit-goal')?.value.trim()||''):'';
+  const raceType=isRace?(document.getElementById('edit-race-type')?.value||''):'';
+  const mainGoal=isRace?!!document.getElementById('edit-main-goal')?.checked:false;
+  const finalDetail=isRace&&goal?`${detail?detail+' ':''}(Doel: ${goal})`:detail;
+  const fields={datum,titel,type,km,detail:finalDetail,fase};
 
-  // Use only the explicitly set editingRowIndex — never infer from datum
   const editingRowIndex=state.editingRowIndex||null;
-
   if(state.scriptUrl){
     try{
-      if(editingRowIndex){
-        await updateActivity(editingRowIndex,fields);
-      }else{
-        await createActivity(fields);
-      }
+      if(editingRowIndex) await updateActivity(editingRowIndex,{...fields,race_type:raceType});
+      else await createActivity({...fields,race_type:raceType});
     }catch(e){
-      // Fallback: update local cache only
       if(state.data){
         let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
         if(row)Object.assign(row,fields);
@@ -1396,104 +1350,33 @@ async function saveDayEdit(datum){
       closeDayModal();renderActiveView();return;
     }
   }else{
-    // No sheet — local only
     if(state.data){
       let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
       if(row)Object.assign(row,fields);
       else state.data.push({...fields,feedback:'',rowIndex:null});
     }
   }
-
+  // Persist race metadata to localStorage
+  if(isRace){
+    const races=loadRaces();
+    const idx=races.findIndex(r=>r.date===datum);
+    const entry={id:datum,name:titel,date:datum,dist:kmRaw,raceType,mainGoal,goal,notes:detail};
+    if(idx>=0)races[idx]=entry;else races.push(entry);
+    persistRaces(races);
+  }
   state.editingRowIndex=null;
   showToast(T('saved'));
-  closeDayModal();
-  renderActiveView();
+  closeDayModal();renderActiveView();renderHeader();
 }
 
-async function deleteActivity(rowIndex){
-  if(!rowIndex)return;
-  // Show inline confirmation instead of blocking confirm()
-  const btn=document.querySelector(`[onclick="deleteActivity(${rowIndex})"]`);
-  if(btn&&!btn.dataset.confirming){
-    btn.dataset.confirming='1';
-    btn.textContent='Zeker weten? Klik opnieuw';
-    btn.style.color='var(--race-text)';
-    setTimeout(()=>{if(btn){btn.textContent='Verwijderen';btn.style.color='';delete btn.dataset.confirming;}},3000);
-    return;
-  }
-  // Buffer first, close modal immediately — don't wait for sheet
-  const row=state.data?.find(r=>r.rowIndex===rowIndex);
-  if(row){
-    clearTimeout(state._undoBuffer?.timeout);
-    state._undoBuffer={row, timeout:setTimeout(()=>{state._undoBuffer=null;},10000)};
-    // Optimistic: remove from local cache immediately
-    if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
-  }
-  state.editingRowIndex=null;
-  closeDayModal();
-  renderActiveView();renderHeader();
-  showToast('Verwijderd',true);
-  // Delete from sheet in background
-  if(state.scriptUrl){
-    try{await sheetDeleteRow(rowIndex);}
-    catch(e){
-      // Rollback: re-add to local cache
-      if(row&&state.data)state.data.push(row);
-      showToast('❌ Verwijderen mislukt');
-      renderActiveView();
-    }
-  }
-}
+// Compat shims — all callers now go through openActivityModal
+function openDayModal(dateStr,rowIndex){openActivityModal(dateStr,rowIndex||null);}
+function openDayModalRow(rowIndex,dateStr){state.editingRowIndex=rowIndex;openActivityModal(dateStr,rowIndex);}
+function openAddActivity(dateStr){state.editingRowIndex=null;openActivityModal(dateStr,null);}
+function openRaceModalFromSheet(rowIndex){state.editingRowIndex=rowIndex;const r=state.data?.find(r=>r.rowIndex===rowIndex);if(r)openActivityModal(r.datum,rowIndex);}
 
-// C44: open ADD mode (new activity), independent of existing row
-// Open day modal for a specific row by rowIndex (multi-activity days)
-function openDayModalRow(rowIndex,dateStr){
-  // Pre-set the editingRowIndex so openDayModal uses the right row
-  state.editingRowIndex=rowIndex;
-  // Find the specific row and pass it as context
-  const row=state.data?.find(r=>r.rowIndex===rowIndex);
-  if(row)openDayModal(dateStr,rowIndex);
-  else openDayModal(dateStr);
-}
-
-function openAddActivity(dateStr){
-  const content=document.getElementById('dayModalContent');
-  state.editingFeedback=false;state.selectedRating=0;
-
-  const d=parseDate(dateStr);
-  const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
-  const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  const typeOptions=Object.entries(TYPES).map(([k,v])=>
-    `<option value="${k}"${k==='run'?' selected':''}>${T(v.i18n)}</option>`
-  ).join('');
-
-  content.innerHTML=`<div style="margin-bottom:16px">
-    <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">${dayNames[dayIdx(d)]} · ${mNames[d.getMonth()]} ${d.getFullYear()}</div>
-    <div style="font-family:var(--font-d);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
-  </div>
-  <div class="feedback-section">
-    <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">${'Activiteit toevoegen'}</div>
-    <div style="margin-bottom:8px">
-      <label class="settings-label">${T('type_label')}</label>
-      <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px">${typeOptions}</select>
-    </div>
-    <div style="margin-bottom:8px">
-      <label class="settings-label">${T('field_titel')}</label>
-      <input class="plan-edit-field" id="edit-titel" value="" placeholder="${T('field_titel')}">
-    </div>
-    <div style="margin-bottom:8px">
-      <label class="settings-label">${'Afstand'}</label>
-      <input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">
-    </div>
-    <div style="margin-bottom:8px">
-      <label class="settings-label">${T('field_detail')}</label>
-      <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none"></textarea>
-    </div>
-    <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
-  </div>`;
-  state.editingRowIndex=null;
-  document.getElementById('dayModal').classList.add('open');
-}
+// saveDayEdit compat (called from old plan-row edit buttons still in DOM)
+async function saveDayEdit(datum){return saveActivityModal(datum);}
 
 function closeDayModal(e){
   if(e&&e.target!==document.getElementById('dayModal'))return;
@@ -1501,6 +1384,7 @@ function closeDayModal(e){
   state.editingFeedback=false;state.selectedRating=0;
   state.editingRowIndex=null;
 }
+
 
 // ── STATS OVERLAY ─────────────────────────────────────────────────────────────
 function openStats(){
@@ -1787,69 +1671,39 @@ function openRaceModalFromSheet(rowIndex){
 }
 
 function openRaceModal(raceId,prefillDate){
+  // C59: unified modal — if we have a date, open the activity modal
+  // raceId can be a date string or an id; prefillDate is fallback
   const races=loadRaces();
-  let race=raceId?races.find(r=>r.id===raceId)||races.find(r=>r.date===raceId):null;
-  if(!race&&raceId?.startsWith('sheet_'))race=state._raceFromSheet||null;
-  state.editingRaceId=race?.id||null;
-  document.getElementById('raceModal').classList.remove('open');
-  const content=document.getElementById('raceModalContent');
-
-  const DIST=['5 km','10 km','10 mile','Halve marathon','Marathon'];
-  const TYPE=['Weg','Baan','Trail','Ultra','Virtueel'];
-
-  const rawDist=(race?.dist||'').toString().trim();
-  const normDist=rawDist.replace(/^(\d+)\s*km?$/i,'$1 km');
-  const matchedDist=DIST.find(o=>o===normDist||o===rawDist)||'';
-  const customDist=matchedDist?'':rawDist;
-
-  const matchedType=TYPE.find(o=>o===(race?.raceType||''))||'';
-  const customType=matchedType?'':(race?.raceType||'');
-
-  content.innerHTML=`
-    <div class="modal-title">${raceId?'Race bewerken':'Race toevoegen'}</div>
-    <div class="settings-field">
-      <label class="settings-label">Race naam</label>
-      <input type="text" class="settings-input" id="raceNameInput" value="${esc(race?.name||'')}" placeholder="Big10 Rotterdam">
-    </div>
+  const race=raceId?races.find(r=>r.id===raceId)||races.find(r=>r.date===raceId):null;
+  const date=race?.date||prefillDate||'';
+  if(date){
+    // Find sheet row for this date
+    const sheetRow=state.data?.find(r=>r.datum===date&&r.type==='race');
+    state.editingRaceId=race?.id||null;
+    if(sheetRow){openActivityModal(date,sheetRow.rowIndex);return;}
+    // No sheet row yet — open add modal with race pre-selected
+    state.editingRowIndex=null;
+    openActivityModal(date,null);
+    // Pre-select race type after render
+    requestAnimationFrame(()=>{
+      const sel=document.getElementById('edit-type');
+      if(sel){sel.value='race';uamOnTypeChange('race');}
+      const ef=document.getElementById('editFields');
+      if(ef)ef.style.display='block';
+    });
+    return;
+  }
+  // No date known — open a date-picker modal first
+  const content2=document.getElementById('dayModalContent');
+  content2.innerHTML=`<div class="modal-title">Race toevoegen</div>
     <div class="settings-field">
       <label class="settings-label">Datum</label>
-      <input type="date" class="settings-input" id="raceDateInput" value="${esc(race?.date||prefillDate||'')}">
+      <input type="date" class="settings-input" id="raceNewDate">
     </div>
-    <div class="settings-field">
-      <label class="settings-label">Afstand</label>
-      <select class="settings-input" id="raceDistSelect" onchange="document.getElementById('raceDistCustom').style.display=this.value==='__custom'?'block':'none'">
-        <option value="">—</option>
-        ${DIST.map(d=>`<option value="${d}"${matchedDist===d?' selected':''}>${d}</option>`).join('')}
-        <option value="__custom"${customDist?' selected':''}>Anders…</option>
-      </select>
-      <input type="text" class="settings-input" id="raceDistCustom" placeholder="bijv. 800 m" style="margin-top:6px;display:${customDist?'block':'none'}" value="${esc(customDist)}">
-    </div>
-    <div class="settings-field">
-      <label class="settings-label">Type race</label>
-      <select class="settings-input" id="raceTypeSelect" onchange="document.getElementById('raceTypeCustom').style.display=this.value==='__custom'?'block':'none'">
-        <option value="">—</option>
-        ${TYPE.map(t=>`<option value="${t}"${matchedType===t?' selected':''}>${t}</option>`).join('')}
-        <option value="__custom"${customType?' selected':''}>Anders…</option>
-      </select>
-      <input type="text" class="settings-input" id="raceTypeCustom" placeholder="bijv. Veldloop" style="margin-top:6px;display:${customType?'block':'none'}" value="${esc(customType)}">
-    </div>
-    <div class="settings-field">
-      <label class="settings-label">Doeltijd (optioneel)</label>
-      <input type="text" class="settings-input" id="raceGoalInput" value="${esc(race?.goal||'')}" placeholder="bijv. 37:30">
-    </div>
-    <div class="settings-field">
-      <label class="settings-label">Notities / detail</label>
-      <textarea class="settings-input" id="raceDetailInput" rows="3" style="resize:none">${esc(race?.notes||race?.detail||'')}</textarea>
-    </div>
-    <div class="settings-field" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="raceMainInput" ${race?.mainGoal?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
-      <label for="raceMainInput" class="settings-label" style="margin:0">Hoofddoel</label>
-    </div>
-    <button class="btn-primary" style="margin-top:8px" onclick="saveRace()">Race opslaan</button>
-    ${race?`<button class="btn-secondary" onclick="deleteRace('${race.id}')">🗑 Verwijderen</button>`:''}`;
-
-  document.getElementById('raceModal').classList.add('open');
+    <button class="btn-primary" onclick="(function(){const d=document.getElementById('raceNewDate').value;if(!d)return;closeDayModal();openActivityModal(d,null);requestAnimationFrame(()=>{const s=document.getElementById('edit-type');if(s){s.value='race';uamOnTypeChange('race');}const ef=document.getElementById('editFields');if(ef)ef.style.display='block';})})()">Volgende</button>`;
+  document.getElementById('dayModal').classList.add('open');
 }
+
 
 async function saveRace(){
   const name=document.getElementById('raceNameInput')?.value.trim();
@@ -1913,7 +1767,7 @@ async function saveRace(){
 
 function deleteRace(id){
   persistRaces(loadRaces().filter(r=>r.id!==id));
-  closeRaceModal();renderHeader();
+  closeDayModal();closeRaceModal();renderHeader();
   if(state.currentTab==='calendar')renderCalendar();
   showToast(T('race_deleted'));
 }
@@ -2112,7 +1966,7 @@ function renderSettingsFields(){
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
-  renderPrFields();renderAccountSection();updateTelegramStatus();applyI18n();
+  renderPrFields();renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
 }
 
 function saveSettingsName(){
@@ -2142,6 +1996,26 @@ function saveSheetName(){
 function saveTelegram(){
   localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
   updateTelegramStatus();showToast(T('saved'));
+}
+
+function saveNotifPrefs(){
+  const daily=!!document.getElementById('notifDaily')?.checked;
+  const feedback=!!document.getElementById('notifFeedback')?.checked;
+  localStorage.setItem('notifPrefs',JSON.stringify({daily,feedback}));
+  showToast(T('saved'));
+}
+
+function loadNotifPrefs(){
+  try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}
+  catch{return{};}
+}
+
+function applyNotifPrefs(){
+  const p=loadNotifPrefs();
+  const d=document.getElementById('notifDaily');
+  const f=document.getElementById('notifFeedback');
+  if(d)d.checked=!!p.daily;
+  if(f)f.checked=!!p.feedback;
 }
 
 // ── I18N ──────────────────────────────────────────────────────────────────────
