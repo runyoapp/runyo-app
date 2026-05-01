@@ -1931,24 +1931,29 @@ function closeRaceModal(e){
 }
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
+function getWeekKey(dateStr){
+  const d=parseDate(dateStr);
+  const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
+  return mon.toISOString().split('T')[0];
+}
+
 function renderStats(){
   const el=document.getElementById('statsContent');
   const t=todayStr();
+  const currentWk=getWeekKey(t);
   const past=state.data?state.data.filter(r=>r.datum<=t):[];
   const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  // C24: count by type 'run'
-  const runCount=past.filter(r=>hasType(r.type,'run')).length;
+  const runCount=past.filter(r=>hasType(r.type,'run')||hasType(r.type,'race')).length;
   const fbRows=past.filter(r=>r.feedback);
   const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
   const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
-  // C34: races from sheet
   const sheetRaceRows2=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
   const nextRace2=sheetRaceRows2.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows2[0];
   const daysLeft=nextRace2?daysUntil(nextRace2.datum):0;
   const raceName=nextRace2?.titel||nextRace2?.datum||'—';
-  const mondayStr=getMondayStr();
-  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const weekKm=(state.data||[]).filter(r=>r.datum>=currentWk&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
   const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  const mo=state.lang==='en'?MONTHS_EN:MONTHS_NL;
 
   let h=`<div class="stats-grid">
     <div class="stat-card"><div class="stat-label">${T('stats_total')}</div><div class="stat-val">${totalKm.toFixed(0)}</div><div class="stat-sub">${T('stats_done')}</div></div>
@@ -1959,11 +1964,68 @@ function renderStats(){
     <div class="stat-card"><div class="stat-label">${T('stats_feedback')}</div><div class="stat-val">${fbRows.length}</div><div class="stat-sub">${T('stats_fb_sub')}</div></div>
   </div>`;
 
-  if(!state.data)h+=noSchemaHint();
+  if(!state.data){h+=noSchemaHint();el.innerHTML=h;return;}
 
+  // ── Km per week — alle weken uit schema ──────────────────────────────────
+  const weekMap={};
+  (state.data||[]).forEach(r=>{
+    const km=parseFloat(r.km)||0;
+    if(!km||!r.datum)return;
+    const wk=getWeekKey(r.datum);
+    weekMap[wk]=(weekMap[wk]||0)+km;
+  });
+  const weekKeys=Object.keys(weekMap).sort();
+  if(weekKeys.length>1){
+    const weekVals=weekKeys.map(k=>weekMap[k]);
+    const maxKm=Math.max(...weekVals,1);
+    const currentIdx=weekKeys.indexOf(currentWk);
+    // Race weeks — mark them
+    const raceWeeks=new Set((state.data||[]).filter(r=>r.type==='race'&&r.datum).map(r=>getWeekKey(r.datum)));
+
+    h+=`<div style="margin:16px 0 6px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK — ${weekKeys.length} weken</div>`;
+
+    // Scrollable chart container
+    const BAR_W=28; // px per bar
+    const chartW=Math.max(weekKeys.length*BAR_W,100);
+    h+=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px" id="statsChartWrap">
+      <div style="display:flex;align-items:flex-end;gap:2px;height:90px;width:${chartW}px;padding:0 2px" id="statsChart">`;
+
+    weekKeys.forEach((wk,i)=>{
+      const km=weekVals[i];
+      const pct=Math.round(km/maxKm*76); // max 76px
+      const isPast=wk<currentWk;
+      const isNow=wk===currentWk;
+      const isRace=raceWeeks.has(wk);
+      const d=parseDate(wk);
+      // Label: show month when it changes
+      const prevD=i>0?parseDate(weekKeys[i-1]):null;
+      const showLabel=i===0||!prevD||prevD.getMonth()!==d.getMonth();
+      const color=isNow?'var(--accent)':isRace?'var(--race-text)':isPast?'var(--muted)':'var(--border)';
+      const opacity=isPast&&!isNow?'0.55':'1';
+      h+=`<div style="flex-shrink:0;width:${BAR_W-2}px;display:flex;flex-direction:column;align-items:center;gap:1px" title="${wk}: ${km.toFixed(0)} km">
+        <div style="font-family:var(--font-m);font-size:7px;color:${isNow?'var(--accent)':'transparent'};white-space:nowrap;height:10px;line-height:10px">${isNow?km.toFixed(0):''}</div>
+        <div style="width:100%;height:${Math.max(pct,2)}px;background:${color};opacity:${opacity};margin-top:auto;position:relative">
+          ${isRace?`<div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:7px">🏁</div>`:''}
+        </div>
+        <div style="font-family:var(--font-m);font-size:7px;color:${isNow?'var(--accent)':'var(--faint)'};white-space:nowrap;margin-top:2px">${showLabel?mo[d.getMonth()]:''}</div>
+      </div>`;
+    });
+
+    h+=`</div></div>`;
+
+    // Auto-scroll to current week after render
+    h+=`<script>requestAnimationFrame(()=>{
+      const w=document.getElementById('statsChartWrap');
+      const c=document.getElementById('statsChart');
+      if(w&&c){const bw=${BAR_W},idx=${currentIdx},total=${weekKeys.length};
+        w.scrollLeft=Math.max(0,(idx-(Math.floor(w.offsetWidth/bw)/2))*bw);}
+    });<\/script>`;
+  }
+
+  // ── Recent feedback ──────────────────────────────────────────────────────
   const recent=fbRows.slice(-8).reverse();
   if(recent.length){
-    h+=`<div class="section-label" style="margin-bottom:10px">${T('stats_recent')}</div><div class="feedback-history">`;
+    h+=`<div style="margin:16px 0 8px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${T('stats_recent')}</div><div class="feedback-history">`;
     recent.forEach(row=>{
       const d=parseDate(row.datum);
       h+=`<div class="fh-row">
