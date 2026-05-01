@@ -32,9 +32,9 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font-d);font-
 /* RACES BAR — second header strip (RacesBar) */
 .races-bar{display:flex;align-items:stretch;gap:0;padding:10px 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
 .races-bar::-webkit-scrollbar{display:none}
-.rb-item{display:flex;flex-direction:column;align-items:flex-start;padding:0 14px 0 14px;border-left:1px solid var(--border);min-width:76px;max-width:120px;flex-shrink:0;gap:2px}
+.rb-item{display:flex;flex-direction:column;align-items:flex-start;padding:0 14px 0 14px;border-left:1px solid var(--border);min-width:76px;max-width:112px;flex-shrink:0;gap:2px}
 .rb-item:first-child{border-left:none;padding-left:0}
-.rb-title{font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--text);line-height:1.25;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:auto;max-width:100px}
+.rb-title{font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--text);line-height:1.25;white-space:normal;overflow-wrap:break-word;word-break:break-word;max-width:none}
 .rb-meta{font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.3px}
 .rb-goal{font-family:var(--font-m);font-size:9px;color:var(--muted)}
 .rb-countdown{font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1;color:var(--accent);margin-top:2px}
