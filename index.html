@@ -193,6 +193,23 @@
           </div>
           <button class="btn-save" style="margin-top:10px" onclick="verifyTelegram()" id="tgVerifyBtn" data-i18n="tg_verify"></button>
         </div>
+        <div class="settings-section">
+          <div class="settings-title">Meldingen</div>
+          <label class="notif-row" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer">
+            <input type="checkbox" id="notifDaily" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
+            <span>
+              <span style="display:block;font-size:12px;color:var(--text)">Dagelijks schema</span>
+              <span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--faint)">Dagelijks bericht met je trainingsplan</span>
+            </span>
+          </label>
+          <label class="notif-row" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="notifFeedback" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
+            <span>
+              <span style="display:block;font-size:12px;color:var(--text)">Feedback verzoeken</span>
+              <span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--faint)">Bericht na actieve training om te beoordelen</span>
+            </span>
+          </label>
+        </div>
       </div>
       <div class="settings-group">
         <div class="settings-group-title" data-i18n="sg_connect"></div>
@@ -205,13 +222,13 @@
             <span style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Thema</span>
             <button onclick="toggleTheme()" id="themeToggleBtn" style="background:none;border:1px solid var(--border);padding:6px 12px;cursor:pointer;font-size:18px;border-radius:999px;-webkit-tap-highlight-color:transparent">🌙</button>
           </div>
-          <div style="font-size:11px;color:var(--faint);font-family:var(--font-m);line-height:1.8">RunningX v2.6.0</div>
+          <div style="font-size:11px;color:var(--faint);font-family:var(--font-m);line-height:1.8">RunningX v2.7.0</div>
         </div>
       </div>
       <div class="settings-group" style="padding-bottom:8px">
-        <div class="settings-section" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:8px">
-          <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:22px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇳🇱</button>
-          <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:22px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
+        <div class="settings-section" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px">
+          <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:4px">🇳🇱</button>
+          <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:4px">🇬🇧</button>
         </div>
       </div>
     </div>
