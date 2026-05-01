@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Inloggen…</title>
+<style>body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:14px}</style>
+</head>
+<body>
+<div>Inloggen… dit venster sluit automatisch.</div>
+<script>
+  const p=new URLSearchParams(window.location.search);
+  const code=p.get('code');
+  const error=p.get('error');
+  if(window.opener){
+    window.opener.postMessage(
+      code ? {type:'OAUTH_CODE',code} : {type:'OAUTH_CODE',error:error||'Onbekende fout'},
+      window.location.origin
+    );
+  }
+</script>
+</body>
+</html>
