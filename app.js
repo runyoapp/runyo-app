@@ -2285,15 +2285,19 @@ document.addEventListener('DOMContentLoaded',()=>{
   // E7: check if returning from OAuth redirect (code in URL)
   const oauthCode=new URLSearchParams(window.location.search).get('code');
   if(oauthCode){
-    // Strip code from URL without reload
     history.replaceState({},'',window.location.pathname);
     (async()=>{
       try{
-        const mod=window._authModule;
         await _exchangeCode(oauthCode);
-        showOAuthConnectSheet();
-      }catch(e){showToast('❌ OAuth fout: '+e.message);}
-      hideLoading();renderActiveView();renderHeader();
+        hideLoading();
+        renderHeader();renderAccountSection();renderConnectSection();
+        switchTab('settings');
+        // Small delay so DOM is ready, then show sheet picker
+        setTimeout(()=>showOAuthConnectSheet(),300);
+      }catch(e){
+        showToast('❌ OAuth fout: '+e.message);
+        hideLoading();renderActiveView();renderHeader();
+      }
     })();
     return;
   }
