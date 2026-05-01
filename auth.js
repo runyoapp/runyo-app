@@ -311,21 +311,6 @@ async function oauthGetHeaders(){
   return getSheetHeaders(sheetId,state.sheetName||'');
 }
 
-async function oauthAddRow(fields){
-  const sheetId=authSheetId()||state.sheetId;
-  const sheetName=state.sheetName||'Schema';
-  const headers=await oauthGetHeaders();
-  const row=headers.map(h=>{
-    if(h==='id')return fields.id||_uuid();
-    if(h==='updated_at'||h==='created_at')return fields[h]||_nowISO();
-    return fields[h]||'';
-  });
-  await sheetsPost(`/${sheetId}/values/${encodeURIComponent(sheetName+'!A:A')}:append`,row);
-  // Sort by datum after append
-  await oauthSortByDate(sheetId,sheetName);
-  await fetchData();
-}
-
 async function sheetsAppend(sheetId,sheetName,row){
   const token=await authEnsureToken();
   const range=encodeURIComponent(sheetName+'!A:A');
@@ -433,9 +418,6 @@ function isOAuthMode(){
   return !!(authGetToken()&&!authIsExpired()&&(authSheetId()||state.sheetId));
 }
 
-// Override fetchData to use OAuth when available
-const _origFetchData=null; // patched below after app.js loads
-
 async function fetchDataOAuth(){
   try{
     state.data=await oauthFetchData();
@@ -502,23 +484,20 @@ async function oauthPickExisting(){
 }
 
 async function oauthSelectSheet(sheetId,name){
-  const el=document.getElementById('dayModalContent');
-  el.innerHTML=`<div class="modal-title">Verificatie…</div><div style="color:var(--muted);font-size:12px">Kolommen controleren…</div>`;
+  const content=document.getElementById('dayModalContent');
+  content.innerHTML=`<div class="modal-title">Verificatie…</div><div style="color:var(--muted);font-size:12px">Kolommen controleren…</div>`;
   try{
     const result=await verifyOrFixSheet(sheetId);
     if(result.ok){
       await _finalizeOAuthSheet(sheetId,name);
     }else{
-      el.innerHTML=`<div class="modal-title">${esc(name)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Dit schema mist ${result.missing.length} kolom${result.missing.length>1?'men':''}:</div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);margin-bottom:14px;letter-spacing:0.5px">${result.missing.join(' · ')}</div>
-        <button class="btn-primary" onclick="oauthFixAndSelect('${sheetId}','${esc(name)}')">Automatisch toevoegen en koppelen</button>
+      content.innerHTML=`<div class="modal-title">${esc(name)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Ontbrekende kolommen: <strong>${result.missing.join(', ')}</strong></div>
+        <button class="btn-primary" onclick="oauthFixAndSelect('${sheetId}','${esc(name)}')">Kolommen automatisch toevoegen</button>
         <button class="btn-secondary" style="margin-top:8px" onclick="oauthPickExisting()">Andere sheet kiezen</button>`;
     }
   }catch(e){
-    el.innerHTML=`<div class="modal-title">Kan sheet niet lezen</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${esc(e.message)}</div>
-      <button class="btn-secondary" onclick="oauthPickExisting()">Terug</button>`;
+    content.innerHTML=`<div class="modal-title">Fout</div><div style="color:var(--race-text)">${esc(e.message)}</div>`;
   }
 }
 
@@ -556,9 +535,10 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   }catch{}
   authSetSheetId(sheetId);
   state.sheetId=sheetId;
+  localStorage.setItem('sheetId',sheetId);
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
   closeDayModal();
-  renderConnectSection();renderAccountSection();
+  renderConnectSection();
   showToast('✓ Schema gekoppeld');
   await fetchData();
 }
