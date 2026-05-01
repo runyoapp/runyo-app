@@ -44,11 +44,14 @@ function authEmail(){return localStorage.getItem(GAUTH.EMAIL_KEY)||'';}
 function authSheetId(){return localStorage.getItem(GAUTH.SHEET_ID_KEY)||'';}
 function authSetSheetId(id){localStorage.setItem(GAUTH.SHEET_ID_KEY,id);}
 
-// ── OAuth flow ────────────────────────────────────────────────────────────────
-// Opens Google OAuth in a popup. Resolves with access token or rejects.
+// ── OAuth flow — redirect-based (PKCE) ───────────────────────────────────────
+// Redirects the current page to Google OAuth. After consent, Google redirects
+// back to REDIRECT_URI with ?code=... which init() picks up and exchanges.
 async function authSignIn(){
   const {verifier,challenge}=await _pkce();
-  sessionStorage.setItem('pkce_verifier',verifier);
+  // Store verifier in localStorage (survives the redirect)
+  localStorage.setItem('pkce_verifier',verifier);
+  localStorage.setItem('oauth_return_tab', 'settings');
 
   const params=new URLSearchParams({
     client_id:    GAUTH.CLIENT_ID,
@@ -61,37 +64,16 @@ async function authSignIn(){
     prompt:       'select_account',
   });
 
-  const url='https://accounts.google.com/o/oauth2/v2/auth?'+params;
-
-  return new Promise((resolve,reject)=>{
-    const w=window.open(url,'gauth','width=520,height=620,left=200,top=100');
-    if(!w){reject(new Error('Popup geblokkeerd — sta popups toe voor deze pagina'));return;}
-
-    const timer=setInterval(async()=>{
-      try{
-        // Popup redirected back — check for code in URL
-        const pu=new URL(w.location.href);
-        if(pu.origin!==window.location.origin)return; // still on Google
-        clearInterval(timer);
-        w.close();
-        const code=pu.searchParams.get('code');
-        const err=pu.searchParams.get('error');
-        if(err||!code){reject(new Error(err||'Geen code ontvangen'));return;}
-        const token=await _exchangeCode(code);
-        resolve(token);
-      }catch(e){
-        // Cross-origin error — popup still on Google, keep waiting
-        if(w.closed){clearInterval(timer);reject(new Error('Popup gesloten'));}
-      }
-    },300);
-  });
+  window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
+  // Page will reload — execution stops here
+  return new Promise(()=>{}); // never resolves, redirect takes over
 }
 
 async function _exchangeCode(code){
   // PKCE exchange via Google token endpoint
   // Note: for public clients Google supports no-secret PKCE exchange
-  const verifier=sessionStorage.getItem('pkce_verifier');
-  sessionStorage.removeItem('pkce_verifier');
+  const verifier=localStorage.getItem('pkce_verifier');
+  localStorage.removeItem('pkce_verifier');
   const res=await fetch('https://oauth2.googleapis.com/token',{
     method:'POST',
     headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -423,14 +405,9 @@ async function fetchDataOAuth(){
 // ── Connect UI ────────────────────────────────────────────────────────────────
 async function oauthConnectFlow(){
   const btn=document.getElementById('oauthConnectBtn');
-  if(btn){btn.disabled=true;btn.textContent='Bezig…';}
-  try{
-    await authSignIn();
-    showOAuthConnectSheet();
-  }catch(e){
-    showToast('❌ '+e.message);
-    if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
-  }
+  if(btn){btn.disabled=true;btn.textContent='Doorsturen naar Google…';}
+  // authSignIn() does a full page redirect — no return
+  await authSignIn();
 }
 
 function showOAuthConnectSheet(){
