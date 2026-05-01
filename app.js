@@ -476,7 +476,7 @@ async function submitFeedback(datum,rating,tekst){
     const extra=row?.rowIndex?{rowIndex:String(row.rowIndex)}:{};
     const json=await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
     if(row){const e=['😵','😓','😐','💪','🔥'];row.feedback=`${rating}/5 ${e[rating-1]}${tekst?' – '+tekst:''}`;}
-    showToast('✓ '+T('feedback_logged'));return true;
+    showToast(T('feedback_logged'));return true;
   }catch(e){showToast('❌ '+e.message);return false;}
 }
 
@@ -517,6 +517,28 @@ function toggleTheme(){
 }
 
 // ── HEADER ────────────────────────────────────────────────────────────────────
+// Week + button: pick date then open add modal
+function openWeekAddActivity(){
+  // Show a compact date picker modal
+  const content=document.getElementById('dayModalContent');
+  const dates=getWeekDatesOffset(state.weekOffset||0);
+  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const t=todayStr();
+  content.innerHTML=`<div class="modal-title">Dag kiezen</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      ${dates.map(d=>{
+        const pd=parseDate(d);
+        const isT=d===t;
+        return `<button onclick="closeDayModal();openAddActivity('${d}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:${isT?'rgba(198,242,78,0.08)':'var(--surface)'};border:1px solid ${isT?'var(--accent)':'var(--border)'};cursor:pointer;font-family:var(--font-d);font-weight:700;font-size:15px;color:${isT?'var(--accent)':'var(--text)'};text-align:left;-webkit-tap-highlight-color:transparent">
+          <span>${days[dayIdx(pd)]} ${pd.getDate()}</span>
+          ${isT?'<span style="font-family:var(--font-m);font-size:9px;color:var(--accent);letter-spacing:1px">VANDAAG</span>':''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  state.editingRowIndex=null;
+  document.getElementById('dayModal').classList.add('open');
+}
+
 function openDayFromRacesBar(datum){
   // Open race edit modal directly
   const r=state.data?.find(row=>row.datum===datum&&row.type==='race');
@@ -571,15 +593,19 @@ function renderRacesBar(){
     const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
     const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
     const isMain=!!lr?.mainGoal;
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ HOOFDDOEL</div>`:''}
-      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
-        <div class="rb-title">${esc(r.titel||r.datum)}</div>
+    const titleLen=(r.titel||'').length;
+    const titleSize=titleLen<=6?'15px':titleLen<=10?'13px':titleLen<=16?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:88px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      <div style="flex:1">
+        ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ DOEL</div>`:''}
+        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+          <div style="margin-top:2px;flex-shrink:0">${RXIcon(iconKey,11,'var(--race-text)','var(--race-text)')}</div>
+          <div class="rb-title" style="font-size:${titleSize};line-height:1.2">${esc(r.titel||r.datum)}</div>
+        </div>
+        ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+        ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
       </div>
-      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
-      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
+      <div class="rb-countdown" style="margin-top:6px">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
   // C50: always show + to add race
@@ -612,8 +638,10 @@ function renderToday(){
       <div class="pt-h">${off===0?'Vandaag':days[dayIdx(d)]+' '+d.getDate()+' '+mf[d.getMonth()]}</div>
     </div>
     <div style="display:flex;align-items:center;gap:6px">
-      ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:none;border:1px solid var(--border);padding:4px 8px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px">Nu</button>`:''}
-      <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Terug naar vandaag</button>`:''}
+        <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
+      </div>
     </div>
   </div>`;
 
@@ -662,18 +690,18 @@ function renderToday(){
         h+=`<div style="font-family:var(--font-d);font-weight:800;font-size:36px;line-height:1;margin-top:8px">${esc(row.km)} KM</div>`;
       }
       if(detail){h+=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5;padding-top:12px;border-top:1px solid var(--border)">${esc(detail)}</div>`;}
-      if(!row.feedback&&isRun){h+=`<button class="btn-cta">Start run →</button>`;}
+      if(!row.feedback&&isRun){h+=`<button class="btn-cta" onclick="toggleTodayFeedback(event)">Beoordeel run &rarr;</button>`;}
       h+=`</div>`;
     });
-    // Feedback is per-day — show once, after all activity cards
+    // Feedback is per-day — show once, hidden by default, opened via Beoordeel run button
     const fbRow=activeRows.find(r=>r.type!=='work');
-    if(fbRow)h+=feedbackHtml(fbRow.datum,fbRow.feedback);
+    if(fbRow){const hiddenByDefault=!fbRow.feedback&&!state.editingFeedback;h+=`<div id="todayFeedback" style="display:${hiddenByDefault?'none':'block'}">${feedbackHtml(fbRow.datum,fbRow.feedback)}</div>`;}
   }
 
   // Tomorrow — only show when on today
   if(off!==0){h+=`</div>`;el.innerHTML=h;attachStarListeners();
   const scrollEl2=document.getElementById('scrollArea');
-  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
+  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)*1.5&&Math.abs(dx)>60){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
   return;}
   const tmrDate=new Date();tmrDate.setDate(tmrDate.getDate()+1);
   const tmr=state.data.find(r=>r.datum===tmrDate.toISOString().split('T')[0]);
@@ -704,7 +732,7 @@ function renderToday(){
     scrollEl.addEventListener('touchend',e=>{
       if(state.currentTab!=='today')return;
       const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
-      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
+      if(Math.abs(dx)>Math.abs(dy)*1.5&&Math.abs(dx)>60){
         state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);
         renderToday();
       }
@@ -742,6 +770,12 @@ function feedbackHtml(datum,existing){
     <button class="btn-primary" id="submitBtn" onclick="handleFeedbackSubmit('${esc(datum)}')">${isEdit?T('feedback_update'):T('feedback_save')}</button>
     ${isEdit?`<button class="btn-secondary" onclick="state.editingFeedback=false;renderToday()">${T('feedback_cancel')}</button>`:''}
   </div>`;
+}
+
+function toggleTodayFeedback(e){
+  e.stopPropagation();
+  const el=document.getElementById('todayFeedback');if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
 }
 
 function attachStarListeners(scope){
@@ -787,14 +821,17 @@ function renderWeek(){
 
   let h=`<div class="page-title" style="padding:14px 20px 4px">
     <div><div class="pt-kicker">Week ${weekNum}</div><div class="pt-h">${weekLabel}</div></div>
-    <div style="text-align:right">
-      <div style="font-family:var(--font-d);font-weight:800;font-size:26px;color:var(--accent);line-height:1">${plannedKm.toFixed(0)}<span style="color:var(--muted);font-size:12px">km</span></div>
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px">GEPLAND</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div style="text-align:right">
+        <div style="font-family:var(--font-d);font-weight:800;font-size:26px;color:var(--accent);line-height:1">${plannedKm.toFixed(0)}<span style="color:var(--muted);font-size:12px">km</span></div>
+        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px">GEPLAND</div>
+      </div>
+      <button onclick="openWeekAddActivity()" style="width:28px;height:28px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:18px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent">+</button>
     </div>
   </div>
   <div style="display:flex;gap:4px;padding:0 20px 8px;align-items:center">
     <button onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">‹</button>
-    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">Nu</button>`:''}
+    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">← Terug naar nu</button>`:''}
     <div style="flex:1"></div>
     <button onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">›</button>
   </div>
@@ -810,8 +847,9 @@ function renderWeek(){
     <div style="display:flex;justify-content:space-between;margin-top:6px">
       <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
       <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
-        const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run')).length;
-        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} runs`:'');
+        const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run'||r.type==='race')).length;
+        const runLabel=state.lang==='en'?(runs===1?'run':'runs'):(runs===1?'run':'runs');
+        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runLabel}`:'');
       })()}</span>
     </div>
   </div>
@@ -2112,8 +2150,9 @@ function applyI18n(){
   document.querySelectorAll('#bottomNav .bn-label').forEach((el,i)=>{el.textContent=T(tabKeys[i]);});
   document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=T(el.dataset.i18n);});
   document.querySelectorAll('[data-i18n-opt]').forEach(el=>{el.textContent=T(el.dataset.i18nOpt);});
-  document.getElementById('langBtnNl')?.classList.toggle('active',state.lang==='nl');
-  document.getElementById('langBtnEn')?.classList.toggle('active',state.lang==='en');
+  const nlBtn=document.getElementById('langBtnNl'),enBtn=document.getElementById('langBtnEn');
+  if(nlBtn){nlBtn.style.opacity=state.lang==='nl'?'1':'0.35';nlBtn.style.transform=state.lang==='nl'?'scale(1.15)':'scale(1)';}
+  if(enBtn){enBtn.style.opacity=state.lang==='en'?'1':'0.35';enBtn.style.transform=state.lang==='en'?'scale(1.15)':'scale(1)';}
   document.documentElement.lang=state.lang;
   // Update banner text if visible
   const b=document.getElementById('updateBanner');
