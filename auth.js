@@ -203,17 +203,6 @@ async function sheetsPut(path,body){
   return res.json();
 }
 
-async function drivePost(path,body,params={}){
-  const token=await authEnsureToken();
-  const qs=new URLSearchParams(params);
-  const res=await fetch(`https://www.googleapis.com/drive/v3${path}${qs.toString()?'?'+qs:''}`,{
-    method:'POST',
-    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-    body:JSON.stringify(body),
-  });
-  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'HTTP '+res.status);}
-  return res.json();
-}
 
 // ── Sheet structure helpers ───────────────────────────────────────────────────
 const ALL_COLS=['datum','type','titel','detail','km','feedback','fase','id','updated_at','created_at','race_type'];
@@ -385,20 +374,6 @@ async function oauthSetFeedback(datum,rating,tekst){
     range,majorDimension:'ROWS',values:[[fb]],
   });
   row.feedback=fb;
-}
-
-async function oauthSortByDate(sheetId,sheetName){
-  // Get tab sheetId
-  try{
-    const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties`);
-    const tabMeta=meta.sheets?.find(s=>s.properties.title===sheetName)||meta.sheets?.[0];
-    const tabId=tabMeta?.properties?.sheetId??0;
-    // Get last row
-    const data=await sheetsGet(`/${sheetId}/values/${encodeURIComponent(sheetName+'!A:A')}`);
-    const lastRow=(data.values?.length||1);
-    if(lastRow<3)return;
-    await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{sortRange:{range:{sheetId:tabId,startRowIndex:1,endRowIndex:lastRow,startColumnIndex:0,endColumnIndex:11},sortSpecs:[{dimensionIndex:0,sortOrder:'ASCENDING'}]}}]});
-  }catch{}
 }
 
 // ── Sheet picker (Drive file picker fallback via list) ────────────────────────
