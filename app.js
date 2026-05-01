@@ -13,7 +13,7 @@ function normalizeType(raw){
   if(!raw)return'rest';
   const t=raw.toLowerCase().trim().split(',')[0].trim();
   return TYPE_NL_MAP[t]||t; // map Dutch, pass through English
-} 
+}
 
 // Map canonical enum → TYPES display config (English keys added)
 const TYPE_DISPLAY={
@@ -1966,7 +1966,7 @@ function renderStats(){
 
   if(!state.data){h+=noSchemaHint();el.innerHTML=h;return;}
 
-  // ── Km per week — alle weken uit schema ──────────────────────────────────
+  // ── Km per week — lijngrafiek, alle weken uit schema ────────────────────
   const weekMap={};
   (state.data||[]).forEach(r=>{
     const km=parseFloat(r.km)||0;
@@ -1979,47 +1979,57 @@ function renderStats(){
     const weekVals=weekKeys.map(k=>weekMap[k]);
     const maxKm=Math.max(...weekVals,1);
     const currentIdx=weekKeys.indexOf(currentWk);
-    // Race weeks — mark them
     const raceWeeks=new Set((state.data||[]).filter(r=>r.type==='race'&&r.datum).map(r=>getWeekKey(r.datum)));
+    const n=weekKeys.length;
+    const W=600,H=120,PL=8,PR=8,PT=20,PB=28;
+    const chartW=W-PL-PR,chartH=H-PT-PB;
+    // x/y helpers
+    const cx=i=>PL+i*(chartW/(n-1));
+    const cy=v=>PT+chartH-(v/maxKm*chartH);
+    // Build polyline points — past+now vs future
+    const pastPts=weekKeys.map((wk,i)=>wk<=currentWk?`${cx(i)},${cy(weekVals[i])}`:null).filter(Boolean).join(' ');
+    const futurePts=weekKeys.map((wk,i)=>wk>=currentWk?`${cx(i)},${cy(weekVals[i])}`:null).filter(Boolean).join(' ');
 
-    h+=`<div style="margin:16px 0 6px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK — ${weekKeys.length} weken</div>`;
-
-    // Scrollable chart container
-    const BAR_W=28; // px per bar
-    const chartW=Math.max(weekKeys.length*BAR_W,100);
-    h+=`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px" id="statsChartWrap">
-      <div style="display:flex;align-items:flex-end;gap:2px;height:90px;width:${chartW}px;padding:0 2px" id="statsChart">`;
-
+    // Month label positions
+    const monthLabels=[];
     weekKeys.forEach((wk,i)=>{
-      const km=weekVals[i];
-      const pct=Math.round(km/maxKm*76); // max 76px
-      const isPast=wk<currentWk;
-      const isNow=wk===currentWk;
-      const isRace=raceWeeks.has(wk);
       const d=parseDate(wk);
-      // Label: show month when it changes
-      const prevD=i>0?parseDate(weekKeys[i-1]):null;
-      const showLabel=i===0||!prevD||prevD.getMonth()!==d.getMonth();
-      const color=isNow?'var(--accent)':isRace?'var(--race-text)':isPast?'var(--muted)':'var(--border)';
-      const opacity=isPast&&!isNow?'0.55':'1';
-      h+=`<div style="flex-shrink:0;width:${BAR_W-2}px;display:flex;flex-direction:column;align-items:center;gap:1px" title="${wk}: ${km.toFixed(0)} km">
-        <div style="font-family:var(--font-m);font-size:7px;color:${isNow?'var(--accent)':'transparent'};white-space:nowrap;height:10px;line-height:10px">${isNow?km.toFixed(0):''}</div>
-        <div style="width:100%;height:${Math.max(pct,2)}px;background:${color};opacity:${opacity};margin-top:auto;position:relative">
-          ${isRace?`<div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:7px">🏁</div>`:''}
-        </div>
-        <div style="font-family:var(--font-m);font-size:7px;color:${isNow?'var(--accent)':'var(--faint)'};white-space:nowrap;margin-top:2px">${showLabel?mo[d.getMonth()]:''}</div>
-      </div>`;
+      const prev=i>0?parseDate(weekKeys[i-1]):null;
+      if(i===0||!prev||prev.getMonth()!==d.getMonth())
+        monthLabels.push({x:cx(i),label:mo[d.getMonth()]});
     });
 
-    h+=`</div></div>`;
-
-    // Auto-scroll to current week after render
-    h+=`<script>requestAnimationFrame(()=>{
-      const w=document.getElementById('statsChartWrap');
-      const c=document.getElementById('statsChart');
-      if(w&&c){const bw=${BAR_W},idx=${currentIdx},total=${weekKeys.length};
-        w.scrollLeft=Math.max(0,(idx-(Math.floor(w.offsetWidth/bw)/2))*bw);}
-    });<\/script>`;
+    h+=`<div style="margin:16px 0 4px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK</div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible">
+      <!-- Grid lines -->
+      ${[0.25,0.5,0.75,1].map(f=>{
+        const y=cy(maxKm*f);
+        return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>
+        <text x="${PL}" y="${y-2}" font-size="7" fill="var(--faint)" font-family="monospace">${Math.round(maxKm*f)}</text>`;
+      }).join('')}
+      <!-- Future line (dashed, faint) -->
+      ${futurePts?`<polyline points="${futurePts}" fill="none" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 3"/>`:''}
+      <!-- Past line (solid, accent) -->
+      ${pastPts?`<polyline points="${pastPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
+      <!-- Area under past line -->
+      ${pastPts?`<polygon points="${pastPts} ${cx(Math.min(currentIdx,n-1))},${PT+chartH} ${PL},${PT+chartH}" fill="var(--accent)" opacity="0.07"/>`:''}
+      <!-- Dots -->
+      ${weekKeys.map((wk,i)=>{
+        const isPast=wk<=currentWk;
+        const isNow=wk===currentWk;
+        const isRace=raceWeeks.has(wk);
+        const r2=isNow?4:isRace?3.5:2;
+        const fill=isNow?'var(--accent)':isRace?'var(--race-text)':isPast?'var(--accent)':'var(--border)';
+        return `<circle cx="${cx(i)}" cy="${cy(weekVals[i])}" r="${r2}" fill="${fill}" opacity="${isPast||isNow?1:0.5}"/>
+        ${isRace?`<text x="${cx(i)}" y="${cy(weekVals[i])-6}" text-anchor="middle" font-size="8">🏁</text>`:''}
+        ${isNow?`<text x="${cx(i)}" y="${cy(weekVals[i])-8}" text-anchor="middle" font-size="8" fill="var(--accent)" font-family="monospace" font-weight="bold">${weekVals[i].toFixed(0)}</text>`:''}`;
+      }).join('')}
+      <!-- Current week vertical marker -->
+      ${currentIdx>=0?`<line x1="${cx(currentIdx)}" y1="${PT}" x2="${cx(currentIdx)}" y2="${PT+chartH}" stroke="var(--accent)" stroke-width="0.5" opacity="0.4"/>`:''}
+      <!-- Month labels -->
+      ${monthLabels.map(({x,label})=>`<text x="${x}" y="${H-4}" font-size="8" fill="var(--faint)" font-family="monospace" text-anchor="middle">${label}</text>`).join('')}
+    </svg></div>`;
   }
 
   // ── Recent feedback ──────────────────────────────────────────────────────
