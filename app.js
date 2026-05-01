@@ -32,29 +32,6 @@ const TYPE_DISPLAY={
   herstel: {bg:'var(--herstel-bg)',text:'var(--herstel-text)',i18n:'type_herstel'},
 };
 
-// Normalize distance: "10km" → 10, "800 m" → 0.8, "10" → 10
-function normalizeDistance(raw){
-  if(!raw&&raw!==0)return null;
-  const s=raw.toString().trim().toLowerCase();
-  const mMatch=s.match(/^([\d.]+)\s*m$/);
-  if(mMatch)return parseFloat(mMatch[1])/1000; // meters to km
-  return parseFloat(s)||null;
-}
-
-// Format distance for display: <0.1 → meters, else km
-function formatDistance(km){
-  if(km===null||km===undefined)return'';
-  if(km<0.1)return`${Math.round(km*1000)} m`;
-  return`${km} km`;
-}
-
-// Normalize empty/null values
-function normalizeEmptyValues(obj){
-  const out={};
-  for(const k in obj)out[k]=obj[k]??'';
-  return out;
-}
-
 // Activity options for dropdowns — value=canonical English, sheet writes remapped
 const ACTIVITY_OPTIONS=[
   {value:'run',      sheet:'run',        nl:'Hardlopen'},
@@ -73,18 +50,7 @@ function toSheetType(canonical){
 // ── DATA SERVICE LAYER ────────────────────────────────────────────────────────
 // Thin wrappers — UI always goes through these, never calls sheet directly.
 
-function getActivities(filters={}){
-  let rows=state.data||[];
-  // Support both old (datum/fase) and new (date/phase) field names
-  if(filters.date)rows=rows.filter(r=>(r.date||r.datum)===filters.date);
-  if(filters.phase)rows=rows.filter(r=>(r.phase||r.fase)===filters.phase);
-  if(filters.fase)rows=rows.filter(r=>(r.fase||r.phase)===filters.fase);
-  if(filters.type)rows=rows.filter(r=>r.type===filters.type);
-  if(filters.excludeTypes)rows=rows.filter(r=>!filters.excludeTypes.includes(r.type));
-  return rows;
-}
-
-// C52: find the fase for a given date from existing data
+// find the fase for a given date from existing data
 function getFaseForDate(datum){
   if(!state.data||!datum)return'';
   // Find rows around this date to determine fase
@@ -98,9 +64,8 @@ function getFaseForDate(datum){
 }
 
 async function createActivity(fields){
-  // fields: {datum, type, titel, detail, km, fase}
-  const normalized={...fields, type: fields.type||'rest'};
-  if(state.scriptUrl){
+  const normalized={...fields,type:fields.type||'rest'};
+  if(state.scriptUrl||isOAuthMode()){
     await sheetAddRow(normalized);
   }else{
     if(!state.data)state.data=[];
@@ -110,7 +75,7 @@ async function createActivity(fields){
 }
 
 async function updateActivity(rowIndex,fields){
-  if(state.scriptUrl){
+  if(state.scriptUrl||isOAuthMode()){
     await sheetUpdateRow(rowIndex,fields);
   }else{
     const row=state.data?.find(r=>r.rowIndex===rowIndex);
@@ -119,25 +84,10 @@ async function updateActivity(rowIndex,fields){
   }
 }
 
-async function deleteActivityById(rowIndex){
-  // Undo buffer — keep for 10 seconds
-  const row=state.data?.find(r=>r.rowIndex===rowIndex);
-  if(row){
-    state._undoBuffer={row,timeout:setTimeout(()=>{state._undoBuffer=null;},10000)};
-  }
-  if(state.scriptUrl){
-    await sheetDeleteRow(rowIndex);
-  }else{
-    if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
-    renderActiveView();
-  }
-}
-
 // ── CONSTANTS (keep for backward compat) ─────────────────────────────────────
 // TYPES is now an alias for TYPE_DISPLAY for backward compat
 const TYPES=TYPE_DISPLAY;
 const TYPE_FALLBACK=TYPES.rest;
-
 
 
 const PR_ORDER=['800m','1500m','1mile','5km','10km','10mile','HM','M'];
@@ -261,13 +211,13 @@ const state={
   calSelectedDate:null,
   editingRaceId:null,
   weekOffset:0,
-  dayOffset:0, // C53: vandaag swipe offset
+  dayOffset:0, // vandaag swipe offset
   editingRowIndex:null,
   _prs:null,_races:null,
   swReg:null,
   pendingSW:null,
-  planWeekOffset:0,     // C27: week swipe offset (0 = current week)
-  currentFase:null,     // C29: active fase for floating label
+  planWeekOffset:0,     // week swipe offset (0 = current week)
+  currentFase:null,     // active fase for floating label
 };
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -279,26 +229,13 @@ const parseDate=s=>new Date(s+'T00:00:00');
 const dayIdx=d=>(d.getDay()+6)%7;
 const daysUntil=s=>{const n=new Date();n.setHours(0,0,0,0);return Math.round((parseDate(s)-n)/86400000);};
 
-function fmtDate(s){
-  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-  return `${days[dayIdx(d)]} ${d.getDate()} ${months[d.getMonth()]}`;
-}
-function fmtDateFull(s){
-  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
-}
 function getMondayStr(){
   const n=new Date();n.setHours(12,0,0,0);
   const dow=n.getDay();n.setDate(n.getDate()-(dow===0?6:dow-1));
   const y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0'),d=String(n.getDate()).padStart(2,'0');
   return `${y}-${m}-${d}`;
 }
-function getWeekDates(){
-  // C36: always Mon-Sun
-  return getWeekDatesOffset(0);
-}
-
-// C24: type resolution — comma-separated, first valid type wins for colour
+// type resolution — comma-separated, first valid type wins for colour
 function typeOf(typeStr){
   if(!typeStr)return TYPE_FALLBACK;
   const norm=normalizeType(typeStr);
@@ -311,29 +248,12 @@ const hasType=(typeStr,key)=>{
   const dutch=Object.entries(TYPE_NL_MAP).find(([,v])=>v===key)?.[0];
   return norm===key||typeStr.toLowerCase().trim()===key||(dutch&&typeStr.toLowerCase().trim()===dutch);
 };
-const isWork=t=>hasType(t,'work');
-const isRace=t=>hasType(t,'race');
-const isRust=t=>hasType(t,'rest');
-const isMob=t=>hasType(t,'mobility');
-
 function countdownDisplay(days){
   if(days<0)return{val:'✓',unit:T('days_ago')};
   if(days===0)return{val:'!',unit:T('days_today')};
   if(days<=30)return{val:days,unit:T('days_label')};
   if(days<=90)return{val:Math.round(days/7),unit:T('weeks_label')};
   return{val:Math.round(days/30),unit:T('months_label')};
-}
-
-// C25: race emoji - language-agnostic
-function raceEmoji(race){
-  const d=(race.dist||'').toLowerCase(),tp=(race.raceType||'').toLowerCase();
-  if(tp.includes('trail')||tp.includes('ultra'))return'🏔';
-  if(tp.includes('baan')||tp.includes('track'))return'🏟';
-  if(d.includes('marathon')&&!d.includes('half')&&!d.includes('halve'))return'🏅';
-  if(d.includes('halve')||d.includes('half')||d==='hm')return'🥈';
-  if(d==='5km'||d==='5 km')return'⚡';
-  if(d==='10km'||d==='10 km')return'🎯';
-  return'🏁';
 }
 
 // Map raceType string → RXIcon type key
@@ -506,7 +426,6 @@ async function devForceRefresh(){
   location.reload(true);
 }
 
-
 function applyTheme(){
   document.documentElement.dataset.theme=state.theme;
   const btn=document.getElementById('themeToggleBtn');
@@ -558,7 +477,7 @@ function renderHeader(){
 
 function renderRacesBar(){
   const bar=document.getElementById('racesBar');if(!bar)return;
-  // C38: sheet primary, localStorage fallback
+  // sheet primary, localStorage fallback
   let sheetRaces=(state.data||[])
     .filter(r=>r.type==='race'&&r.datum)
     .sort((a,b)=>a.datum.localeCompare(b.datum))
@@ -612,7 +531,7 @@ function renderRacesBar(){
       <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
-  // C50: always show + to add race
+  // always show + to add race
   h+=`<div class="rb-add" onclick="openRaceModal()" style="flex-shrink:0">+</div>`;
   bar.innerHTML=h;
 }
@@ -632,7 +551,7 @@ function renderToday(){
   // fase from data
   let faseKicker='';
   if(state.data){const tr=state.data.find(r=>r.datum===t);if(tr?.fase)faseKicker=tr.fase;}
-  // C34: if today is a race day, reflect that
+  // if today is a race day, reflect that
   const todayIsRace=state.data?.some(r=>r.datum===t&&r.type==='race');
 
   const kicker=`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}${faseKicker?' · '+faseKicker:''}`;
@@ -730,7 +649,7 @@ function renderToday(){
   h+=`</div>`;
   el.innerHTML=h;
   attachStarListeners();
-  // C53: swipe left/right to change day
+  // swipe left/right to change day
   const scrollEl=document.getElementById('scrollArea');
   if(scrollEl&&!scrollEl._daySwipe){
     scrollEl._daySwipe=true;
@@ -867,12 +786,12 @@ function renderWeek(){
     const isWorkDay=isWork(row?.type);
     let status='';
     if(row?.feedback)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--accent)">✓${row.km?' '+parseFloat(row.km).toFixed(0)+'k':''}</div>`;
-    // C44: werk shows label, no dot
+    // werk shows label, no dot
     else if(isWorkDay)status=`<div style="font-family:var(--font-m);font-size:8px;color:var(--work-text);letter-spacing:0.5px">werk</div>`;
     else if(row?.km)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${parseFloat(row.km).toFixed(0)}k</div>`;
     const dot=ti&&!status&&!isWorkDay?`<div style="width:5px;height:5px;border-radius:50%;background:${isPast?'var(--faint)':ti.text};margin-top:4px"></div>`:'';
-    // C44: no accent border for work days
-    // C45: past days are faded; C46: click highlights day row below
+    // no accent border for work days
+    // past days are faded; C46: click highlights day row below
     h+=`<div data-week-tile="${date}" onclick="weekTileClick('${date}')" style="background:${isT?'var(--bg)':'var(--surface)'};border:1px solid ${isT?'var(--accent)':'var(--border)'};padding:8px 2px 10px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;opacity:${isPast&&!isT?0.45:1};cursor:pointer;transition:border-color 0.15s">
       <div>
         <div style="font-family:var(--font-m);font-size:8px;color:var(--muted);letter-spacing:0.5px">${days[dayIdx(d)]}</div>
@@ -941,7 +860,7 @@ function renderPlan(){
   const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
   const phaseTabs=document.getElementById('phaseTabs');
 
-  // C49: type filter state
+  // type filter state
   if(!state.planTypeFilter)state.planTypeFilter='all';
 
   if(faseValues.length>0){
@@ -980,7 +899,7 @@ function buildPhaseTabs(values){
 }
 
 function renderPlanWithoutData(t){
-  // C22: show current week structure, editable, without schema
+  // show current week structure, editable, without schema
   const dates=getWeekDates();
   const days=state.lang==='en'?DAYS_EN:DAYS_NL;
   document.getElementById('phaseTabs').innerHTML='';
@@ -1012,7 +931,7 @@ function renderPlanRows(rows,t,faseBadge=''){
   const el=document.getElementById('planContent');
   if(!rows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;return;}
 
-  // C49: filter behind icon, deselectable
+  // filter behind icon, deselectable
   const activeTypes=[...new Set(rows.map(r=>r.type).filter(Boolean))];
   const filterOpen=state.planFilterOpen||false;
   let filterH=`<div style="display:flex;justify-content:flex-end;margin-bottom:${filterOpen?'8':'0'}px">
@@ -1040,7 +959,7 @@ function renderPlanRows(rows,t,faseBadge=''){
   h+='<div class="plan-swipe-wrapper" id="planSwipeWrapper"><div class="plan-swipe-inner" id="planSwipeInner">';
   h+='<div class="plan-table">';
 
-  // C57: group by date, show all activities per day
+  // group by date, show all activities per day
   const byDate=[];
   rows.forEach(row=>{
     const last=byDate[byDate.length-1];
@@ -1056,7 +975,7 @@ function renderPlanRows(rows,t,faseBadge=''){
     const work=dayRows.every(r=>r.type==='work');
     const ti=typeOf(row.type);
 
-    // C29: fase float label when fase changes
+    // fase float label when fase changes
     if(row.fase&&row.fase!==lastFase){
       h+=`</div><div class="fase-float">${esc(row.fase)}</div><div class="plan-table" style="border-top:none;border-radius:0 0 6px 6px">`;
       lastFase=row.fase;
@@ -1091,7 +1010,7 @@ function renderPlanRows(rows,t,faseBadge=''){
 
   h+='</div>';
 
-  // C29: next-fase nudge at bottom
+  // next-fase nudge at bottom
   const faseValues=state.data?[...new Set(state.data.map(r=>r.fase||'').filter(Boolean))]:[];
   const activeFase=document.getElementById('phaseTabs')?.querySelector('.phase-tile.active')?.dataset.fase;
   if(activeFase&&faseValues.length>1){
@@ -1126,7 +1045,7 @@ function selectFaseByName(fase){
   if(tile)selectFase(tile,fase);
 }
 
-// C27: swipe gesture for Training tab
+// swipe gesture for Training tab
 function initPlanSwipe(){
   const wrapper=document.getElementById('planSwipeWrapper');
   if(!wrapper)return;
@@ -1160,7 +1079,7 @@ function swipePlanFase(dir){
 
 // ── DAY MODAL (C22 + C28) ─────────────────────────────────────────────────────
 function openDayModal(dateStr,targetRowIndex){
-  // C34: support multiple rows per date
+  // support multiple rows per date
   const rows=state.data?.filter(r=>r.datum===dateStr)||[];
   // If targetRowIndex given, show that specific row; else show all
   // Priority: state.editingRowIndex > targetRowIndex > first row
@@ -1173,7 +1092,7 @@ function openDayModal(dateStr,targetRowIndex){
   const content=document.getElementById('dayModalContent');
   state.editingFeedback=false;state.selectedRating=0;
 
-  // C37: date kicker + title layout
+  // date kicker + title layout
   const d=parseDate(dateStr);
   const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
   const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
@@ -1183,7 +1102,7 @@ function openDayModal(dateStr,targetRowIndex){
   </div>`;
 
   if(!row){
-    // C28: empty day — type picker at top, then training details, notes at bottom (smaller)
+    // empty day — type picker at top, then training details, notes at bottom (smaller)
     const typeOptions=ACTIVITY_OPTIONS.map(o=>
       `<option value="${o.value}"${o.value==='rest'?' selected':''}>${o.nl}</option>`
     ).join('');
@@ -1212,14 +1131,10 @@ function openDayModal(dateStr,targetRowIndex){
       </div>
       <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
     </div>
-    <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:0;padding:10px 14px;margin-bottom:10px">
-      <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:6px">${T('notes_q')}</div>
-      <textarea class="feedback-textarea" id="modalNoteText" style="height:56px;margin-bottom:8px"></textarea>
-      <button class="btn-secondary" style="margin-top:0" onclick="saveModalNote('${dateStr}')">${T('notes_save')}</button>
-    </div>`;
+`;
   }else{
     const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
-    // C37: cleaner card, C34: show all rows if multiple
+    // cleaner card, C34: show all rows if multiple
     rows.forEach((r,idx)=>{
       const rti=typeOf(r.type);
       const rb=r.type==='work'?'work-border':r.type==='race'?'race-border':'';
@@ -1359,19 +1274,6 @@ async function handleModalFeedback(datum){
   else{btn.disabled=false;btn.textContent=T('feedback_save');}
 }
 
-async function saveModalNote(datum){
-  const tekst=document.getElementById('modalNoteText')?.value||'';
-  if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return;}
-  try{
-    const params=new URLSearchParams({action:'setFeedback',datum,rating:0,tekst});
-    if(state.sheetName)params.set('sheetName',state.sheetName);
-    const json=await(await fetch(state.scriptUrl+'?'+params)).json();
-    if(json.status!=='ok')throw new Error(json.message);
-    if(state.data){const row=state.data.find(r=>r.datum===datum);if(row)row.feedback=tekst;}
-    showToast('✓ '+T('notes_save'));closeDayModal();
-  }catch(e){showToast('❌ '+e.message);}
-}
-
 async function saveDayEdit(datum){
   const titel=document.getElementById('edit-titel')?.value.trim()||'';
   const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
@@ -1384,15 +1286,11 @@ async function saveDayEdit(datum){
   // Use only the explicitly set editingRowIndex — never infer from datum
   const editingRowIndex=state.editingRowIndex||null;
 
-  if(state.scriptUrl){
+  if(state.scriptUrl||isOAuthMode()){
     try{
-      if(editingRowIndex){
-        await updateActivity(editingRowIndex,fields);
-      }else{
-        await createActivity(fields);
-      }
+      if(editingRowIndex)await updateActivity(editingRowIndex,fields);
+      else await createActivity(fields);
     }catch(e){
-      // Fallback: update local cache only
       if(state.data){
         let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
         if(row)Object.assign(row,fields);
@@ -1402,7 +1300,6 @@ async function saveDayEdit(datum){
       closeDayModal();renderActiveView();return;
     }
   }else{
-    // No sheet — local only
     if(state.data){
       let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
       if(row)Object.assign(row,fields);
@@ -1439,11 +1336,9 @@ async function deleteActivity(rowIndex){
   closeDayModal();
   renderActiveView();renderHeader();
   showToast('Verwijderd',true);
-  // Delete from sheet in background
-  if(state.scriptUrl){
+  if(state.scriptUrl||isOAuthMode()){
     try{await sheetDeleteRow(rowIndex);}
     catch(e){
-      // Rollback: re-add to local cache
       if(row&&state.data)state.data.push(row);
       showToast('❌ Verwijderen mislukt');
       renderActiveView();
@@ -1451,7 +1346,7 @@ async function deleteActivity(rowIndex){
   }
 }
 
-// C44: open ADD mode (new activity), independent of existing row
+// open ADD mode (new activity), independent of existing row
 // Open day modal for a specific row by rowIndex (multi-activity days)
 function openDayModalRow(rowIndex,dateStr){
   // Pre-set the editingRowIndex so openDayModal uses the right row
@@ -1591,7 +1486,7 @@ function initWeekSwipe(){
 }
 
 // helper: get week dates for a given offset
-// C51: week tile click — only border highlight, never opens modal
+// week tile click — only border highlight, never opens modal
 function weekTileClick(date){
   const t=todayStr();
   // Remove selected class from all, add to clicked
@@ -1642,7 +1537,7 @@ function renderCalendar(){
   for(let i=1;i<=lastDay.getDate();i++)cells.push({date:new Date(y,m,i),other:false});
   while(cells.length%7!==0){const p=cells[cells.length-1].date;const nd=new Date(p);nd.setDate(p.getDate()+1);cells.push({date:nd,other:true});}
 
-  // C34: all races come from sheet; no localStorage races
+  // all races come from sheet; no localStorage races
   const sheetRaces=(state.data||[]).filter(r=>r.type==='race'&&r.datum);
   // Build training day marks from data
   const trainingDates=new Set();
@@ -1652,7 +1547,7 @@ function renderCalendar(){
   if(state.data){
     state.data.forEach(r=>{
       if(!r.datum)return;
-      // C43: skip werk and rust from calendar dots
+      // skip werk and rust from calendar dots
       if(r.type==='work'||r.type==='rest')return;
       if(!r.type==='race'){
         trainingDates.add(r.datum);
@@ -1686,7 +1581,7 @@ function renderCalendar(){
 
     else if(trainingDates.has(ds)&&!other)dot=`<div style="width:5px;height:5px;border-radius:50%;border:1px solid var(--accent);margin:3px auto 0"></div>`;
 
-    // C35: race day = red circle around number
+    // race day = red circle around number
     const isRaceDayThis=isRaceDay&&!other;
     if(other){h+=`<div style="padding:8px 0 10px;text-align:center"></div>`;return;}
     const textColor=isToday?'#000':isRaceDayThis?'#fff':'var(--text)';
@@ -1710,7 +1605,7 @@ function renderCalendar(){
   </div>`;
 
   if(state.calSelectedDate){
-    // C34: show all sheet rows for this date
+    // show all sheet rows for this date
     const selRows=(state.data||[]).filter(r=>r.datum===state.calSelectedDate);
     const selRaceRows=selRows.filter(r=>r.type==='race');
     if(selRows.length){
@@ -1730,7 +1625,7 @@ function renderCalendar(){
     }
   }
 
-  // C34: month races from sheet
+  // month races from sheet
   const monthRaces=sheetRaces.filter(r=>{const rd=parseDate(r.datum);return rd.getFullYear()===y&&rd.getMonth()===m;}).sort((a,b)=>a.datum.localeCompare(b.datum));
   h+=`<div><div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('races_this_month')}</div>`;
   if(!monthRaces.length){
@@ -1755,7 +1650,7 @@ function renderCalendar(){
   h+='</div>';
   h+='</div>'; // close padding wrapper
   el.innerHTML=h;
-  // C58: calendar swipe
+  // calendar swipe
   if(!el._calSwipe){
     el._calSwipe=true;
     let sx=0;
@@ -1947,12 +1842,10 @@ function renderStats(){
   const fbRows=past.filter(r=>r.feedback);
   const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
   const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
-  const sheetRaceRows2=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
-  const nextRace2=sheetRaceRows2.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows2[0];
-  const daysLeft=nextRace2?daysUntil(nextRace2.datum):0;
-  const raceName=nextRace2?.titel||nextRace2?.datum||'—';
+  const nextRace=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum)).find(r=>daysUntil(r.datum)>=0);
+  const daysLeft=nextRace?daysUntil(nextRace.datum):0;
+  const raceName=nextRace?.titel||nextRace?.datum||'—';
   const weekKm=(state.data||[]).filter(r=>r.datum>=currentWk&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
   const mo=state.lang==='en'?MONTHS_EN:MONTHS_NL;
 
   let h=`<div class="stats-grid">
@@ -1966,7 +1859,7 @@ function renderStats(){
 
   if(!state.data){h+=noSchemaHint();el.innerHTML=h;return;}
 
-  // ── Km per week — lijngrafiek, alle weken uit schema ────────────────────
+  // ── Km per week — lijngrafiek over alle weken in het schema ──────────────
   const weekMap={};
   (state.data||[]).forEach(r=>{
     const km=parseFloat(r.km)||0;
@@ -1976,21 +1869,19 @@ function renderStats(){
   });
   const weekKeys=Object.keys(weekMap).sort();
   if(weekKeys.length>1){
-    const weekVals=weekKeys.map(k=>weekMap[k]);
-    const maxKm=Math.max(...weekVals,1);
+    const vals=weekKeys.map(k=>weekMap[k]);
+    const maxKm=Math.max(...vals,1);
     const currentIdx=weekKeys.indexOf(currentWk);
     const raceWeeks=new Set((state.data||[]).filter(r=>r.type==='race'&&r.datum).map(r=>getWeekKey(r.datum)));
     const n=weekKeys.length;
-    const W=600,H=120,PL=8,PR=8,PT=20,PB=28;
-    const chartW=W-PL-PR,chartH=H-PT-PB;
-    // x/y helpers
-    const cx=i=>PL+i*(chartW/(n-1));
-    const cy=v=>PT+chartH-(v/maxKm*chartH);
-    // Build polyline points — past+now vs future
-    const pastPts=weekKeys.map((wk,i)=>wk<=currentWk?`${cx(i)},${cy(weekVals[i])}`:null).filter(Boolean).join(' ');
-    const futurePts=weekKeys.map((wk,i)=>wk>=currentWk?`${cx(i)},${cy(weekVals[i])}`:null).filter(Boolean).join(' ');
+    const W=600,H=120,PL=24,PR=8,PT=18,PB=24;
+    const cw=W-PL-PR,ch=H-PT-PB;
+    const cx=i=>PL+i*(cw/(n-1));
+    const cy=v=>PT+ch-(v/maxKm*ch);
 
-    // Month label positions
+    const pastPts=weekKeys.map((wk,i)=>wk<=currentWk?`${cx(i).toFixed(1)},${cy(vals[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
+    const futurePts=weekKeys.map((wk,i)=>wk>=currentWk?`${cx(i).toFixed(1)},${cy(vals[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
+
     const monthLabels=[];
     weekKeys.forEach((wk,i)=>{
       const d=parseDate(wk);
@@ -1999,47 +1890,40 @@ function renderStats(){
         monthLabels.push({x:cx(i),label:mo[d.getMonth()]});
     });
 
+    // Y-axis grid: 3 lines
+    const gridLines=[0.33,0.66,1].map(f=>({y:cy(maxKm*f),val:Math.round(maxKm*f)}));
+
     h+=`<div style="margin:16px 0 4px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK</div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible">
-      <!-- Grid lines -->
-      ${[0.25,0.5,0.75,1].map(f=>{
-        const y=cy(maxKm*f);
-        return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>
-        <text x="${PL}" y="${y-2}" font-size="7" fill="var(--faint)" font-family="monospace">${Math.round(maxKm*f)}</text>`;
-      }).join('')}
-      <!-- Future line (dashed, faint) -->
+    <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block;min-width:${Math.max(n*20,300)}px">
+      ${gridLines.map(({y,val})=>`
+        <line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/>
+        <text x="${PL-2}" y="${(y+3).toFixed(1)}" font-size="7" fill="var(--faint)" font-family="monospace" text-anchor="end">${val}</text>`).join('')}
       ${futurePts?`<polyline points="${futurePts}" fill="none" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 3"/>`:''}
-      <!-- Past line (solid, accent) -->
+      ${pastPts?`<polygon points="${pastPts} ${cx(Math.min(currentIdx,n-1)).toFixed(1)},${(PT+ch).toFixed(1)} ${PL},${(PT+ch).toFixed(1)}" fill="var(--accent)" opacity="0.08"/>`:''}
       ${pastPts?`<polyline points="${pastPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
-      <!-- Area under past line -->
-      ${pastPts?`<polygon points="${pastPts} ${cx(Math.min(currentIdx,n-1))},${PT+chartH} ${PL},${PT+chartH}" fill="var(--accent)" opacity="0.07"/>`:''}
-      <!-- Dots -->
+      ${currentIdx>=0?`<line x1="${cx(currentIdx).toFixed(1)}" y1="${PT}" x2="${cx(currentIdx).toFixed(1)}" y2="${PT+ch}" stroke="var(--accent)" stroke-width="0.5" opacity="0.35"/>`:''}
       ${weekKeys.map((wk,i)=>{
-        const isPast=wk<=currentWk;
-        const isNow=wk===currentWk;
-        const isRace=raceWeeks.has(wk);
-        const r2=isNow?4:isRace?3.5:2;
+        const isPast=wk<=currentWk,isNow=wk===currentWk,isRace=raceWeeks.has(wk);
+        const r=isNow?4:isRace?3:2;
         const fill=isNow?'var(--accent)':isRace?'var(--race-text)':isPast?'var(--accent)':'var(--border)';
-        return `<circle cx="${cx(i)}" cy="${cy(weekVals[i])}" r="${r2}" fill="${fill}" opacity="${isPast||isNow?1:0.5}"/>
-        ${isRace?`<text x="${cx(i)}" y="${cy(weekVals[i])-6}" text-anchor="middle" font-size="8">🏁</text>`:''}
-        ${isNow?`<text x="${cx(i)}" y="${cy(weekVals[i])-8}" text-anchor="middle" font-size="8" fill="var(--accent)" font-family="monospace" font-weight="bold">${weekVals[i].toFixed(0)}</text>`:''}`;
+        const op=isPast||isNow?1:0.5;
+        return `<circle cx="${cx(i).toFixed(1)}" cy="${cy(vals[i]).toFixed(1)}" r="${r}" fill="${fill}" opacity="${op}"/>
+        ${isRace?`<text x="${cx(i).toFixed(1)}" y="${(cy(vals[i])-6).toFixed(1)}" text-anchor="middle" font-size="8">🏁</text>`:''}
+        ${isNow?`<text x="${cx(i).toFixed(1)}" y="${(cy(vals[i])-7).toFixed(1)}" text-anchor="middle" font-size="8" fill="var(--accent)" font-family="monospace" font-weight="bold">${vals[i].toFixed(0)}</text>`:''}`;
       }).join('')}
-      <!-- Current week vertical marker -->
-      ${currentIdx>=0?`<line x1="${cx(currentIdx)}" y1="${PT}" x2="${cx(currentIdx)}" y2="${PT+chartH}" stroke="var(--accent)" stroke-width="0.5" opacity="0.4"/>`:''}
-      <!-- Month labels -->
-      ${monthLabels.map(({x,label})=>`<text x="${x}" y="${H-4}" font-size="8" fill="var(--faint)" font-family="monospace" text-anchor="middle">${label}</text>`).join('')}
+      ${monthLabels.map(({x,label})=>`<text x="${x.toFixed(1)}" y="${H-2}" font-size="8" fill="var(--faint)" font-family="monospace" text-anchor="middle">${label}</text>`).join('')}
     </svg></div>`;
   }
 
-  // ── Recent feedback ──────────────────────────────────────────────────────
+  // ── Recente feedback ──────────────────────────────────────────────────────
   const recent=fbRows.slice(-8).reverse();
   if(recent.length){
     h+=`<div style="margin:16px 0 8px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${T('stats_recent')}</div><div class="feedback-history">`;
     recent.forEach(row=>{
       const d=parseDate(row.datum);
       h+=`<div class="fh-row">
-        <div class="fh-date">${d.getDate()} ${months[d.getMonth()]}</div>
+        <div class="fh-date">${d.getDate()} ${mo[d.getMonth()]}</div>
         <div class="fh-body"><div class="fh-title">${esc(row.titel||row.type||'Training')}</div><div class="fh-text">${esc(row.feedback)}</div></div>
         ${row.km?`<div class="fh-km">${esc(row.km)}km</div>`:''}
       </div>`;
@@ -2076,7 +1960,6 @@ function logoutAccount(){
   localStorage.removeItem('userEmail');
   renderAccountSection();
 }
-
 
 // ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
 function renderConnectSection(){
@@ -2139,7 +2022,7 @@ function oauthDisconnect(){
   showToast('Ontkoppeld');
 }
 function disconnectSheet(){
-  // C26: disconnect but keep data
+  // disconnect but keep data
   state.scriptUrl='';state.sheetName='';
   localStorage.removeItem('scriptUrl');localStorage.removeItem('sheetName');
   // keep state.data in memory so existing views still work until reload
@@ -2186,7 +2069,7 @@ function renderPrFields(){
 }
 
 function renderSettingsFields(){
-  // C26/C30: connect section is fully dynamic
+  // connect section is fully dynamic
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
