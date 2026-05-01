@@ -2187,4 +2187,4 @@ document.addEventListener('DOMContentLoaded',()=>{
   }else{
     setTimeout(()=>{hideLoading();renderActiveView();},600);
   }
-});
+}); 
