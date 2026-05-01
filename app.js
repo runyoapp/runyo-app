@@ -89,7 +89,6 @@ async function updateActivity(rowIndex,fields){
 const TYPES=TYPE_DISPLAY;
 const TYPE_FALLBACK=TYPES.rest;
 
-
 const PR_ORDER=['800m','1500m','1mile','5km','10km','10mile','HM','M'];
 const DAYS_NL=['Ma','Di','Wo','Do','Vr','Za','Zo'];
 const DAYS_EN=['Mo','Tu','We','Th','Fr','Sa','Su'];
@@ -228,13 +227,6 @@ const parseDate=s=>new Date(s+'T00:00:00');
 // Mon-first day index: JS getDay() is 0=Sun..6=Sat; our arrays are 0=Ma..6=Zo
 const dayIdx=d=>(d.getDay()+6)%7;
 const daysUntil=s=>{const n=new Date();n.setHours(0,0,0,0);return Math.round((parseDate(s)-n)/86400000);};
-
-function getMondayStr(){
-  const n=new Date();n.setHours(12,0,0,0);
-  const dow=n.getDay();n.setDate(n.getDate()-(dow===0?6:dow-1));
-  const y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0'),d=String(n.getDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-}
 // type resolution — comma-separated, first valid type wins for colour
 function typeOf(typeStr){
   if(!typeStr)return TYPE_FALLBACK;
@@ -242,6 +234,11 @@ function typeOf(typeStr){
   return TYPE_DISPLAY[norm]||TYPE_DISPLAY[typeStr.toLowerCase().trim()]||TYPE_FALLBACK;
 }
 // Type checks — work with both Dutch and English values
+const isWork=t=>hasType(t,'work');
+const isRace=t=>hasType(t,'race');
+const isRust=t=>hasType(t,'rest');
+const isMob=t=>hasType(t,'mobility');
+
 const hasType=(typeStr,key)=>{
   if(!typeStr)return false;
   const norm=normalizeType(typeStr);
@@ -890,12 +887,6 @@ function renderPlan(){
     phaseTabs.innerHTML='';
     renderPlanRows(allRows,t,'');
   }
-}
-
-function buildPhaseTabs(values){
-  document.getElementById('phaseTabs').innerHTML=values.map((f,i)=>
-    `<button class="phase-tab${i===0?' active':''}" data-fase="${esc(f)}">${esc(f)}</button>`
-  ).join('');
 }
 
 function renderPlanWithoutData(t){
@@ -1902,12 +1893,6 @@ function renderAccountSection(){
   }
 }
 
-function logoutAccount(){
-  if(typeof authSignOut==='function'){authSignOut();return;}
-  localStorage.removeItem('userEmail');
-  renderAccountSection();
-}
-
 // ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
 function renderConnectSection(){
   const el=document.getElementById('connectSection');if(!el)return;
@@ -1968,16 +1953,6 @@ function oauthDisconnect(){
   renderConnectSection();renderHeader();renderActiveView();
   showToast('Ontkoppeld');
 }
-function disconnectSheet(){
-  // disconnect but keep data
-  state.scriptUrl='';state.sheetName='';
-  localStorage.removeItem('scriptUrl');localStorage.removeItem('sheetName');
-  // keep state.data in memory so existing views still work until reload
-  renderConnectSection();
-  renderHeader();
-  showToast(T('saved'));
-}
-
 // Telegram verify
 function verifyTelegram(){
   const user=document.getElementById('telegramUser')?.value.trim();
@@ -2040,11 +2015,6 @@ function saveSettings(){
   state.sheetName=sn;localStorage.setItem('sheetName',sn);
   showToast(T('connecting'));
   fetchData().then(()=>renderConnectSection());
-}
-
-function saveSheetName(){
-  state.sheetName=document.getElementById('sheetNameInput')?.value||'';
-  localStorage.setItem('sheetName',state.sheetName);
 }
 
 function saveTelegram(){
