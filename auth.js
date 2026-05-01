@@ -253,10 +253,13 @@ async function createNewSheet(){
     majorDimension:'ROWS',
     values:[ALL_COLS],
   });
+  // Get real tab sheetId
+  const meta=await sheetsGet(`/${newId}?fields=sheets.properties`);
+  const tabId=meta.sheets?.[0]?.properties?.sheetId??0;
   // Bold + freeze header row
   await sheetsPost(`/${newId}:batchUpdate`,{requests:[
-    {repeatCell:{range:{sheetId:0,startRowIndex:0,endRowIndex:1},cell:{userEnteredFormat:{textFormat:{bold:true},backgroundColor:{red:0.05,green:0.05,blue:0.05}}},fields:'userEnteredFormat'}},
-    {updateSheetProperties:{properties:{sheetId:0,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}},
+    {repeatCell:{range:{sheetId:tabId,startRowIndex:0,endRowIndex:1},cell:{userEnteredFormat:{textFormat:{bold:true},backgroundColor:{red:0.05,green:0.05,blue:0.05}}},fields:'userEnteredFormat'}},
+    {updateSheetProperties:{properties:{sheetId:tabId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}},
   ]});
   authSetSheetId(newId);
   return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`RunningX — Trainingsschema ${today}`};
