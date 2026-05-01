@@ -193,7 +193,8 @@ async function sheetsPost(path,body){
 
 async function sheetsPut(path,body){
   const token=await authEnsureToken();
-  const res=await fetch(`${SHEETS_BASE}${path}`,{
+  const url=`${SHEETS_BASE}${path}${path.includes('?')?'&':'?'}valueInputOption=USER_ENTERED`;
+  const res=await fetch(url,{
     method:'PUT',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
     body:JSON.stringify(body),
