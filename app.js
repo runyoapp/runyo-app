@@ -593,19 +593,19 @@ function renderRacesBar(){
     const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
     const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
     const isMain=!!lr?.mainGoal;
-    // Title font: larger for short names
     const titleLen=(r.titel||'').length;
-    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
-      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
-        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
+    const titleSize=titleLen<=6?'15px':titleLen<=10?'13px':titleLen<=16?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:88px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      <div style="flex:1">
+        ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ DOEL</div>`:''}
+        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+          <div style="margin-top:2px;flex-shrink:0">${RXIcon(iconKey,11,'var(--race-text)','var(--race-text)')}</div>
+          <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
+        </div>
+        ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+        ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
       </div>
-      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
-      <div style="flex:1"></div>
-      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
+      <div class="rb-countdown" style="margin-top:4px">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
   // C50: always show + to add race
@@ -639,7 +639,7 @@ function renderToday(){
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <div style="display:flex;align-items:center;gap:6px">
-        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Vandaag</button>`:''}
+        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Terug naar vandaag</button>`:''}
         <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
       </div>
     </div>
@@ -834,7 +834,7 @@ function renderWeek(){
   </div>
   <div style="display:flex;gap:4px;padding:0 20px 8px;align-items:center">
     <button onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">‹</button>
-    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">Nu</button>`:''}
+    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">← Terug naar nu</button>`:''}
     <div style="flex:1"></div>
     <button onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">›</button>
   </div>
@@ -851,7 +851,7 @@ function renderWeek(){
       <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
       <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
         const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run'||r.type==='race')).length;
-        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runs===1?'run':'runs'}`:'');
+        const runLabel=state.lang==='en'?(runs===1?'run':'runs'):(runs===1?'run':'runs');return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runLabel}`:'');
       })()}</span>
     </div>
   </div>
@@ -2114,7 +2114,7 @@ function renderSettingsFields(){
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
-  renderPrFields();renderAccountSection();updateTelegramStatus();applyI18n();
+  renderPrFields();renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
 }
 
 function saveSettingsName(){
@@ -2144,6 +2144,25 @@ function saveSheetName(){
 function saveTelegram(){
   localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
   updateTelegramStatus();showToast(T('saved'));
+}
+
+function saveNotifPrefs(){
+  const daily=!!document.getElementById('notifDaily')?.checked;
+  const feedback=!!document.getElementById('notifFeedback')?.checked;
+  localStorage.setItem('notifPrefs',JSON.stringify({daily,feedback}));
+  showToast(T('saved'));
+}
+
+function loadNotifPrefs(){
+  try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}catch{return{};}
+}
+
+function applyNotifPrefs(){
+  const p=loadNotifPrefs();
+  const d=document.getElementById('notifDaily');
+  const f=document.getElementById('notifFeedback');
+  if(d)d.checked=!!p.daily;
+  if(f)f.checked=!!p.feedback;
 }
 
 // ── I18N ──────────────────────────────────────────────────────────────────────
