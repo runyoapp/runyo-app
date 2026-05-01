@@ -437,46 +437,50 @@ function mapRow(r){
 }
 
 async function fetchData(){
+  // OAuth mode — use Sheets API v4 directly
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){
+    return fetchDataOAuth();
+  }
   if(!state.scriptUrl){hideLoading();renderActiveView();renderHeader();return;}
   try{
     const json=await apiCall(apiParams({action:'getAll'}));
-    state.data=json.rows.map(mapRow); // normalize field names
+    state.data=json.rows.map(mapRow);
     updateConnectionStatus(true);
   }catch(e){updateConnectionStatus(false,e.message);}
   hideLoading();renderActiveView();renderHeader();
 }
 
-// Add a new row — always appends, sheet sorts by date server-side
 async function sheetAddRow(fields){
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){return oauthAddRowDirect(fields);}
   await apiCall(apiParams({action:'addRow',...fields}));
-  // Re-fetch to get correct rowIndexes after server-side sort
   await fetchData();
 }
 
-// Update existing row by rowIndex
 async function sheetUpdateRow(rowIndex,fields){
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){return oauthUpdateRow(rowIndex,fields);}
   await apiCall(apiParams({action:'updateRow',rowIndex:String(rowIndex),...fields}));
-  // Re-fetch after sort (date edit could change order)
   await fetchData();
 }
 
-// Delete row by rowIndex
 async function sheetDeleteRow(rowIndex){
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){return oauthDeleteRow(rowIndex);}
   await apiCall(apiParams({action:'deleteRow',rowIndex:String(rowIndex)}));
   if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
-  // Re-index: rows below the deleted one shift up
   if(state.data)state.data.forEach(r=>{if(r.rowIndex>rowIndex)r.rowIndex--;});
 }
 
 async function submitFeedback(datum,rating,tekst){
-  if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return false;}
   try{
-    // Find the rowIndex of the first trainable row for this datum
+    if(typeof isOAuthMode==='function'&&isOAuthMode()){
+      await oauthSetFeedback(datum,rating,tekst);
+      showToast(T('feedback_logged'));return true;
+    }
+    if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return false;}
     const row=state.data?.find(r=>r.datum===datum&&r.type!=='work'&&r.type!=='rest');
     const extra=row?.rowIndex?{rowIndex:String(row.rowIndex)}:{};
-    const json=await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
+    await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
     if(row){const e=['😵','😓','😐','💪','🔥'];row.feedback=`${rating}/5 ${e[rating-1]}${tekst?' – '+tekst:''}`;}
-    showToast('✓ '+T('feedback_logged'));return true;
+    showToast(T('feedback_logged'));return true;
   }catch(e){showToast('❌ '+e.message);return false;}
 }
 
@@ -593,19 +597,19 @@ function renderRacesBar(){
     const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
     const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
     const isMain=!!lr?.mainGoal;
+    // Title font: larger for short names
     const titleLen=(r.titel||'').length;
-    const titleSize=titleLen<=6?'15px':titleLen<=10?'13px':titleLen<=16?'11px':'10px';
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:88px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      <div style="flex:1">
-        ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ DOEL</div>`:''}
-        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-          <div style="margin-top:2px;flex-shrink:0">${RXIcon(iconKey,11,'var(--race-text)','var(--race-text)')}</div>
-          <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
-        </div>
-        ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-        ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
+      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
+        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
       </div>
-      <div class="rb-countdown" style="margin-top:4px">${cd.val}<span>${cd.unit}</span></div>
+      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+      <div style="flex:1"></div>
+      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
   // C50: always show + to add race
@@ -639,7 +643,7 @@ function renderToday(){
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <div style="display:flex;align-items:center;gap:6px">
-        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Terug naar vandaag</button>`:''}
+        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Vandaag</button>`:''}
         <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
       </div>
     </div>
@@ -834,7 +838,7 @@ function renderWeek(){
   </div>
   <div style="display:flex;gap:4px;padding:0 20px 8px;align-items:center">
     <button onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">‹</button>
-    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">← Terug naar nu</button>`:''}
+    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">Nu</button>`:''}
     <div style="flex:1"></div>
     <button onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">›</button>
   </div>
@@ -851,7 +855,7 @@ function renderWeek(){
       <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
       <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
         const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run'||r.type==='race')).length;
-        const runLabel=state.lang==='en'?(runs===1?'run':'runs'):(runs===1?'run':'runs');return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runLabel}`:'');
+        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runs===1?'run':'runs'}`:'');
       })()}</span>
     </div>
   </div>
@@ -1974,94 +1978,94 @@ function renderStats(){
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
-// B3a: Login UI
 function renderAccountSection(){
   const el=document.getElementById('accountSection');if(!el)return;
-  const email=localStorage.getItem('userEmail')||'';
-  if(email){
+  const oauthEmail=typeof authEmail==='function'?authEmail():'';
+  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  if(oauthActive&&oauthEmail){
     el.innerHTML=`<div class="account-row">
-      <div class="account-avatar">👤</div>
+      <div class="account-avatar" style="font-size:22px">🏃</div>
       <div class="account-info">
-        <div class="account-email">${esc(email)}</div>
-        <div class="account-status">${T('logged_in_as')}</div>
+        <div class="account-email">${esc(oauthEmail)}</div>
+        <div class="account-status">Google · ${T('logged_in_as')}</div>
       </div>
-      <button class="account-logout" onclick="logoutAccount()">${T('logout_btn')}</button>
+      <button class="account-logout" onclick="authSignOut()">${T('logout_btn')}</button>
     </div>`;
   }else{
-    el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px">${T('account_hint')}</div>
-    <div class="login-form">
-      <input type="email" class="settings-input" id="loginEmail" placeholder="${T('email_placeholder')}">
-      <button class="btn-primary" onclick="loginAccount()">${T('login_btn')}</button>
-    </div>`;
+    el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Log in met Google om je schema te koppelen en data te synchroniseren.
+    </div>
+    <button class="btn-primary" onclick="oauthConnectFlow()">Inloggen met Google</button>`;
   }
-}
-
-function loginAccount(){
-  const email=document.getElementById('loginEmail')?.value.trim();
-  if(!email)return;
-  localStorage.setItem('userEmail',email);
-  renderAccountSection();
-  showToast(T('saved'));
 }
 
 function logoutAccount(){
+  if(typeof authSignOut==='function'){authSignOut();return;}
   localStorage.removeItem('userEmail');
   renderAccountSection();
-  showToast(T('saved'));
 }
 
-// ── C26: CONNECT SECTION ──────────────────────────────────────────────────────
+
+// ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
 function renderConnectSection(){
   const el=document.getElementById('connectSection');if(!el)return;
-  const connected=!!state.scriptUrl;
-  // Shorten URL for display — show only the ID segment
-  function shortUrl(url){
-    if(!url)return'';
-    const m=url.match(/\/s\/([^\/]+)\//);
-    return m?'…'+m[1].slice(-12)+'…':url.slice(0,32)+'…';
+  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
+  const connected=oauthActive&&!!sheetId;
+  const legacyConnected=!!state.scriptUrl;
+
+  if(connected){
+    el.innerHTML=`
+      <div class="connect-btn connected" style="margin-bottom:10px;cursor:default">
+        <div class="cb-dot"></div>
+        <div class="cb-label">
+          <div class="cb-name">Schema gekoppeld ✓</div>
+          <div class="cb-status">${esc(authEmail()||'')}${state.sheetName?' · '+esc(state.sheetName):''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn-save" style="flex:1" onclick="oauthConnectFlow()">Ander schema</button>
+        <button class="disconnect-btn" style="flex:1" onclick="oauthDisconnect()">${T('connect_disconnect')}</button>
+      </div>
+      <a href="https://docs.google.com/spreadsheets/d/${esc(sheetId)}/edit" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none">Sheet openen ↗</a>
+      ${_devBlock()}`;
+    return;
   }
-  // Always show URL input; connected state adds status badge above it
-  const connectedBadge=connected?`
-    <div class="connect-btn connected" style="margin-bottom:10px;cursor:default">
+
+  el.innerHTML=`
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">
+      Koppel je Google Sheets trainingsschema om de app te gebruiken.
+    </div>
+    <button class="btn-primary" id="oauthConnectBtn" onclick="oauthConnectFlow()" style="width:100%;margin-bottom:8px">
+      Koppel met Google
+    </button>
+    ${legacyConnected?`<div class="connect-btn connected" style="margin-bottom:10px;cursor:default;opacity:0.6">
       <div class="cb-dot"></div>
-      <div class="cb-label">
-        <div class="cb-name">${T('connect_active')}</div>
-        <div class="cb-status">${esc(shortUrl(state.scriptUrl))}${state.sheetName?' · '+esc(state.sheetName):''}</div>
-      </div>
-      <span style="font-size:14px">✓</span>
-    </div>
-    <button class="disconnect-btn" style="margin-bottom:12px" onclick="disconnectSheet()">${T('connect_disconnect')}</button>`:'';
-  el.innerHTML=connectedBadge+`
-    <div class="settings-title">Hardloopschema koppelen</div>
-    <div class="settings-field">
-      <label class="settings-label">Google Sheet URL</label>
-      <div class="settings-hint" style="margin-bottom:6px">Plak de volledige URL van je Google Sheet.</div>
-      <input type="url" class="settings-input" id="sheetIdInput" placeholder="https://docs.google.com/spreadsheets/d/..."
-        value="${esc(state.sheetId)}">
-    </div>
-    <div class="settings-field">
-      <label class="settings-label">${T('sheet_name_label')}</label>
-      <input type="text" class="settings-input" id="sheetNameInput" placeholder="Sheet1 / Blad1"
-        value="${esc(state.sheetName)}" oninput="saveSheetName()">
-      <div class="settings-hint">${T('sheet_name_hint')}</div>
-    </div>
-    <button class="btn-save" onclick="saveSettings()">${T('api_save')}</button>
-    <div class="connection-status" style="margin-top:10px">
-      <div class="status-dot${connected?' ok':''}" id="statusDot"></div>
-      <span id="statusText">${connected?T('connected'):T('not_connected')}</span>
-    </div>
-    <!-- DEV: Apps Script URL — verberg door deze sectie te commentariëren -->
-    <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
-      <summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;cursor:pointer">Dev</summary>
-      <div class="settings-field" style="margin-top:8px">
-        <label class="settings-label">Apps Script URL</label>
-        <div class="settings-hint" style="margin-bottom:6px">${T('connect_hint')}</div>
-        <input type="url" class="settings-input" id="scriptUrl" placeholder="${T('connect_url_placeholder')}"
-          value="${esc(state.scriptUrl)}">
-      </div>
-    </details>`;
+      <div class="cb-label"><div class="cb-name">Apps Script actief (legacy)</div></div>
+    </div>`:''}
+    ${_devBlock()}`;
 }
 
+function _devBlock(){
+  return `<details style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+    <summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;cursor:pointer">Dev — Apps Script</summary>
+    <div class="settings-field" style="margin-top:8px">
+      <label class="settings-label">Apps Script URL</label>
+      <div class="settings-hint" style="margin-bottom:6px">${T('connect_hint')}</div>
+      <input type="url" class="settings-input" id="scriptUrl" placeholder="${T('connect_url_placeholder')}"
+        value="${esc(state.scriptUrl)}">
+    </div>
+    <button class="btn-save" style="margin-top:4px" onclick="saveSettings()">Opslaan</button>
+  </details>`;
+}
+
+function oauthDisconnect(){
+  if(typeof authClear==='function')authClear();
+  localStorage.removeItem('oauth_sheetId');
+  state.data=null;
+  renderConnectSection();renderHeader();renderActiveView();
+  showToast('Ontkoppeld');
+}
 function disconnectSheet(){
   // C26: disconnect but keep data
   state.scriptUrl='';state.sheetName='';
@@ -2114,7 +2118,7 @@ function renderSettingsFields(){
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
-  renderPrFields();renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
+  renderPrFields();renderAccountSection();updateTelegramStatus();applyI18n();
 }
 
 function saveSettingsName(){
@@ -2144,25 +2148,6 @@ function saveSheetName(){
 function saveTelegram(){
   localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
   updateTelegramStatus();showToast(T('saved'));
-}
-
-function saveNotifPrefs(){
-  const daily=!!document.getElementById('notifDaily')?.checked;
-  const feedback=!!document.getElementById('notifFeedback')?.checked;
-  localStorage.setItem('notifPrefs',JSON.stringify({daily,feedback}));
-  showToast(T('saved'));
-}
-
-function loadNotifPrefs(){
-  try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}catch{return{};}
-}
-
-function applyNotifPrefs(){
-  const p=loadNotifPrefs();
-  const d=document.getElementById('notifDaily');
-  const f=document.getElementById('notifFeedback');
-  if(d)d.checked=!!p.daily;
-  if(f)f.checked=!!p.feedback;
 }
 
 // ── I18N ──────────────────────────────────────────────────────────────────────
@@ -2296,6 +2281,28 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
 
   applyI18n();renderHeader();
+
+  // E7: check if returning from OAuth redirect (code in URL)
+  const oauthCode=new URLSearchParams(window.location.search).get('code');
+  if(oauthCode){
+    // Strip code from URL without reload
+    history.replaceState({},'',window.location.pathname);
+    (async()=>{
+      try{
+        const mod=window._authModule;
+        await _exchangeCode(oauthCode);
+        showOAuthConnectSheet();
+      }catch(e){showToast('❌ OAuth fout: '+e.message);}
+      hideLoading();renderActiveView();renderHeader();
+    })();
+    return;
+  }
+
+  // E7: if OAuth token + sheet already stored, fetch directly
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){
+    fetchData();
+    return;
+  }
 
   if(shouldShowOnboarding()){
     hideLoading();document.getElementById('onboarding').style.display='flex';
