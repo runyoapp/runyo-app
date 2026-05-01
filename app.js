@@ -13,7 +13,7 @@ function normalizeType(raw){
   if(!raw)return'rest';
   const t=raw.toLowerCase().trim().split(',')[0].trim();
   return TYPE_NL_MAP[t]||t; // map Dutch, pass through English
-}
+} 
 
 // Map canonical enum → TYPES display config (English keys added)
 const TYPE_DISPLAY={
