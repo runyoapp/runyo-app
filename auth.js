@@ -419,7 +419,7 @@ async function oauthSortByDate(sheetId,sheetName){
 // ── Sheet picker (Drive file picker fallback via list) ────────────────────────
 async function listRecentSheets(){
   const token=await authEnsureToken();
-  const res=await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.spreadsheet'&orderBy=modifiedTime+desc&pageSize=20&fields=files(id,name,modifiedTime)",{
+  const res=await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType%3D'application%2Fvnd.google-apps.spreadsheet'+and+trashed%3Dfalse&orderBy=modifiedTime+desc&pageSize=20&fields=files(id,name,modifiedTime)",{
     headers:{Authorization:'Bearer '+token}
   });
   const json=await res.json();
