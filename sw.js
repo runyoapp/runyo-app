@@ -3,7 +3,7 @@ const VERSION = 'rx-v3.0.0';
 const CACHE = VERSION;
 const ASSETS = ['./', './index.html'];
 
-// T1: proper install + skipWaiting via  message
+// T1: proper install + skipWaiting via message
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
@@ -33,6 +33,8 @@ self.addEventListener('message', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+  // Skip chrome-extension and non-http(s) requests
+  if (!url.protocol.startsWith('http')) return;
 
   // Always network-first for API calls
   if (url.hostname.includes('script.google.com')) {
