@@ -83,11 +83,13 @@ async function authSignIn(){
 
     // Fallback: detect popup closed without posting
     const closedTimer=setInterval(()=>{
-      if(popup.closed){
-        clearInterval(closedTimer);
-        window.removeEventListener('message',onMessage);
-        reject(new Error('Inloggen geannuleerd'));
-      }
+      try{
+        if(popup.closed){
+          clearInterval(closedTimer);
+          window.removeEventListener('message',onMessage);
+          reject(new Error('Inloggen geannuleerd'));
+        }
+      }catch(e){/* cross-origin check blocked — ignore */}
     },500);
   });
 }
