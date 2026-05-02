@@ -615,7 +615,6 @@ function toggleAvatarMenu(){
   const m=document.getElementById('avatarMenu');if(!m)return;
   const open=m.style.display==='block';
   if(open){m.style.display='none';return;}
-  // Position relative to avatar button
   const btn=document.getElementById('avatarBtn');
   if(btn){
     const r=btn.getBoundingClientRect();
@@ -626,9 +625,13 @@ function toggleAvatarMenu(){
   }
   m.style.display='block';
   setTimeout(()=>document.addEventListener('click',function h(e){
-    if(!document.getElementById('avatarBtn')?.contains(e.target)){m.style.display='none';}
+    const menu=document.getElementById('avatarMenu');
+    const btn=document.getElementById('avatarBtn');
+    if(menu&&!menu.contains(e.target)&&!btn?.contains(e.target)){
+      menu.style.display='none';
+    }
     document.removeEventListener('click',h);
-  }),0);
+  }),10);
 }
 
 function renderRacesBar(){
