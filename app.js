@@ -550,6 +550,25 @@ function openDayFromRacesBar(datum){
   else openDayModal(datum);
 }
 
+function renderSidebarPlanInfo(){
+  const faseEl=document.getElementById('sbFaseLabel');
+  const weekEl=document.getElementById('sbWeekLabel');
+  const fillEl=document.getElementById('sbProgressFill');
+  if(!faseEl&&!weekEl)return;
+  if(!state.data){return;}
+  const t=todayStr();
+  const todayRow=state.data.find(r=>r.datum===t);
+  const fase=todayRow?.fase||state.currentFase||'';
+  if(faseEl)faseEl.textContent=fase||'—';
+  const mondayStr=getMondayStr();
+  const endOfWeek=mondayStr.slice(0,8)+String(parseInt(mondayStr.slice(8))+6).padStart(2,'0');
+  const weekDone=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const weekTotal=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=endOfWeek).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  if(weekEl)weekEl.textContent=weekTotal>0?`${weekDone.toFixed(0)} / ${weekTotal.toFixed(0)} km`:'';
+  const pct=weekTotal>0?Math.min(100,Math.round(weekDone/weekTotal*100)):0;
+  if(fillEl)fillEl.style.width=pct+'%';
+}
+
 function renderHeader(){
   const name=localStorage.getItem('userName')||'';
   document.getElementById('topbarName').textContent=name;
