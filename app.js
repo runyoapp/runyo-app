@@ -32,6 +32,29 @@ const TYPE_DISPLAY={
   herstel: {bg:'var(--herstel-bg)',text:'var(--herstel-text)',i18n:'type_herstel'},
 };
 
+// Normalize distance: "10km" → 10, "800 m" → 0.8, "10" → 10
+function normalizeDistance(raw){
+  if(!raw&&raw!==0)return null;
+  const s=raw.toString().trim().toLowerCase();
+  const mMatch=s.match(/^([\d.]+)\s*m$/);
+  if(mMatch)return parseFloat(mMatch[1])/1000; // meters to km
+  return parseFloat(s)||null;
+}
+
+// Format distance for display: <0.1 → meters, else km
+function formatDistance(km){
+  if(km===null||km===undefined)return'';
+  if(km<0.1)return`${Math.round(km*1000)} m`;
+  return`${km} km`;
+}
+
+// Normalize empty/null values
+function normalizeEmptyValues(obj){
+  const out={};
+  for(const k in obj)out[k]=obj[k]??'';
+  return out;
+}
+
 // Activity options for dropdowns — value=canonical English, sheet writes remapped
 const ACTIVITY_OPTIONS=[
   {value:'run',      sheet:'run',        nl:'Hardlopen'},
@@ -50,7 +73,18 @@ function toSheetType(canonical){
 // ── DATA SERVICE LAYER ────────────────────────────────────────────────────────
 // Thin wrappers — UI always goes through these, never calls sheet directly.
 
-// find the fase for a given date from existing data
+function getActivities(filters={}){
+  let rows=state.data||[];
+  // Support both old (datum/fase) and new (date/phase) field names
+  if(filters.date)rows=rows.filter(r=>(r.date||r.datum)===filters.date);
+  if(filters.phase)rows=rows.filter(r=>(r.phase||r.fase)===filters.phase);
+  if(filters.fase)rows=rows.filter(r=>(r.fase||r.phase)===filters.fase);
+  if(filters.type)rows=rows.filter(r=>r.type===filters.type);
+  if(filters.excludeTypes)rows=rows.filter(r=>!filters.excludeTypes.includes(r.type));
+  return rows;
+}
+
+// C52: find the fase for a given date from existing data
 function getFaseForDate(datum){
   if(!state.data||!datum)return'';
   // Find rows around this date to determine fase
@@ -64,8 +98,9 @@ function getFaseForDate(datum){
 }
 
 async function createActivity(fields){
-  const normalized={...fields,type:fields.type||'rest'};
-  if(state.scriptUrl||isOAuthMode()){
+  // fields: {datum, type, titel, detail, km, fase}
+  const normalized={...fields, type: fields.type||'rest'};
+  if(state.scriptUrl){
     await sheetAddRow(normalized);
   }else{
     if(!state.data)state.data=[];
@@ -75,7 +110,7 @@ async function createActivity(fields){
 }
 
 async function updateActivity(rowIndex,fields){
-  if(state.scriptUrl||isOAuthMode()){
+  if(state.scriptUrl){
     await sheetUpdateRow(rowIndex,fields);
   }else{
     const row=state.data?.find(r=>r.rowIndex===rowIndex);
@@ -84,10 +119,26 @@ async function updateActivity(rowIndex,fields){
   }
 }
 
+async function deleteActivityById(rowIndex){
+  // Undo buffer — keep for 10 seconds
+  const row=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(row){
+    state._undoBuffer={row,timeout:setTimeout(()=>{state._undoBuffer=null;},10000)};
+  }
+  if(state.scriptUrl){
+    await sheetDeleteRow(rowIndex);
+  }else{
+    if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
+    renderActiveView();
+  }
+}
+
 // ── CONSTANTS (keep for backward compat) ─────────────────────────────────────
 // TYPES is now an alias for TYPE_DISPLAY for backward compat
 const TYPES=TYPE_DISPLAY;
 const TYPE_FALLBACK=TYPES.rest;
+
+
 
 const PR_ORDER=['800m','1500m','1mile','5km','10km','10mile','HM','M'];
 const DAYS_NL=['Ma','Di','Wo','Do','Vr','Za','Zo'];
@@ -210,13 +261,13 @@ const state={
   calSelectedDate:null,
   editingRaceId:null,
   weekOffset:0,
-  dayOffset:0, // vandaag swipe offset
+  dayOffset:0, // C53: vandaag swipe offset
   editingRowIndex:null,
   _prs:null,_races:null,
   swReg:null,
   pendingSW:null,
-  planWeekOffset:0,     // week swipe offset (0 = current week)
-  currentFase:null,     // active fase for floating label
+  planWeekOffset:0,     // C27: week swipe offset (0 = current week)
+  currentFase:null,     // C29: active fase for floating label
 };
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -227,30 +278,62 @@ const parseDate=s=>new Date(s+'T00:00:00');
 // Mon-first day index: JS getDay() is 0=Sun..6=Sat; our arrays are 0=Ma..6=Zo
 const dayIdx=d=>(d.getDay()+6)%7;
 const daysUntil=s=>{const n=new Date();n.setHours(0,0,0,0);return Math.round((parseDate(s)-n)/86400000);};
-// type resolution — comma-separated, first valid type wins for colour
+
+function fmtDate(s){
+  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  return `${days[dayIdx(d)]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+function fmtDateFull(s){
+  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
+}
+function getMondayStr(){
+  const n=new Date();n.setHours(12,0,0,0);
+  const dow=n.getDay();n.setDate(n.getDate()-(dow===0?6:dow-1));
+  const y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0'),d=String(n.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function getWeekDates(){
+  // C36: always Mon-Sun
+  return getWeekDatesOffset(0);
+}
+
+// C24: type resolution — comma-separated, first valid type wins for colour
 function typeOf(typeStr){
   if(!typeStr)return TYPE_FALLBACK;
   const norm=normalizeType(typeStr);
   return TYPE_DISPLAY[norm]||TYPE_DISPLAY[typeStr.toLowerCase().trim()]||TYPE_FALLBACK;
 }
 // Type checks — work with both Dutch and English values
-const isWork=t=>hasType(t,'work');
-const isRace=t=>hasType(t,'race');
-const isRust=t=>hasType(t,'rest');
-const isMob=t=>hasType(t,'mobility');
-
 const hasType=(typeStr,key)=>{
   if(!typeStr)return false;
   const norm=normalizeType(typeStr);
   const dutch=Object.entries(TYPE_NL_MAP).find(([,v])=>v===key)?.[0];
   return norm===key||typeStr.toLowerCase().trim()===key||(dutch&&typeStr.toLowerCase().trim()===dutch);
 };
+const isWork=t=>hasType(t,'work');
+const isRace=t=>hasType(t,'race');
+const isRust=t=>hasType(t,'rest');
+const isMob=t=>hasType(t,'mobility');
+
 function countdownDisplay(days){
   if(days<0)return{val:'✓',unit:T('days_ago')};
   if(days===0)return{val:'!',unit:T('days_today')};
   if(days<=30)return{val:days,unit:T('days_label')};
   if(days<=90)return{val:Math.round(days/7),unit:T('weeks_label')};
   return{val:Math.round(days/30),unit:T('months_label')};
+}
+
+// C25: race emoji - language-agnostic
+function raceEmoji(race){
+  const d=(race.dist||'').toLowerCase(),tp=(race.raceType||'').toLowerCase();
+  if(tp.includes('trail')||tp.includes('ultra'))return'🏔';
+  if(tp.includes('baan')||tp.includes('track'))return'🏟';
+  if(d.includes('marathon')&&!d.includes('half')&&!d.includes('halve'))return'🏅';
+  if(d.includes('halve')||d.includes('half')||d==='hm')return'🥈';
+  if(d==='5km'||d==='5 km')return'⚡';
+  if(d==='10km'||d==='10 km')return'🎯';
+  return'🏁';
 }
 
 // Map raceType string → RXIcon type key
@@ -423,6 +506,7 @@ async function devForceRefresh(){
   location.reload(true);
 }
 
+
 function applyTheme(){
   document.documentElement.dataset.theme=state.theme;
   const btn=document.getElementById('themeToggleBtn');
@@ -460,10 +544,7 @@ function openWeekAddActivity(){
 }
 
 function openDayFromRacesBar(datum){
-  // Open race edit modal directly
-  const r=state.data?.find(row=>row.datum===datum&&row.type==='race');
-  if(r?.rowIndex)openRaceModalFromSheet(r.rowIndex);
-  else openDayModal(datum);
+  openDayModal(datum);
 }
 
 function renderHeader(){
@@ -474,7 +555,7 @@ function renderHeader(){
 
 function renderRacesBar(){
   const bar=document.getElementById('racesBar');if(!bar)return;
-  // sheet primary, localStorage fallback
+  // C38: sheet primary, localStorage fallback
   let sheetRaces=(state.data||[])
     .filter(r=>r.type==='race'&&r.datum)
     .sort((a,b)=>a.datum.localeCompare(b.datum))
@@ -528,7 +609,7 @@ function renderRacesBar(){
       <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
-  // always show + to add race
+  // C50: always show + to add race
   h+=`<div class="rb-add" onclick="openRaceModal()" style="flex-shrink:0">+</div>`;
   bar.innerHTML=h;
 }
@@ -548,7 +629,7 @@ function renderToday(){
   // fase from data
   let faseKicker='';
   if(state.data){const tr=state.data.find(r=>r.datum===t);if(tr?.fase)faseKicker=tr.fase;}
-  // if today is a race day, reflect that
+  // C34: if today is a race day, reflect that
   const todayIsRace=state.data?.some(r=>r.datum===t&&r.type==='race');
 
   const kicker=`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}${faseKicker?' · '+faseKicker:''}`;
@@ -646,7 +727,7 @@ function renderToday(){
   h+=`</div>`;
   el.innerHTML=h;
   attachStarListeners();
-  // swipe left/right to change day
+  // C53: swipe left/right to change day
   const scrollEl=document.getElementById('scrollArea');
   if(scrollEl&&!scrollEl._daySwipe){
     scrollEl._daySwipe=true;
@@ -783,12 +864,12 @@ function renderWeek(){
     const isWorkDay=isWork(row?.type);
     let status='';
     if(row?.feedback)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--accent)">✓${row.km?' '+parseFloat(row.km).toFixed(0)+'k':''}</div>`;
-    // werk shows label, no dot
+    // C44: werk shows label, no dot
     else if(isWorkDay)status=`<div style="font-family:var(--font-m);font-size:8px;color:var(--work-text);letter-spacing:0.5px">werk</div>`;
     else if(row?.km)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${parseFloat(row.km).toFixed(0)}k</div>`;
     const dot=ti&&!status&&!isWorkDay?`<div style="width:5px;height:5px;border-radius:50%;background:${isPast?'var(--faint)':ti.text};margin-top:4px"></div>`:'';
-    // no accent border for work days
-    // past days are faded; C46: click highlights day row below
+    // C44: no accent border for work days
+    // C45: past days are faded; C46: click highlights day row below
     h+=`<div data-week-tile="${date}" onclick="weekTileClick('${date}')" style="background:${isT?'var(--bg)':'var(--surface)'};border:1px solid ${isT?'var(--accent)':'var(--border)'};padding:8px 2px 10px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;opacity:${isPast&&!isT?0.45:1};cursor:pointer;transition:border-color 0.15s">
       <div>
         <div style="font-family:var(--font-m);font-size:8px;color:var(--muted);letter-spacing:0.5px">${days[dayIdx(d)]}</div>
@@ -857,7 +938,7 @@ function renderPlan(){
   const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
   const phaseTabs=document.getElementById('phaseTabs');
 
-  // type filter state
+  // C49: type filter state
   if(!state.planTypeFilter)state.planTypeFilter='all';
 
   if(faseValues.length>0){
@@ -889,8 +970,14 @@ function renderPlan(){
   }
 }
 
+function buildPhaseTabs(values){
+  document.getElementById('phaseTabs').innerHTML=values.map((f,i)=>
+    `<button class="phase-tab${i===0?' active':''}" data-fase="${esc(f)}">${esc(f)}</button>`
+  ).join('');
+}
+
 function renderPlanWithoutData(t){
-  // show current week structure, editable, without schema
+  // C22: show current week structure, editable, without schema
   const dates=getWeekDates();
   const days=state.lang==='en'?DAYS_EN:DAYS_NL;
   document.getElementById('phaseTabs').innerHTML='';
@@ -922,7 +1009,7 @@ function renderPlanRows(rows,t,faseBadge=''){
   const el=document.getElementById('planContent');
   if(!rows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;return;}
 
-  // filter behind icon, deselectable
+  // C49: filter behind icon, deselectable
   const activeTypes=[...new Set(rows.map(r=>r.type).filter(Boolean))];
   const filterOpen=state.planFilterOpen||false;
   let filterH=`<div style="display:flex;justify-content:flex-end;margin-bottom:${filterOpen?'8':'0'}px">
@@ -950,7 +1037,7 @@ function renderPlanRows(rows,t,faseBadge=''){
   h+='<div class="plan-swipe-wrapper" id="planSwipeWrapper"><div class="plan-swipe-inner" id="planSwipeInner">';
   h+='<div class="plan-table">';
 
-  // group by date, show all activities per day
+  // C57: group by date, show all activities per day
   const byDate=[];
   rows.forEach(row=>{
     const last=byDate[byDate.length-1];
@@ -966,7 +1053,7 @@ function renderPlanRows(rows,t,faseBadge=''){
     const work=dayRows.every(r=>r.type==='work');
     const ti=typeOf(row.type);
 
-    // fase float label when fase changes
+    // C29: fase float label when fase changes
     if(row.fase&&row.fase!==lastFase){
       h+=`</div><div class="fase-float">${esc(row.fase)}</div><div class="plan-table" style="border-top:none;border-radius:0 0 6px 6px">`;
       lastFase=row.fase;
@@ -1001,7 +1088,7 @@ function renderPlanRows(rows,t,faseBadge=''){
 
   h+='</div>';
 
-  // next-fase nudge at bottom
+  // C29: next-fase nudge at bottom
   const faseValues=state.data?[...new Set(state.data.map(r=>r.fase||'').filter(Boolean))]:[];
   const activeFase=document.getElementById('phaseTabs')?.querySelector('.phase-tile.active')?.dataset.fase;
   if(activeFase&&faseValues.length>1){
@@ -1036,7 +1123,7 @@ function selectFaseByName(fase){
   if(tile)selectFase(tile,fase);
 }
 
-// swipe gesture for Training tab
+// C27: swipe gesture for Training tab
 function initPlanSwipe(){
   const wrapper=document.getElementById('planSwipeWrapper');
   if(!wrapper)return;
@@ -1070,7 +1157,7 @@ function swipePlanFase(dir){
 
 // ── DAY MODAL (C22 + C28) ─────────────────────────────────────────────────────
 function openDayModal(dateStr,targetRowIndex){
-  // support multiple rows per date
+  // C34: support multiple rows per date
   const rows=state.data?.filter(r=>r.datum===dateStr)||[];
   // If targetRowIndex given, show that specific row; else show all
   // Priority: state.editingRowIndex > targetRowIndex > first row
@@ -1083,7 +1170,7 @@ function openDayModal(dateStr,targetRowIndex){
   const content=document.getElementById('dayModalContent');
   state.editingFeedback=false;state.selectedRating=0;
 
-  // date kicker + title layout
+  // C37: date kicker + title layout
   const d=parseDate(dateStr);
   const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
   const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
@@ -1093,7 +1180,7 @@ function openDayModal(dateStr,targetRowIndex){
   </div>`;
 
   if(!row){
-    // empty day — type picker at top, then training details, notes at bottom (smaller)
+    // C28: empty day — type picker at top, then training details, notes at bottom (smaller)
     const typeOptions=ACTIVITY_OPTIONS.map(o=>
       `<option value="${o.value}"${o.value==='rest'?' selected':''}>${o.nl}</option>`
     ).join('');
@@ -1122,10 +1209,14 @@ function openDayModal(dateStr,targetRowIndex){
       </div>
       <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
     </div>
-`;
+    <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:0;padding:10px 14px;margin-bottom:10px">
+      <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:6px">${T('notes_q')}</div>
+      <textarea class="feedback-textarea" id="modalNoteText" style="height:56px;margin-bottom:8px"></textarea>
+      <button class="btn-secondary" style="margin-top:0" onclick="saveModalNote('${dateStr}')">${T('notes_save')}</button>
+    </div>`;
   }else{
     const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
-    // cleaner card, C34: show all rows if multiple
+    // C37: cleaner card, C34: show all rows if multiple
     rows.forEach((r,idx)=>{
       const rti=typeOf(r.type);
       const rb=r.type==='work'?'work-border':r.type==='race'?'race-border':'';
@@ -1188,14 +1279,23 @@ function openDayModal(dateStr,targetRowIndex){
         </div>
         <div style="margin-bottom:8px">
           <label class="settings-label">${T('type_label')}</label>
-          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="document.getElementById('raceGoalWrap')&&(document.getElementById('raceGoalWrap').style.display=this.value==='race'?'block':'none')">
+          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="const rfw=document.getElementById('raceFieldsWrap');if(rfw)rfw.style.display=this.value==='race'?'block':'none'">
             ${typeOptions}
             <option value="${esc(row.type||'')}"${!TYPES[row.type]?' selected':''}>${esc(row.type||'')}</option>
           </select>
         </div>
-        <div id="raceGoalWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
-          <label class="settings-label">Doeltijd (optioneel)</label>
-          <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
+        <div id="raceFieldsWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
+          <div style="margin-bottom:8px">
+            <label class="settings-label">Type race</label>
+            <select class="plan-edit-field" id="edit-race-type" style="width:100%;padding:8px 10px">
+              <option value="">—</option>
+              ${['Weg','Baan','Trail','Ultra','Virtueel'].map(t=>`<option value="${t}"${(row.race_type||'')==t?' selected':''}>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="settings-label">Doeltijd (optioneel)</label>
+            <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
+          </div>
         </div>
         <div style="margin-bottom:8px">
           <label class="settings-label">${'Afstand'}</label>
@@ -1265,23 +1365,44 @@ async function handleModalFeedback(datum){
   else{btn.disabled=false;btn.textContent=T('feedback_save');}
 }
 
+async function saveModalNote(datum){
+  const tekst=document.getElementById('modalNoteText')?.value||'';
+  if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return;}
+  try{
+    const params=new URLSearchParams({action:'setFeedback',datum,rating:0,tekst});
+    if(state.sheetName)params.set('sheetName',state.sheetName);
+    const json=await(await fetch(state.scriptUrl+'?'+params)).json();
+    if(json.status!=='ok')throw new Error(json.message);
+    if(state.data){const row=state.data.find(r=>r.datum===datum);if(row)row.feedback=tekst;}
+    showToast('✓ '+T('notes_save'));closeDayModal();
+  }catch(e){showToast('❌ '+e.message);}
+}
+
 async function saveDayEdit(datum){
   const titel=document.getElementById('edit-titel')?.value.trim()||'';
   const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
   const type=toSheetType(typeRaw)||typeRaw;
   const km=document.getElementById('edit-km')?.value.trim()||'';
-  const detail=document.getElementById('edit-detail')?.value.trim()||'';
+  const detailRaw=document.getElementById('edit-detail')?.value.trim()||'';
   const fase=getFaseForDate(datum);
-  const fields={datum,titel,type,km,detail,fase};
+  const isRaceType=typeRaw==='race';
+  const goal=isRaceType?(document.getElementById('edit-goal')?.value.trim()||''):'';
+  const raceType=isRaceType?(document.getElementById('edit-race-type')?.value||''):'';
+  const detail=isRaceType&&goal?`${detailRaw?detailRaw+' ':''}(Doel: ${goal})`:detailRaw;
+  const fields={datum,titel,type,km,detail,fase,...(isRaceType?{race_type:raceType}:{})};
 
   // Use only the explicitly set editingRowIndex — never infer from datum
   const editingRowIndex=state.editingRowIndex||null;
 
-  if(state.scriptUrl||isOAuthMode()){
+  if(state.scriptUrl){
     try{
-      if(editingRowIndex)await updateActivity(editingRowIndex,fields);
-      else await createActivity(fields);
+      if(editingRowIndex){
+        await updateActivity(editingRowIndex,fields);
+      }else{
+        await createActivity(fields);
+      }
     }catch(e){
+      // Fallback: update local cache only
       if(state.data){
         let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
         if(row)Object.assign(row,fields);
@@ -1291,6 +1412,7 @@ async function saveDayEdit(datum){
       closeDayModal();renderActiveView();return;
     }
   }else{
+    // No sheet — local only
     if(state.data){
       let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
       if(row)Object.assign(row,fields);
@@ -1327,9 +1449,11 @@ async function deleteActivity(rowIndex){
   closeDayModal();
   renderActiveView();renderHeader();
   showToast('Verwijderd',true);
-  if(state.scriptUrl||isOAuthMode()){
+  // Delete from sheet in background
+  if(state.scriptUrl){
     try{await sheetDeleteRow(rowIndex);}
     catch(e){
+      // Rollback: re-add to local cache
       if(row&&state.data)state.data.push(row);
       showToast('❌ Verwijderen mislukt');
       renderActiveView();
@@ -1337,7 +1461,7 @@ async function deleteActivity(rowIndex){
   }
 }
 
-// open ADD mode (new activity), independent of existing row
+// C44: open ADD mode (new activity), independent of existing row
 // Open day modal for a specific row by rowIndex (multi-activity days)
 function openDayModalRow(rowIndex,dateStr){
   // Pre-set the editingRowIndex so openDayModal uses the right row
@@ -1397,9 +1521,62 @@ function closeDayModal(e){
 // ── STATS OVERLAY ─────────────────────────────────────────────────────────────
 function openStats(){
   const el=document.getElementById('statsOverlay');
-  if(!el)return;
+  const content=document.getElementById('statsContent');
+  if(!el||!content)return;
+  const t=todayStr();
+  const past=state.data?state.data.filter(r=>r.datum<=t):[];
+  const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const runCount=past.filter(r=>hasType(r.type,'run')).length;
+  const fbRows=past.filter(r=>r.feedback);
+  const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
+  const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
+  const sheetRaceRows3=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const nextRace3=sheetRaceRows3.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows3[0];
+  const daysLeft=nextRace3?daysUntil(nextRace3.datum):0;
+  const mondayStr=getMondayStr();
+  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+
+  const tiles=[
+    {label:T('stats_total'),val:totalKm.toFixed(0),unit:T('stats_done'),hi:true},
+    {label:T('stats_days'),val:daysLeft,unit:nextRace3?.titel||nextRace3?.datum||'—',hi:true},
+    {label:T('stats_runs'),val:runCount,unit:T('stats_sessions'),hi:false},
+    {label:T('stats_week'),val:weekKm.toFixed(0),unit:T('stats_week_sub'),hi:true},
+    avgRating>0?{label:T('stats_feel'),val:avgRating.toFixed(1),unit:`/5 · ${ratingRows.length} ${T('stats_fb_sub')}`,hi:false}:null,
+    {label:T('stats_feedback'),val:fbRows.length,unit:T('stats_fb_sub'),hi:false},
+  ].filter(Boolean);
+
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div>
+      <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">Stats · all-time</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:22px;text-transform:uppercase;margin-top:2px">Jouw run</div>
+    </div>
+    <button onclick="closeStats()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sluit ✕</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">`;
+  tiles.forEach(t=>{
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px">
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${esc(t.label)}</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:32px;line-height:1;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:4px">${esc(t.unit)}</div>
+    </div>`;
+  });
+  h+='</div>';
+  if(fbRows.length){
+    h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('stats_recent')}</div>`;
+    fbRows.slice(-3).reverse().forEach(row=>{
+      const d=parseDate(row.datum);
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between">
+          <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'Training')}</div>
+          <span style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
+        </div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--text);margin-top:4px;line-height:1.5">${esc(row.feedback)}</div>
+      </div>`;
+    });
+  }
+  content.innerHTML=h;
   el.style.display='flex';
-  renderStats();
 }
 
 function closeStats(e){
@@ -1424,7 +1601,7 @@ function initWeekSwipe(){
 }
 
 // helper: get week dates for a given offset
-// week tile click — only border highlight, never opens modal
+// C51: week tile click — only border highlight, never opens modal
 function weekTileClick(date){
   const t=todayStr();
   // Remove selected class from all, add to clicked
@@ -1475,7 +1652,7 @@ function renderCalendar(){
   for(let i=1;i<=lastDay.getDate();i++)cells.push({date:new Date(y,m,i),other:false});
   while(cells.length%7!==0){const p=cells[cells.length-1].date;const nd=new Date(p);nd.setDate(p.getDate()+1);cells.push({date:nd,other:true});}
 
-  // all races come from sheet; no localStorage races
+  // C34: all races come from sheet; no localStorage races
   const sheetRaces=(state.data||[]).filter(r=>r.type==='race'&&r.datum);
   // Build training day marks from data
   const trainingDates=new Set();
@@ -1485,7 +1662,7 @@ function renderCalendar(){
   if(state.data){
     state.data.forEach(r=>{
       if(!r.datum)return;
-      // skip werk and rust from calendar dots
+      // C43: skip werk and rust from calendar dots
       if(r.type==='work'||r.type==='rest')return;
       if(!r.type==='race'){
         trainingDates.add(r.datum);
@@ -1519,7 +1696,7 @@ function renderCalendar(){
 
     else if(trainingDates.has(ds)&&!other)dot=`<div style="width:5px;height:5px;border-radius:50%;border:1px solid var(--accent);margin:3px auto 0"></div>`;
 
-    // race day = red circle around number
+    // C35: race day = red circle around number
     const isRaceDayThis=isRaceDay&&!other;
     if(other){h+=`<div style="padding:8px 0 10px;text-align:center"></div>`;return;}
     const textColor=isToday?'#000':isRaceDayThis?'#fff':'var(--text)';
@@ -1543,7 +1720,7 @@ function renderCalendar(){
   </div>`;
 
   if(state.calSelectedDate){
-    // show all sheet rows for this date
+    // C34: show all sheet rows for this date
     const selRows=(state.data||[]).filter(r=>r.datum===state.calSelectedDate);
     const selRaceRows=selRows.filter(r=>r.type==='race');
     if(selRows.length){
@@ -1563,7 +1740,7 @@ function renderCalendar(){
     }
   }
 
-  // month races from sheet
+  // C34: month races from sheet
   const monthRaces=sheetRaces.filter(r=>{const rd=parseDate(r.datum);return rd.getFullYear()===y&&rd.getMonth()===m;}).sort((a,b)=>a.datum.localeCompare(b.datum));
   h+=`<div><div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('races_this_month')}</div>`;
   if(!monthRaces.length){
@@ -1588,7 +1765,7 @@ function renderCalendar(){
   h+='</div>';
   h+='</div>'; // close padding wrapper
   el.innerHTML=h;
-  // calendar swipe
+  // C58: calendar swipe
   if(!el._calSwipe){
     el._calSwipe=true;
     let sx=0;
@@ -1797,7 +1974,6 @@ function renderStats(){
 
   if(!state.data){h+=noSchemaHint();el.innerHTML=h;return;}
 
-  // ── Km per week — lijngrafiek over alle weken in het schema ──────────────
   const weekMap={};
   (state.data||[]).forEach(r=>{
     const km=parseFloat(r.km)||0;
@@ -1816,26 +1992,19 @@ function renderStats(){
     const cw=W-PL-PR,ch=H-PT-PB;
     const cx=i=>PL+i*(cw/(n-1));
     const cy=v=>PT+ch-(v/maxKm*ch);
-
     const pastPts=weekKeys.map((wk,i)=>wk<=currentWk?`${cx(i).toFixed(1)},${cy(vals[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
     const futurePts=weekKeys.map((wk,i)=>wk>=currentWk?`${cx(i).toFixed(1)},${cy(vals[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
-
     const monthLabels=[];
     weekKeys.forEach((wk,i)=>{
       const d=parseDate(wk);
       const prev=i>0?parseDate(weekKeys[i-1]):null;
-      if(i===0||!prev||prev.getMonth()!==d.getMonth())
-        monthLabels.push({x:cx(i),label:mo[d.getMonth()]});
+      if(i===0||!prev||prev.getMonth()!==d.getMonth())monthLabels.push({x:cx(i),label:mo[d.getMonth()]});
     });
-
-    // Y-axis grid: 3 lines
     const gridLines=[0.33,0.66,1].map(f=>({y:cy(maxKm*f),val:Math.round(maxKm*f)}));
-
     h+=`<div style="margin:16px 0 4px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK</div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block;min-width:${Math.max(n*20,300)}px">
-      ${gridLines.map(({y,val})=>`
-        <line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/>
+      ${gridLines.map(({y,val})=>`<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/>
         <text x="${PL-2}" y="${(y+3).toFixed(1)}" font-size="7" fill="var(--faint)" font-family="monospace" text-anchor="end">${val}</text>`).join('')}
       ${futurePts?`<polyline points="${futurePts}" fill="none" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 3"/>`:''}
       ${pastPts?`<polygon points="${pastPts} ${cx(Math.min(currentIdx,n-1)).toFixed(1)},${(PT+ch).toFixed(1)} ${PL},${(PT+ch).toFixed(1)}" fill="var(--accent)" opacity="0.08"/>`:''}
@@ -1854,7 +2023,6 @@ function renderStats(){
     </svg></div>`;
   }
 
-  // ── Recente feedback ──────────────────────────────────────────────────────
   const recent=fbRows.slice(-8).reverse();
   if(recent.length){
     h+=`<div style="margin:16px 0 8px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${T('stats_recent')}</div><div class="feedback-history">`;
@@ -1871,320 +2039,9 @@ function renderStats(){
   el.innerHTML=h;
 }
 
-// ── SETTINGS ──────────────────────────────────────────────────────────────────
-function renderAccountSection(){
-  const el=document.getElementById('accountSection');if(!el)return;
-  const oauthEmail=typeof authEmail==='function'?authEmail():'';
-  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
-  if(oauthActive&&oauthEmail){
-    el.innerHTML=`<div class="account-row">
-      <div class="account-avatar" style="font-size:22px">🏃</div>
-      <div class="account-info">
-        <div class="account-email">${esc(oauthEmail)}</div>
-        <div class="account-status">Google · ${T('logged_in_as')}</div>
-      </div>
-      <button class="account-logout" onclick="authSignOut()">${T('logout_btn')}</button>
-    </div>`;
-  }else{
-    el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-      Log in met Google om je schema te koppelen en data te synchroniseren.
-    </div>
-    <button class="btn-primary" onclick="oauthConnectFlow()">Inloggen met Google</button>`;
-  }
+function openStats(){
+  const el=document.getElementById('statsOverlay');
+  if(!el)return;
+  el.style.display='flex';
+  renderStats();
 }
-
-// ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
-function renderConnectSection(){
-  const el=document.getElementById('connectSection');if(!el)return;
-  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
-  const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
-  const connected=oauthActive&&!!sheetId;
-  const legacyConnected=!!state.scriptUrl;
-
-  if(connected){
-    el.innerHTML=`
-      <div class="connect-btn connected" style="margin-bottom:10px;cursor:default">
-        <div class="cb-dot"></div>
-        <div class="cb-label">
-          <div class="cb-name">Schema gekoppeld ✓</div>
-          <div class="cb-status">${esc(authEmail()||'')}${state.sheetName?' · '+esc(state.sheetName):''}</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="btn-save" style="flex:1" onclick="oauthConnectFlow()">Ander schema</button>
-        <button class="disconnect-btn" style="flex:1" onclick="oauthDisconnect()">${T('connect_disconnect')}</button>
-      </div>
-      <a href="https://docs.google.com/spreadsheets/d/${esc(sheetId)}/edit" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none">Sheet openen ↗</a>
-      ${_devBlock()}`;
-    return;
-  }
-
-  el.innerHTML=`
-    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">
-      Koppel je Google Sheets trainingsschema om de app te gebruiken.
-    </div>
-    <button class="btn-primary" id="oauthConnectBtn" onclick="oauthConnectFlow()" style="width:100%;margin-bottom:8px">
-      Koppel met Google
-    </button>
-    ${legacyConnected?`<div class="connect-btn connected" style="margin-bottom:10px;cursor:default;opacity:0.6">
-      <div class="cb-dot"></div>
-      <div class="cb-label"><div class="cb-name">Apps Script actief (legacy)</div></div>
-    </div>`:''}
-    ${_devBlock()}`;
-}
-
-function _devBlock(){
-  return `<details style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
-    <summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;cursor:pointer">Dev — Apps Script</summary>
-    <div class="settings-field" style="margin-top:8px">
-      <label class="settings-label">Apps Script URL</label>
-      <div class="settings-hint" style="margin-bottom:6px">${T('connect_hint')}</div>
-      <input type="url" class="settings-input" id="scriptUrl" placeholder="${T('connect_url_placeholder')}"
-        value="${esc(state.scriptUrl)}">
-    </div>
-    <button class="btn-save" style="margin-top:4px" onclick="saveSettings()">Opslaan</button>
-  </details>`;
-}
-
-function oauthDisconnect(){
-  if(typeof authClear==='function')authClear();
-  localStorage.removeItem('oauth_sheetId');
-  state.data=null;
-  renderConnectSection();renderHeader();renderActiveView();
-  showToast('Ontkoppeld');
-}
-// Telegram verify
-function verifyTelegram(){
-  const user=document.getElementById('telegramUser')?.value.trim();
-  if(!user){showToast(T('notif_telegram'));return;}
-  showToast(T('tg_verifying'));
-  // Show hint to user
-  setTimeout(()=>showToast(T('tg_verify_hint')),2600);
-}
-
-function updateTelegramStatus(){
-  const dot=document.getElementById('tgDot'),txt=document.getElementById('tgStatusText');
-  const linked=!!localStorage.getItem('telegramLinked');
-  if(dot)dot.className='tg-dot'+(linked?' linked':'');
-  if(txt)txt.textContent=linked?T('tg_linked'):T('tg_not_linked');
-}
-
-function addPrField(){
-  const sel=document.getElementById('prDistSelect'),dist=sel.value;
-  if(!dist)return;sel.value='';
-  const prs=loadPRs();if(dist in prs)return;
-  prs[dist]='';persistPRs(prs);renderPrFields();
-}
-function removePrField(dist){const prs=loadPRs();delete prs[dist];persistPRs(prs);renderPrFields();}
-function updatePR(dist,val){const prs=loadPRs();prs[dist]=val;persistPRs(prs);}
-
-function renderPrFields(){
-  const c=document.getElementById('prFields');if(!c)return;
-  const prs=loadPRs(),active=PR_ORDER.filter(d=>d in prs);
-  if(!active.length){c.innerHTML=`<div style="font-size:11px;color:var(--faint);padding:4px 0">${T('pr_none')}</div>`;return;}
-  c.innerHTML=active.map(d=>`
-    <div class="pr-row">
-      <label class="pr-dist-lbl">${d}</label>
-      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
-      <button onclick="removePrField('${d}')" style="background:none;border:none;color:var(--faint);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button>
-    </div>`).join('');
-}
-
-function renderSettingsFields(){
-  // connect section is fully dynamic
-  renderConnectSection();
-  const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
-  const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
-  renderPrFields();renderAccountSection();updateTelegramStatus();applyI18n();
-}
-
-function saveSettingsName(){
-  localStorage.setItem('userName',document.getElementById('settingsName')?.value||'');
-  renderHeader();showToast(T('saved'));
-}
-
-function saveSettings(){
-  // Apps Script URL from dev section (optional)
-  const url=document.getElementById('scriptUrl')?.value.trim()||state.scriptUrl||'';
-  state.scriptUrl=url;if(url)localStorage.setItem('scriptUrl',url);
-  const sheetRaw=document.getElementById('sheetIdInput')?.value.trim()||'';
-  const sheetIdMatch=sheetRaw.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  const sid=sheetIdMatch?sheetIdMatch[1]:sheetRaw; // fallback: treat as raw ID
-  state.sheetId=sid;localStorage.setItem('sheetId',sid);
-  const sn=document.getElementById('sheetNameInput')?.value||'';
-  state.sheetName=sn;localStorage.setItem('sheetName',sn);
-  showToast(T('connecting'));
-  fetchData().then(()=>renderConnectSection());
-}
-
-function saveTelegram(){
-  localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
-  updateTelegramStatus();showToast(T('saved'));
-}
-
-// ── I18N ──────────────────────────────────────────────────────────────────────
-function applyI18n(){
-  const tabKeys=['today','week','plan','calendar'];
-  document.querySelectorAll('#bottomNav .bn-label').forEach((el,i)=>{el.textContent=T(tabKeys[i]);});
-  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=T(el.dataset.i18n);});
-  document.querySelectorAll('[data-i18n-opt]').forEach(el=>{el.textContent=T(el.dataset.i18nOpt);});
-  const nlBtn=document.getElementById('langBtnNl'),enBtn=document.getElementById('langBtnEn');
-  if(nlBtn){nlBtn.style.opacity=state.lang==='nl'?'1':'0.35';nlBtn.style.transform=state.lang==='nl'?'scale(1.15)':'scale(1)';}
-  if(enBtn){enBtn.style.opacity=state.lang==='en'?'1':'0.35';enBtn.style.transform=state.lang==='en'?'scale(1.15)':'scale(1)';}
-  document.documentElement.lang=state.lang;
-  // Update banner text if visible
-  const b=document.getElementById('updateBanner');
-  if(b&&b.style.display!=='none'){
-    document.getElementById('updateBannerText').textContent=T('update_available');
-    b.querySelector('button').textContent=T('update_apply');
-  }
-}
-
-function setLang(lang){
-  state.lang=lang;localStorage.setItem('lang',lang);
-  applyI18n();applyTheme();renderHeader();renderActiveView();
-  showToast(T('saved')); // X14: toast after lang switch, already in new language
-}
-
-// ── UI ────────────────────────────────────────────────────────────────────────
-function switchTab(tab){
-  state.currentTab=tab;state.selectedRating=0;
-  document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
-  document.getElementById('scrollArea').scrollTop=0;
-  renderActiveView();
-}
-
-function hideLoading(){
-  const el=document.getElementById('loadingOverlay');
-  el.classList.add('hidden');setTimeout(()=>el.style.display='none',350);
-}
-
-function showToast(msg, undoable=false){
-  const el=document.getElementById('toast');
-  if(undoable&&state._undoBuffer){
-    el.innerHTML=`${msg} <button onclick="undoDelete()" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-left:8px;padding:0">Ongedaan maken</button>`;
-  }else{
-    el.textContent=msg;
-  }
-  el.classList.add('show');
-  clearTimeout(el._t);el._t=setTimeout(()=>{el.classList.remove('show');el.innerHTML='';},4000);
-}
-
-async function undoDelete(){
-  if(!state._undoBuffer)return;
-  clearTimeout(state._undoBuffer.timeout);
-  const row=state._undoBuffer.row;
-  state._undoBuffer=null;
-  document.getElementById('toast').classList.remove('show');
-  try{
-    await createActivity({
-      datum:row.datum, type:row.type, titel:row.titel,
-      detail:row.detail, km:row.km, fase:row.fase, feedback:row.feedback,
-    });
-    showToast('↩ Hersteld');
-  }catch(e){showToast('❌ '+e.message);}
-}
-
-function updateConnectionStatus(ok,err){
-  // Update status dot/text if they exist in DOM (connect section when disconnected)
-  const dot=document.getElementById('statusDot'),txt=document.getElementById('statusText');
-  if(dot)dot.className='status-dot '+(ok?'ok':'err');
-  if(txt)txt.textContent=ok?T('connected'):`${T('conn_err')}: ${err||'?'}`;
-  // If connected, re-render the connect section to show connected state
-  if(ok&&state.currentTab==='settings')renderConnectSection();
-}
-
-// ── ONBOARDING ────────────────────────────────────────────────────────────────
-// U1: click outside sheet dismisses (wegklikbaar)
-function onboardingOverlayClick(e){
-  if(e.target===document.getElementById('onboarding'))onboardingFinish();
-}
-
-function shouldShowOnboarding(){
-  return loadRaces().length===0&&!localStorage.getItem('userName');
-}
-
-function onboardingNext(){
-  // B7: name removed from onboarding
-  const raceName=document.getElementById('obRace')?.value.trim();
-  const raceDate=document.getElementById('obDate')?.value;
-  const dist=document.getElementById('obDist')?.value;
-  const time=document.getElementById('obTime')?.value.trim();
-  if(raceName&&raceDate){
-    const races=loadRaces();
-    races.push({id:Date.now().toString(),name:raceName,date:raceDate,dist:dist||'',mainGoal:true});
-    persistRaces(races);
-  }
-  // X12: removed legacy goal object write
-  document.getElementById('onboardingStep1').style.display='none';
-  document.getElementById('onboardingStep2').style.display='block';
-}
-
-function addObPrField(){
-  const sel=document.getElementById('obPrDist'),dist=sel.value;
-  if(!dist)return;sel.value='';
-  const prs=loadPRs();if(dist in prs)return;
-  prs[dist]='';persistPRs(prs);
-  const c=document.getElementById('obPrFields');
-  c.innerHTML=PR_ORDER.filter(d=>d in prs).map(d=>`
-    <div class="pr-row" style="margin-bottom:8px">
-      <label class="pr-dist-lbl">${d}</label>
-      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
-    </div>`).join('');
-}
-
-function onboardingFinish(){
-  document.getElementById('onboarding').style.display='none';
-  renderHeader();renderActiveView();
-}
-
-// ── INIT ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded',()=>{
-  initServiceWorker();
-
-  document.getElementById('bottomNav').addEventListener('click',e=>{
-    const tab=e.target.closest('.bn-item')?.dataset.tab;if(tab)switchTab(tab);
-  });
-
-  // Check URL params for sheet config (X2/X3)
-  const urlParams=new URLSearchParams(window.location.search);
-  if(urlParams.get('sheet'))state.scriptUrl=urlParams.get('sheet');
-  if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
-
-  applyI18n();renderHeader();
-
-  // E7: check if returning from OAuth redirect (code in URL)
-  const oauthCode=new URLSearchParams(window.location.search).get('code');
-  if(oauthCode){
-    history.replaceState({},'',window.location.pathname);
-    (async()=>{
-      try{
-        await _exchangeCode(oauthCode);
-        hideLoading();
-        renderHeader();renderAccountSection();renderConnectSection();
-        switchTab('settings');
-        // Small delay so DOM is ready, then show sheet picker
-        setTimeout(()=>showOAuthConnectSheet(),300);
-      }catch(e){
-        showToast('❌ OAuth fout: '+e.message);
-        hideLoading();renderActiveView();renderHeader();
-      }
-    })();
-    return;
-  }
-
-  // E7: if OAuth token + sheet already stored, fetch directly
-  if(typeof isOAuthMode==='function'&&isOAuthMode()){
-    fetchData();
-    return;
-  }
-
-  if(shouldShowOnboarding()){
-    hideLoading();document.getElementById('onboarding').style.display='flex';
-  }else if(state.scriptUrl){
-    fetchData();
-  }else{
-    setTimeout(()=>{hideLoading();renderActiveView();},600);
-  }
-});
