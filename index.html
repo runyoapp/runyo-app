@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
@@ -121,7 +122,7 @@
       <span class="bn-label"></span>
     </button>
   </div>
-  <div id="sidebarPlanInfo">
+  <div id="sidebarPlanInfo" style="display:none">
     <div style="font-family:var(--font-m);font-size:9px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">PLAN</div>
     <div id="sbFaseLabel" style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text2);margin-bottom:2px">—</div>
     <div id="sbWeekLabel" style="font-family:var(--font-m);font-size:9px;color:var(--muted)">—</div>
@@ -134,20 +135,14 @@
 <div class="app">
 
   <div class="topbar">
-    <div style="flex-shrink:0">
-      <div class="topbar-logo"><span class="logo-running">RUNNING</span><span class="logo-x">X</span></div>
-      <div class="topbar-sub" id="topbarName"></div>
-    </div>
-    <div style="flex:1"></div>
-
-    <!-- DEV: force refresh button — remove when done -->
-    <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="margin-right:4px;color:#ff6b35">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <div id="topbarAuth" style="display:flex;align-items:center;gap:8px;flex:1"></div>
+    <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
       </svg>
     </button>
-    <div id="topbarAuth" style="display:flex;align-items:center;gap:8px"></div>
+    <button onclick="toggleTheme()" id="themeToggleBtn" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px 8px;line-height:1">🌙</button>
   </div>
 
   <div class="desktop-topbar" id="desktopTopbar" style="display:none">
@@ -160,11 +155,14 @@
     </div>
     <div class="dt-actions">
 
-      <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-      </button>
-      <div id="topbarAuthDesktop" style="display:flex;align-items:center;gap:8px"></div>
-    </div>
+```
+  <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+  </button>
+  <div id="topbarAuthDesktop" style="display:flex;align-items:center;gap:8px"></div>
+</div>
+```
+
   </div>
   <div class="races-bar" id="racesBar"></div>
 
@@ -175,108 +173,86 @@
 
   <div class="scroll-area" id="scrollArea">
 
-    <div class="view active" id="view-today"><div id="todayContent"></div></div>
-    <div class="view" id="view-week"><div id="weekContent"></div></div>
+```
+<div class="view active" id="view-today"><div id="todayContent"></div></div>
+<div class="view" id="view-week"><div id="weekContent"></div></div>
 
-    <div class="view" id="view-plan" style="padding:0">
-      <div id="planPageTitle"></div>
-      <div class="phase-strip" id="phaseTabs" style="padding:0 16px;margin-top:10px"></div>
-      <div id="planContent" style="padding:0 16px 16px"></div>
-    </div>
+<div class="view" id="view-plan" style="padding:0">
+  <div id="planPageTitle"></div>
+  <div class="phase-strip" id="phaseTabs" style="padding:0 16px;margin-top:10px"></div>
+  <div id="planContent" style="padding:0 16px 16px"></div>
+</div>
 
-    <div class="view" id="view-calendar"><div id="calContent"></div></div>
+<div class="view" id="view-calendar"><div id="calContent"></div></div>
 
-    <div class="view" id="view-settings">
+<div class="view" id="view-settings">
 
-      <div class="settings-group">
-        <div class="settings-group-title">App</div>
-        <div class="settings-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <span style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Thema</span>
-            <button onclick="toggleTheme()" id="themeToggleBtn" style="background:none;border:1px solid var(--border);padding:6px 12px;cursor:pointer;font-size:18px;border-radius:999px">🌙</button>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <span style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Taal</span>
-            <div style="display:flex;gap:4px">
-              <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇳🇱</button>
-              <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
-            </div>
-          </div>
-          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">RunningX v3.1.0</div>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_account"></div>
-        <div class="settings-section" id="accountSection"></div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_profile"></div>
-        <div class="settings-section">
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="your_name"></label>
-            <input type="text" class="settings-input" id="settingsName" oninput="saveSettingsName()">
-          </div>
-        </div>
-        <div class="settings-section">
-          <div class="settings-title" data-i18n="pr_title"></div>
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="pr_add"></label>
-            <select class="settings-input" id="prDistSelect" onchange="addPrField()">
-              <option value="">---</option>
-              <option value="800m">800m</option>
-              <option value="1500m">1500m</option>
-              <option value="1mile">1 mile</option>
-              <option value="5km">5 km</option>
-              <option value="10km">10 km</option>
-              <option value="10mile">10 mile</option>
-              <option value="HM" data-i18n-opt="hm"></option>
-              <option value="M" data-i18n-opt="marathon"></option>
-            </select>
-          </div>
-          <div id="prFields"></div>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title">Trainingsschema</div>
-        <div class="settings-section" id="connectSection"></div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_notif"></div>
-        <div class="settings-section">
-          <div class="settings-title" data-i18n="notif_telegram_title"></div>
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="notif_telegram"></label>
-            <input type="text" class="settings-input" id="telegramUser" placeholder="@gebruikersnaam" oninput="saveTelegram()">
-            <div class="settings-hint" data-i18n="notif_hint"></div>
-          </div>
-          <div class="telegram-status" id="telegramStatus">
-            <div class="tg-dot" id="tgDot"></div>
-            <span id="tgStatusText" data-i18n="tg_not_linked"></span>
-          </div>
-          <button class="btn-save" style="margin-top:10px" onclick="verifyTelegram()" id="tgVerifyBtn" data-i18n="tg_verify"></button>
-          <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
-            <div class="settings-title" style="margin-bottom:10px">Meldingen</div>
-            <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer">
-              <input type="checkbox" id="notifDaily" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
-              <span><span style="display:block;font-size:12px;color:var(--text)">Dagelijks schema</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--faint)">Dagelijks bericht met je trainingsplan</span></span>
-            </label>
-            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-              <input type="checkbox" id="notifFeedback" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
-              <span><span style="display:block;font-size:12px;color:var(--text)">Feedback verzoeken</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--faint)">Bericht na actieve training om te beoordelen</span></span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
+  <div class="settings-group">
+    <div class="settings-group-title" data-i18n="sg_account"></div>
+    <div class="settings-section" id="accountSection"></div>
   </div>
 
+  <div class="settings-group">
+    <div class="settings-group-title" data-i18n="sg_profile"></div>
+    <div class="settings-section">
+      <div class="settings-field">
+        <label class="settings-label" data-i18n="your_name"></label>
+        <input type="text" class="settings-input" id="settingsName" oninput="saveSettingsName()">
+      </div>
+    </div>
+  </div>
 
+  <div class="settings-group">
+    <div class="settings-group-title">Trainingsschema</div>
+    <div class="settings-section" id="connectSection"></div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title" data-i18n="sg_notif"></div>
+    <div class="settings-section">
+      <div class="settings-title" data-i18n="notif_telegram_title"></div>
+      <div class="settings-field">
+        <label class="settings-label" data-i18n="notif_telegram"></label>
+        <input type="text" class="settings-input" id="telegramUser" placeholder="@gebruikersnaam" oninput="saveTelegram()">
+        <div class="settings-hint" data-i18n="notif_hint"></div>
+      </div>
+      <div class="telegram-status" id="telegramStatus">
+        <div class="tg-dot" id="tgDot"></div>
+        <span id="tgStatusText" data-i18n="tg_not_linked"></span>
+      </div>
+      <button class="btn-save" style="margin-top:10px" onclick="verifyTelegram()" id="tgVerifyBtn" data-i18n="tg_verify"></button>
+      <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
+        <div class="settings-title" style="margin-bottom:10px">Meldingen</div>
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" id="notifDaily" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
+          <span><span style="display:block;font-size:12px;color:var(--text)">Dagelijks schema</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--faint)">Dagelijks bericht met je trainingsplan</span></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="notifFeedback" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
+          <span><span style="display:block;font-size:12px;color:var(--text)">Feedback verzoeken</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--faint)">Bericht na actieve training om te beoordelen</span></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <div class="settings-group-title">App</div>
+    <div class="settings-section">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Taal</span>
+        <div style="display:flex;gap:4px">
+          <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇳🇱</button>
+          <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">RunningX v3.1.0</div>
+    </div>
+  </div>
+
+</div>
+```
+
+  </div>
 
 </div>
 
@@ -288,7 +264,10 @@
 </div>
 
 <script src="rx-icons.js"></script>
+
 <script src="auth.js"></script>
+
 <script src="app.js"></script>
+
 </body>
 </html>
