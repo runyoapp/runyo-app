@@ -42,7 +42,17 @@ function authClear(){
   [GAUTH.TOKEN_KEY,GAUTH.EXPIRY_KEY,GAUTH.EMAIL_KEY,'gauth_refresh'].forEach(k=>localStorage.removeItem(k));
 }
 function authEmail(){return localStorage.getItem(GAUTH.EMAIL_KEY)||'';}
-function authSheetId(){return localStorage.getItem(GAUTH.SHEET_ID_KEY)||'';}
+function authSheetId(){
+  const direct=localStorage.getItem(GAUTH.SHEET_ID_KEY)||'';
+  if(direct)return direct;
+  // Fallback: look up by email
+  const email=localStorage.getItem(GAUTH.EMAIL_KEY)||'';
+  if(email){
+    const saved=localStorage.getItem('sheetId_'+email)||'';
+    if(saved){authSetSheetId(saved);return saved;}
+  }
+  return '';
+}
 function authSetSheetId(id){localStorage.setItem(GAUTH.SHEET_ID_KEY,id);}
 
 // ── OAuth flow — popup-based (PKCE + postMessage) ────────────────────────────
