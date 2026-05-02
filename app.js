@@ -560,8 +560,33 @@ function openDayFromRacesBar(datum){
 
 function renderHeader(){
   const name=localStorage.getItem('userName')||'';
-  document.getElementById('topbarName').textContent=name;
+  const topbarName=document.getElementById('topbarName');
+  if(topbarName)topbarName.textContent=name;
   renderRacesBar();
+  renderSidebarPlanInfo();
+}
+
+function renderSidebarPlanInfo(){
+  // Only relevant on desktop
+  const planInfo=document.getElementById('sidebarPlanInfo');
+  if(!planInfo||planInfo.style.display==='none')return;
+  if(!state.data)return;
+  // Current fase
+  const t=todayStr();
+  const todayRow=state.data.find(r=>r.datum===t);
+  const fase=todayRow?.fase||state.currentFase||'';
+  const faseEl=document.getElementById('sbFaseLabel');
+  if(faseEl)faseEl.textContent=fase||'—';
+  // Week progress
+  const mondayStr=getMondayStr();
+  const weekRows=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=t);
+  const weekDone=weekRows.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const weekPlanned=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=(mondayStr.slice(0,8)+(parseInt(mondayStr.slice(8))+6).toString().padStart(2,'0'))).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const weekEl=document.getElementById('sbWeekLabel');
+  if(weekEl)weekEl.textContent=weekPlanned>0?`${weekDone.toFixed(0)} / ${weekPlanned.toFixed(0)} km`:'';
+  const pct=weekPlanned>0?Math.min(100,Math.round(weekDone/weekPlanned*100)):0;
+  const fillEl=document.getElementById('sbProgressFill');
+  if(fillEl)fillEl.style.width=pct+'%';
 }
 
 function renderRacesBar(){
@@ -2268,6 +2293,10 @@ function switchTab(tab){
   document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
   document.getElementById('scrollArea').scrollTop=0;
+  // Update desktop breadcrumb
+  const tabNames={today:'VANDAAG',week:'WEEK',plan:'TRAINING',calendar:'KALENDER',settings:'INSTELLINGEN'};
+  const dtEl=document.getElementById('dtCurrentTab');
+  if(dtEl)dtEl.textContent=tabNames[tab]||tab.toUpperCase();
   renderActiveView();
 }
 
@@ -2369,6 +2398,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
 
   applyI18n();renderHeader();
+  // Show/hide desktop-only elements
+  if(window.innerWidth>=768){
+    const sb=document.getElementById('sidebarPlanInfo');if(sb)sb.style.display='block';
+    const sl=document.getElementById('sidebarLogo');if(sl)sl.style.display='flex';
+    const dt=document.getElementById('desktopTopbar');if(dt)dt.style.display='flex';
+  }
+  window.addEventListener('resize',()=>{
+    const wide=window.innerWidth>=768;
+    const sb=document.getElementById('sidebarPlanInfo');if(sb)sb.style.display=wide?'block':'none';
+    const sl=document.getElementById('sidebarLogo');if(sl)sl.style.display=wide?'flex':'none';
+    const dt=document.getElementById('desktopTopbar');if(dt)dt.style.display=wide?'flex':'none';
+  });
 
   if(typeof isOAuthMode==='function'&&isOAuthMode()){
     fetchData();
