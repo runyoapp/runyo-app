@@ -8,7 +8,7 @@
   --rest-bg:rgba(158,158,158,0.10);--rest-text:#9E9E9E;
   --race-bg:rgba(244,67,54,0.14);  --race-text:#F44336;
   --work-bg:rgba(255,193,7,0.14);  --work-text:#FFC107;
-  --herstel-bg:rgba(156,39,176,0.14);--herstel-text:#9C27B0; 
+  --herstel-bg:rgba(156,39,176,0.14);--herstel-text:#9C27B0;
   --font-d:'Barlow Condensed','Impact',sans-serif;
   --font-m:'JetBrains Mono','ui-monospace',monospace;
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
@@ -32,11 +32,11 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font-d);font-
 /* RACES BAR — second header strip (RacesBar) */
 .races-bar{display:flex;align-items:stretch;gap:0;padding:10px 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none}
 .races-bar::-webkit-scrollbar{display:none}
-.rb-item{display:flex;flex-direction:column;align-items:flex-start;padding:0 14px 0 14px;border-left:1px solid var(--border);min-width:76px;max-width:116px;flex-shrink:0;gap:2px}
+.rb-item{display:flex;flex-direction:column;align-items:flex-start;padding:0 14px 0 14px;border-left:1px solid var(--border);min-width:80px;max-width:130px;flex-shrink:0;gap:2px}
 .rb-item:first-child{border-left:none;padding-left:0}
 .rb-title{font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--text);line-height:1.25;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:none}
-.rb-meta{font-family:var(--font-m);font-size:9px;color:var(--text);opacity:0.7;letter-spacing:0.3px}
-.rb-goal{font-family:var(--font-m);font-size:9px;color:var(--text);opacity:0.65}
+.rb-meta{font-family:var(--font-m);font-size:9px;color:#c0c0c0;letter-spacing:0.3px}
+.rb-goal{font-family:var(--font-m);font-size:9px;color:#c0c0c0}
 .rb-countdown{font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1;color:var(--accent);margin-top:2px}
 .rb-countdown span{font-family:var(--font-m);font-size:9px;color:var(--accent);font-weight:400;margin-left:2px}
 .rb-add{padding-left:14px;border-left:1px solid var(--border);display:flex;align-items:center;font-family:var(--font-d);font-weight:300;font-size:22px;color:var(--muted);cursor:pointer;transition:color 0.15s;flex-shrink:0}
