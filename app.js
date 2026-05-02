@@ -1,4 +1,4 @@
-// ── ACTIVITY DATA MODEL ───────────────────────────────────────────────────────
+// ── ACTIVITY DATA MODEL ──────────────────────────────────────────────────────
 // Canonical activity enum (English)
 const ACTIVITY_ENUM=['run','work','strength','mobility','rest','race','recovery'];
 
