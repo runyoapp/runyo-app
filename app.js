@@ -578,20 +578,18 @@ function renderHeader(){
 }
 
 function renderTopbarAuth(){
-  const el=document.getElementById('topbarAuth');
-  const el2=document.getElementById('topbarAuthDesktop');
-  if(!el&&!el2)return;
   const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  let html;
   if(loggedIn){
     const email=typeof authEmail==='function'?authEmail():'';
     const initials=(email||'?')[0].toUpperCase();
-    el.innerHTML=`<div style="position:relative">
+    html=`<div style="position:relative">
       <button id="avatarBtn" onclick="toggleAvatarMenu()" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#000;border:none;font-family:var(--font-d);font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center">${initials}</button>
       <div id="avatarMenu" style="display:none;position:absolute;right:0;top:40px;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:190px;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,0.45);overflow:hidden">
         <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
           <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(email)}</div>
         </div>
-        <button onclick="toggleAvatarMenu();switchTab('settings')" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
+        <button onclick="toggleAvatarMenu();switchTab('settings')" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Instellingen
         </button>
@@ -602,17 +600,13 @@ function renderTopbarAuth(){
       </div>
     </div>`;
   }else{
-    const _loginBtn=`<button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:7px 14px;font-family:var(--font-m);font-size:10px;font-weight:700;letter-spacing:0.5px;border-radius:6px;cursor:pointer">Inloggen</button>`;
+    html=`<button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:7px 14px;font-family:var(--font-m);font-size:10px;font-weight:700;letter-spacing:0.5px;border-radius:6px;cursor:pointer">Inloggen</button>`;
   }
-}
-
-function _syncAuthSlot(){
   const el=document.getElementById('topbarAuth');
   const el2=document.getElementById('topbarAuthDesktop');
-  if(el&&el2)el2.innerHTML=el.innerHTML;
+  if(el)el.innerHTML=html;
+  if(el2)el2.innerHTML=html;
 }
-
-  _syncAuthSlot();
 function toggleAvatarMenu(){
   const m=document.getElementById('avatarMenu');if(!m)return;
   const open=m.style.display==='block';
