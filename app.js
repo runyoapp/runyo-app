@@ -544,10 +544,7 @@ function openWeekAddActivity(){
 }
 
 function openDayFromRacesBar(datum){
-  // Open race edit modal directly
-  const r=state.data?.find(row=>row.datum===datum&&row.type==='race');
-  if(r?.rowIndex)openRaceModalFromSheet(r.rowIndex);
-  else openDayModal(datum);
+  openDayModal(datum);
 }
 
 function renderSidebarPlanInfo(){
@@ -581,9 +578,12 @@ function renderTopbarAuth(){
   const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
   const email=loggedIn&&typeof authEmail==='function'?authEmail():'';
   const initials=email?email[0].toUpperCase():'?';
+  // Settings gear icon (shown when NOT logged in, instellingen via gear)
+  const gearSvg=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
   const btnHtml=loggedIn
     ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#000;border:none;font-family:var(--font-d);font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
-    :`<button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:7px 14px;font-family:var(--font-m);font-size:10px;font-weight:700;letter-spacing:0.5px;border-radius:6px;cursor:pointer">Inloggen</button>`;
+    :`<button onclick="switchTab('settings')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center">${gearSvg}</button>
+      <button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:7px 14px;font-family:var(--font-m);font-size:10px;font-weight:700;letter-spacing:0.5px;border-radius:6px;cursor:pointer">Inloggen</button>`;
   const el=document.getElementById('topbarAuth');
   const el2=document.getElementById('topbarAuthDesktop');
   if(el)el.innerHTML=btnHtml;
