@@ -35,8 +35,8 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font-d);font-
 .rb-item{display:flex;flex-direction:column;align-items:flex-start;padding:0 14px 0 14px;border-left:1px solid var(--border);min-width:80px;max-width:130px;flex-shrink:0;gap:2px}
 .rb-item:first-child{border-left:none;padding-left:0}
 .rb-title{font-family:var(--font-m);font-size:10px;font-weight:700;color:var(--text);line-height:1.25;white-space:normal;overflow-wrap:anywhere;word-break:break-word;max-width:none}
-.rb-meta{font-family:var(--font-m);font-size:9px;color:#c0c0c0;letter-spacing:0.3px}
-.rb-goal{font-family:var(--font-m);font-size:9px;color:#c0c0c0}
+.rb-meta{font-family:var(--font-m);font-size:10px;color:#d0d0d0;letter-spacing:0.3px}
+.rb-goal{font-family:var(--font-m);font-size:10px;color:#d0d0d0}
 .rb-countdown{font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1;color:var(--accent);margin-top:2px}
 .rb-countdown span{font-family:var(--font-m);font-size:9px;color:var(--accent);font-weight:400;margin-left:2px}
 .rb-add{padding-left:14px;border-left:1px solid var(--border);display:flex;align-items:center;font-family:var(--font-d);font-weight:300;font-size:22px;color:var(--muted);cursor:pointer;transition:color 0.15s;flex-shrink:0}
