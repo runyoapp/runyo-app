@@ -603,21 +603,21 @@ function renderRacesBar(){
     const distStr=kmRaw?(kmVal>100?`${kmRaw} m`:`${kmRaw} km`):'';
     // raceType + mainGoal from localStorage (keyed by date)
     const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
-    const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
+    const iconKey=raceTypeIconKey(lr?.raceType||r.race_type||'',r.km);
     const isMain=!!lr?.mainGoal;
-    // Title font: larger for short names
     const titleLen=(r.titel||'').length;
-    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
-      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
-        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
+    const titleSize=titleLen<=6?'15px':titleLen<=10?'13px':titleLen<=16?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:88px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      <div style="flex:1">
+        ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ DOEL</div>`:''}
+        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+          <div style="margin-top:2px;flex-shrink:0">${RXIcon(iconKey,11,'var(--race-text)','var(--race-text)')}</div>
+          <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
+        </div>
+        ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+        ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
       </div>
-      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
-      <div style="flex:1"></div>
-      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
+      <div class="rb-countdown" style="margin-top:4px">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
   // C50: always show + to add race
@@ -1091,7 +1091,7 @@ function renderPlanRows(rows,t,faseBadge=''){
             <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
             ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
             ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
-            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
+            <div style="display:flex;gap:6px;margin-top:6px"><button style="background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button><button style="background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openMoveActivity(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Verplaatsen</button></div>
           </div>`;}).join('')}
       </div>
     </div>`;
@@ -1317,6 +1317,7 @@ function openDayModal(dateStr,targetRowIndex){
           <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none">${esc(row?.detail||'')}</textarea>
         </div>
         <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
+        ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px" onclick="openMoveActivity(${row.rowIndex},'${dateStr}');closeDayModal()">Verplaatsen</button>`:''}
         ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px;color:var(--race-text);border-color:rgba(244,67,54,0.4)" onclick="deleteActivity(${row.rowIndex})">Verwijderen</button>`:''}
       </div>
     </div>`;
@@ -1522,6 +1523,35 @@ function openAddActivity(dateStr){
   document.getElementById('dayModal').classList.add('open');
 }
 
+function openMoveActivity(rowIndex,currentDatum){
+  if(!rowIndex)return;
+  const c=document.getElementById('dayModalContent');
+  document.getElementById('dayModal').classList.add('open');
+  c.innerHTML=`<div class="modal-title">Verplaatsen</div>
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Huidige datum: <strong>${currentDatum}</strong></div>
+    <div style="margin-bottom:12px">
+      <label class="settings-label">Nieuwe datum</label>
+      <input type="date" class="settings-input" id="moveDate" value="${currentDatum}">
+    </div>
+    <button class="btn-primary" onclick="confirmMoveActivity(${rowIndex})">Verplaatsen</button>`;
+  state.editingRowIndex=rowIndex;
+}
+
+async function confirmMoveActivity(rowIndex){
+  const newDatum=document.getElementById('moveDate')?.value;
+  if(!newDatum){showToast('Kies een datum');return;}
+  const btn=document.querySelector('#dayModalContent .btn-primary');
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  try{
+    await sheetUpdateRow(rowIndex,{datum:newDatum});
+    showToast('✓ Verplaatst naar '+newDatum);
+    closeDayModal();renderActiveView();renderHeader();
+  }catch(e){
+    showToast('❌ '+e.message);
+    if(btn){btn.disabled=false;btn.textContent='Verplaatsen';}
+  }
+}
+
 function closeDayModal(e){
   if(e&&e.target!==document.getElementById('dayModal'))return;
   document.getElementById('dayModal').classList.remove('open');
@@ -1633,7 +1663,7 @@ function renderCalendar(){
   const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
   let h=`<div class="page-title" style="padding:14px 20px 4px">
     <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
-    <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
+    <button onclick="openRaceModal(null,${JSON.stringify(state.calSelectedDate||'')})" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
   </div>
   <div style="padding:8px 20px 0">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
@@ -1671,10 +1701,7 @@ function renderCalendar(){
 
   // Dot legend
   h+=`<div class="cal-dot-legend" style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:4px"></span>Gedaan</span>
-    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;border:1px solid var(--accent);margin-right:4px"></span>Gepland</span>
-
-    <span><span style="display:inline-block;width:14px;height:3px;background:var(--accent);margin-right:4px;vertical-align:middle"></span>Race</span>
+    <span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--race-text);margin-right:4px;vertical-align:middle;opacity:0.9"></span>Race</span>
   </div>`;
 
   if(state.calSelectedDate){
@@ -1942,46 +1969,68 @@ function renderStats(){
   const weekKeys=Object.keys(weekMap).sort();
   if(weekKeys.length>1){
     const vals=weekKeys.map(k=>weekMap[k]);
-    const maxKm=Math.max(...vals,1);
     const currentIdx=weekKeys.indexOf(currentWk);
-    const raceWeeks=new Set((state.data||[]).filter(r=>r.type==='race'&&r.datum).map(r=>getWeekKey(r.datum)));
-    const n=weekKeys.length;
-    const W=600,H=120,PL=24,PR=8,PT=18,PB=24;
-    const cw=W-PL-PR,ch=H-PT-PB;
-    const cx=i=>PL+i*(cw/(n-1));
-    const cy=v=>PT+ch-(v/maxKm*ch);
-    const pastPts=weekKeys.map((wk,i)=>wk<=currentWk?`${cx(i).toFixed(1)},${cy(vals[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
-    const futurePts=weekKeys.map((wk,i)=>wk>=currentWk?`${cx(i).toFixed(1)},${cy(vals[i]).toFixed(1)}`:null).filter(Boolean).join(' ');
-    const monthLabels=[];
-    weekKeys.forEach((wk,i)=>{
-      const d=parseDate(wk);
-      const prev=i>0?parseDate(weekKeys[i-1]):null;
-      if(i===0||!prev||prev.getMonth()!==d.getMonth())monthLabels.push({x:cx(i),label:mo[d.getMonth()]});
-    });
-    const gridLines=[0.33,0.66,1].map(f=>({y:cy(maxKm*f),val:Math.round(maxKm*f)}));
+    const raceIdxs=weekKeys.map((wk,i)=>(state.data||[]).some(r=>r.type==='race'&&getWeekKey(r.datum)===wk)?i:-1).filter(i=>i>=0);
+    const mo=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+    const labels=weekKeys.map(wk=>{const d=parseDate(wk);return `${d.getDate()} ${mo[d.getMonth()]}`;});
+    const pointColors=weekKeys.map((wk,i)=>raceIdxs.includes(i)?'var(--race-text)':i===currentIdx?'var(--accent)':'rgba(198,242,78,0.8)');
+    const pointRadii=weekKeys.map((wk,i)=>i===currentIdx?5:raceIdxs.includes(i)?4:3);
+    const chartId='kmChart_'+Date.now();
     h+=`<div style="margin:16px 0 4px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK</div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-    <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block;min-width:${Math.max(n*20,300)}px">
-      ${gridLines.map(({y,val})=>`<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="0.5"/>
-        <text x="${PL-2}" y="${(y+3).toFixed(1)}" font-size="7" fill="var(--faint)" font-family="monospace" text-anchor="end">${val}</text>`).join('')}
-      ${futurePts?`<polyline points="${futurePts}" fill="none" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 3"/>`:''}
-      ${pastPts?`<polygon points="${pastPts} ${cx(Math.min(currentIdx,n-1)).toFixed(1)},${(PT+ch).toFixed(1)} ${PL},${(PT+ch).toFixed(1)}" fill="var(--accent)" opacity="0.08"/>`:''}
-      ${pastPts?`<polyline points="${pastPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
-      ${currentIdx>=0?`<line x1="${cx(currentIdx).toFixed(1)}" y1="${PT}" x2="${cx(currentIdx).toFixed(1)}" y2="${PT+ch}" stroke="var(--accent)" stroke-width="0.5" opacity="0.35"/>`:''}
-      ${weekKeys.map((wk,i)=>{
-        const isPast=wk<=currentWk,isNow=wk===currentWk,isRace=raceWeeks.has(wk);
-        const r=isNow?4:isRace?3:2;
-        const fill=isNow?'var(--accent)':isRace?'var(--race-text)':isPast?'var(--accent)':'var(--border)';
-        const op=isPast||isNow?1:0.5;
-        return `<circle cx="${cx(i).toFixed(1)}" cy="${cy(vals[i]).toFixed(1)}" r="${r}" fill="${fill}" opacity="${op}"/>
-        ${isRace?`<text x="${cx(i).toFixed(1)}" y="${(cy(vals[i])-6).toFixed(1)}" text-anchor="middle" font-size="8">🏁</text>`:''}
-        ${isNow?`<text x="${cx(i).toFixed(1)}" y="${(cy(vals[i])-7).toFixed(1)}" text-anchor="middle" font-size="8" fill="var(--accent)" font-family="monospace" font-weight="bold">${vals[i].toFixed(0)}</text>`:''}`;
-      }).join('')}
-      ${monthLabels.map(({x,label})=>`<text x="${x.toFixed(1)}" y="${H-2}" font-size="8" fill="var(--faint)" font-family="monospace" text-anchor="middle">${label}</text>`).join('')}
-    </svg></div>`;
+    <div style="position:relative;height:140px;margin-bottom:8px"><canvas id="${chartId}"></canvas></div>
+    <script>
+    (function(){
+      const script=document.createElement('script');
+      script.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+      script.onload=function(){
+        const ctx=document.getElementById('${chartId}');if(!ctx)return;
+        const isPast=${JSON.stringify(weekKeys.map(wk=>wk<=currentWk))};
+        new Chart(ctx,{
+          type:'line',
+          data:{
+            labels:${JSON.stringify(labels)},
+            datasets:[{
+              data:${JSON.stringify(vals)},
+              borderColor:'var(--accent)',
+              borderWidth:2,
+              pointBackgroundColor:${JSON.stringify(weekKeys.map((wk,i)=>raceIdxs.includes(i)?'#F44336':i===currentIdx?'#c6f24e':'rgba(198,242,78,0.8)'))},
+              pointBorderColor:'transparent',
+              pointRadius:${JSON.stringify(weekKeys.map((wk,i)=>i===currentIdx?5:raceIdxs.includes(i)?4:2.5))},
+              pointHoverRadius:6,
+              fill:true,
+              backgroundColor:function(ctx){
+                const c=ctx.chart.ctx,g=c.createLinearGradient(0,0,0,ctx.chart.height);
+                g.addColorStop(0,'rgba(198,242,78,0.18)');g.addColorStop(1,'rgba(198,242,78,0)');return g;
+              },
+              tension:0.35,
+              segment:{borderColor:ctx=>isPast[ctx.p1DataIndex]?undefined:'rgba(198,242,78,0.3)'},
+            }]
+          },
+          options:{
+            responsive:true,maintainAspectRatio:false,
+            interaction:{mode:'index',intersect:false},
+            plugins:{
+              legend:{display:false},
+              tooltip:{
+                backgroundColor:'rgba(20,20,20,0.92)',borderColor:'rgba(198,242,78,0.2)',borderWidth:1,
+                titleFont:{family:"'JetBrains Mono',monospace",size:10},
+                bodyFont:{family:"'JetBrains Mono',monospace",size:11},
+                callbacks:{label:ctx=>' '+ctx.parsed.y.toFixed(1)+' km'}
+              }
+            },
+            scales:{
+              x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{family:"'JetBrains Mono',monospace",size:8},color:'rgba(255,255,255,0.3)',maxRotation:0,autoSkip:true,maxTicksLimit:6}},
+              y:{grid:{color:'rgba(255,255,255,0.06)'},ticks:{font:{family:"'JetBrains Mono',monospace",size:8},color:'rgba(255,255,255,0.3)'},beginAtZero:true}
+            }
+          }
+        });
+      };
+      if(window.Chart)script.onload();else document.head.appendChild(script);
+    })();
+    <\/script>`;
   }
 
-  const recent=fbRows.slice(-8).reverse();
+    const recent=fbRows.slice(-8).reverse();
   if(recent.length){
     h+=`<div style="margin:16px 0 8px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${T('stats_recent')}</div><div class="feedback-history">`;
     recent.forEach(row=>{
