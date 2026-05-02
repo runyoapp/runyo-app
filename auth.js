@@ -83,13 +83,11 @@ async function authSignIn(){
 
     // Fallback: detect popup closed without posting
     const closedTimer=setInterval(()=>{
-      try{
-        if(popup.closed){
-          clearInterval(closedTimer);
-          window.removeEventListener('message',onMessage);
-          reject(new Error('Inloggen geannuleerd'));
-        }
-      }catch(e){/* cross-origin check blocked — ignore */}
+      if(popup.closed){
+        clearInterval(closedTimer);
+        window.removeEventListener('message',onMessage);
+        reject(new Error('Inloggen geannuleerd'));
+      }
     },500);
   });
 }
@@ -205,6 +203,17 @@ async function sheetsPut(path,body){
   return res.json();
 }
 
+async function drivePost(path,body,params={}){
+  const token=await authEnsureToken();
+  const qs=new URLSearchParams(params);
+  const res=await fetch(`https://www.googleapis.com/drive/v3${path}${qs.toString()?'?'+qs:''}`,{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'HTTP '+res.status);}
+  return res.json();
+}
 
 // ── Sheet structure helpers ───────────────────────────────────────────────────
 const ALL_COLS=['datum','type','titel','detail','km','feedback','fase','id','updated_at','created_at','race_type'];
@@ -302,6 +311,21 @@ async function oauthGetHeaders(){
   return getSheetHeaders(sheetId,state.sheetName||'');
 }
 
+async function oauthAddRow(fields){
+  const sheetId=authSheetId()||state.sheetId;
+  const sheetName=state.sheetName||'Schema';
+  const headers=await oauthGetHeaders();
+  const row=headers.map(h=>{
+    if(h==='id')return fields.id||_uuid();
+    if(h==='updated_at'||h==='created_at')return fields[h]||_nowISO();
+    return fields[h]||'';
+  });
+  await sheetsPost(`/${sheetId}/values/${encodeURIComponent(sheetName+'!A:A')}:append`,row);
+  // Sort by datum after append
+  await oauthSortByDate(sheetId,sheetName);
+  await fetchData();
+}
+
 async function sheetsAppend(sheetId,sheetName,row){
   const token=await authEnsureToken();
   const range=encodeURIComponent(sheetName+'!A:A');
@@ -378,6 +402,20 @@ async function oauthSetFeedback(datum,rating,tekst){
   row.feedback=fb;
 }
 
+async function oauthSortByDate(sheetId,sheetName){
+  // Get tab sheetId
+  try{
+    const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties`);
+    const tabMeta=meta.sheets?.find(s=>s.properties.title===sheetName)||meta.sheets?.[0];
+    const tabId=tabMeta?.properties?.sheetId??0;
+    // Get last row
+    const data=await sheetsGet(`/${sheetId}/values/${encodeURIComponent(sheetName+'!A:A')}`);
+    const lastRow=(data.values?.length||1);
+    if(lastRow<3)return;
+    await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{sortRange:{range:{sheetId:tabId,startRowIndex:1,endRowIndex:lastRow,startColumnIndex:0,endColumnIndex:11},sortSpecs:[{dimensionIndex:0,sortOrder:'ASCENDING'}]}}]});
+  }catch{}
+}
+
 // ── Sheet picker (Drive file picker fallback via list) ────────────────────────
 async function listRecentSheets(){
   const token=await authEnsureToken();
@@ -394,6 +432,9 @@ async function listRecentSheets(){
 function isOAuthMode(){
   return !!(authGetToken()&&!authIsExpired()&&(authSheetId()||state.sheetId));
 }
+
+// Override fetchData to use OAuth when available
+const _origFetchData=null; // patched below after app.js loads
 
 async function fetchDataOAuth(){
   try{
@@ -513,12 +554,12 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   authSetSheetId(sheetId);
   state.sheetId=sheetId;
   localStorage.setItem('sheetId',sheetId);
-  // Persist per email so re-login auto-restores the sheet
-  const _email=authEmail();
-  if(_email){
-    localStorage.setItem('sheetId_'+_email,sheetId);
+  // Persist per email so re-login auto-restores
+  const _em=authEmail();
+  if(_em){
+    localStorage.setItem('sheetId_'+_em,sheetId);
     const _sn=state?.sheetName||localStorage.getItem('sheetName')||'';
-    if(_sn)localStorage.setItem('sheetName_'+_email,_sn);
+    if(_sn)localStorage.setItem('sheetName_'+_em,_sn);
   }
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
   closeDayModal();
