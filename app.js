@@ -2360,11 +2360,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     const dt=document.getElementById('desktopTopbar');
     if(dt)dt.style.display=wide?'flex':'none';
     renderSidebarPlanInfo();
+    renderTopbarAuth();
   })();
   window.addEventListener('resize',function(){
     const wide=window.innerWidth>=768;
     const dt=document.getElementById('desktopTopbar');
     if(dt)dt.style.display=wide?'flex':'none';
+    renderTopbarAuth();
   });
 
   // E7: check if returning from OAuth redirect (code in URL)
