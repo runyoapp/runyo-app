@@ -406,8 +406,8 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font-d);font-
   }
 
   /* Views: wider, more padding */
-  .view{padding:24px 32px;animation:none}
-  .view.active{display:block}
+  .view{padding:24px 32px;animation:none;display:none}
+  .view.active{display:block !important}
 
   /* Modals centered in viewport */
   .modal-backdrop{left:220px}
