@@ -2398,18 +2398,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
 
   applyI18n();renderHeader();
-  // Show/hide desktop-only elements
-  if(window.innerWidth>=768){
-    const sb=document.getElementById('sidebarPlanInfo');if(sb)sb.style.display='block';
-    const sl=document.getElementById('sidebarLogo');if(sl)sl.style.display='flex';
-    const dt=document.getElementById('desktopTopbar');if(dt)dt.style.display='flex';
-  }
-  window.addEventListener('resize',()=>{
-    const wide=window.innerWidth>=768;
-    const sb=document.getElementById('sidebarPlanInfo');if(sb)sb.style.display=wide?'block':'none';
-    const sl=document.getElementById('sidebarLogo');if(sl)sl.style.display=wide?'flex':'none';
-    const dt=document.getElementById('desktopTopbar');if(dt)dt.style.display=wide?'flex':'none';
-  });
+  // Desktop elements shown/hidden via CSS media query
 
   if(typeof isOAuthMode==='function'&&isOAuthMode()){
     fetchData();
