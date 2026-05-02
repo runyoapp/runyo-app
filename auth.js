@@ -444,7 +444,7 @@ async function fetchDataOAuth(){
     updateConnectionStatus(false,e.message);
     if(e.message.includes('verlopen'))return;
   }
-  hideLoading();renderActiveView();renderHeader();
+  hideLoading();renderActiveView();renderHeader();if(typeof renderSidebarPlanInfo==="function")renderSidebarPlanInfo();
 }
 
 // ── Connect UI ────────────────────────────────────────────────────────────────
@@ -454,7 +454,16 @@ async function oauthConnectFlow(){
   try{
     await authSignIn();
     if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
-    showOAuthConnectSheet();
+    // If sheet already known for this account, go straight to app
+    if(authSheetId()){
+      showToast('✓ Ingelogd');
+      if(typeof renderConnectSection==='function')renderConnectSection();
+      if(typeof renderAccountSection==='function')renderAccountSection();
+      if(typeof switchTab==='function')switchTab('today');
+      if(typeof fetchData==='function')fetchData();
+    }else{
+      showOAuthConnectSheet();
+    }
   }catch(e){
     showToast('❌ '+e.message);
     if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
