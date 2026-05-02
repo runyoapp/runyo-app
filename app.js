@@ -1,4 +1,4 @@
-// ── ACTIVITY DATA MODEL ──────────────────────────────────────────────────────
+// ── ACTIVITY DATA MODEL ───────────────────────────────────────────────────────
 // Canonical activity enum (English)
 const ACTIVITY_ENUM=['run','work','strength','mobility','rest','race','recovery'];
 
@@ -14,7 +14,7 @@ function normalizeType(raw){
   const t=raw.toLowerCase().trim().split(',')[0].trim();
   return TYPE_NL_MAP[t]||t; // map Dutch, pass through English
 }
- 
+
 // Map canonical enum → TYPES display config (English keys added)
 const TYPE_DISPLAY={
   run:     {bg:'var(--run-bg)',    text:'var(--run-text)',    i18n:'type_run'},
@@ -1663,7 +1663,7 @@ function renderCalendar(){
   const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
   let h=`<div class="page-title" style="padding:14px 20px 4px">
     <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
-    <button onclick="openRaceModal(null,${JSON.stringify(state.calSelectedDate||'')})" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
+    <button onclick="openRaceModal(null,state.calSelectedDate||undefined)" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
   </div>
   <div style="padding:8px 20px 0">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
