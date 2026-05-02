@@ -513,6 +513,13 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   authSetSheetId(sheetId);
   state.sheetId=sheetId;
   localStorage.setItem('sheetId',sheetId);
+  // Persist per email so re-login auto-restores the sheet
+  const _email=authEmail();
+  if(_email){
+    localStorage.setItem('sheetId_'+_email,sheetId);
+    const _sn=state?.sheetName||localStorage.getItem('sheetName')||'';
+    if(_sn)localStorage.setItem('sheetName_'+_email,_sn);
+  }
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
   closeDayModal();
   renderConnectSection();
