@@ -3,7 +3,7 @@ const VERSION = 'rx-v3.0.0';
 const CACHE = VERSION;
 const ASSETS = ['./', './index.html'];
 
-// T1: proper install + skipWaiting via message
+// T1: proper install + skipWaiting via  message
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
