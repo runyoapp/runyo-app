@@ -287,6 +287,17 @@ function fmtDateFull(s){
   const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
   return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
 }
+function getWeekDates(){return getWeekDatesOffset(0);}
+
+function fmtDate(s){
+  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  return `${days[dayIdx(d)]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+function fmtDateFull(s){
+  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 function getMondayStr(){
   const n=new Date();n.setHours(12,0,0,0);
   const dow=n.getDay();n.setDate(n.getDate()-(dow===0?6:dow-1));
@@ -1521,62 +1532,9 @@ function closeDayModal(e){
 // ── STATS OVERLAY ─────────────────────────────────────────────────────────────
 function openStats(){
   const el=document.getElementById('statsOverlay');
-  const content=document.getElementById('statsContent');
-  if(!el||!content)return;
-  const t=todayStr();
-  const past=state.data?state.data.filter(r=>r.datum<=t):[];
-  const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const runCount=past.filter(r=>hasType(r.type,'run')).length;
-  const fbRows=past.filter(r=>r.feedback);
-  const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
-  const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
-  const sheetRaceRows3=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
-  const nextRace3=sheetRaceRows3.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows3[0];
-  const daysLeft=nextRace3?daysUntil(nextRace3.datum):0;
-  const mondayStr=getMondayStr();
-  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-
-  const tiles=[
-    {label:T('stats_total'),val:totalKm.toFixed(0),unit:T('stats_done'),hi:true},
-    {label:T('stats_days'),val:daysLeft,unit:nextRace3?.titel||nextRace3?.datum||'—',hi:true},
-    {label:T('stats_runs'),val:runCount,unit:T('stats_sessions'),hi:false},
-    {label:T('stats_week'),val:weekKm.toFixed(0),unit:T('stats_week_sub'),hi:true},
-    avgRating>0?{label:T('stats_feel'),val:avgRating.toFixed(1),unit:`/5 · ${ratingRows.length} ${T('stats_fb_sub')}`,hi:false}:null,
-    {label:T('stats_feedback'),val:fbRows.length,unit:T('stats_fb_sub'),hi:false},
-  ].filter(Boolean);
-
-  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">Stats · all-time</div>
-      <div style="font-family:var(--font-d);font-weight:800;font-size:22px;text-transform:uppercase;margin-top:2px">Jouw run</div>
-    </div>
-    <button onclick="closeStats()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sluit ✕</button>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">`;
-  tiles.forEach(t=>{
-    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px">
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${esc(t.label)}</div>
-      <div style="font-family:var(--font-d);font-weight:800;font-size:32px;line-height:1;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:4px">${esc(t.unit)}</div>
-    </div>`;
-  });
-  h+='</div>';
-  if(fbRows.length){
-    h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('stats_recent')}</div>`;
-    fbRows.slice(-3).reverse().forEach(row=>{
-      const d=parseDate(row.datum);
-      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between">
-          <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'Training')}</div>
-          <span style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
-        </div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--text);margin-top:4px;line-height:1.5">${esc(row.feedback)}</div>
-      </div>`;
-    });
-  }
-  content.innerHTML=h;
+  if(!el)return;
   el.style.display='flex';
+  renderStats();
 }
 
 function closeStats(e){
@@ -2039,9 +1997,340 @@ function renderStats(){
   el.innerHTML=h;
 }
 
-function openStats(){
-  const el=document.getElementById('statsOverlay');
-  if(!el)return;
-  el.style.display='flex';
-  renderStats();
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+function renderAccountSection(){
+  const el=document.getElementById('accountSection');if(!el)return;
+  const oauthEmail=typeof authEmail==='function'?authEmail():'';
+  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  if(oauthActive&&oauthEmail){
+    el.innerHTML=`<div class="account-row">
+      <div class="account-avatar" style="font-size:22px">🏃</div>
+      <div class="account-info">
+        <div class="account-email">${esc(oauthEmail)}</div>
+        <div class="account-status">Google · ${T('logged_in_as')}</div>
+      </div>
+      <button class="account-logout" onclick="authSignOut()">${T('logout_btn')}</button>
+    </div>`;
+  }else{
+    el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Log in met Google om je schema te koppelen en data te synchroniseren.
+    </div>
+    <button class="btn-primary" onclick="oauthConnectFlow()">Inloggen met Google</button>`;
+  }
 }
+
+function logoutAccount(){
+  if(typeof authSignOut==='function'){authSignOut();return;}
+  localStorage.removeItem('userEmail');
+  renderAccountSection();
+}
+
+
+// ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
+function renderConnectSection(){
+  const el=document.getElementById('connectSection');if(!el)return;
+  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
+  const connected=oauthActive&&!!sheetId;
+  const legacyConnected=!!state.scriptUrl;
+
+  if(connected){
+    el.innerHTML=`
+      <div class="connect-btn connected" style="margin-bottom:10px;cursor:default">
+        <div class="cb-dot"></div>
+        <div class="cb-label">
+          <div class="cb-name">Schema gekoppeld ✓</div>
+          <div class="cb-status">${esc(authEmail()||'')}${state.sheetName?' · '+esc(state.sheetName):''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn-save" style="flex:1" onclick="oauthConnectFlow()">Ander schema</button>
+        <button class="disconnect-btn" style="flex:1" onclick="oauthDisconnect()">${T('connect_disconnect')}</button>
+      </div>
+      <a href="https://docs.google.com/spreadsheets/d/${esc(sheetId)}/edit" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none">Sheet openen ↗</a>
+      ${_devBlock()}`;
+    return;
+  }
+
+  el.innerHTML=`
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">
+      Koppel je Google Sheets trainingsschema om de app te gebruiken.
+    </div>
+    <button class="btn-primary" id="oauthConnectBtn" onclick="oauthConnectFlow()" style="width:100%;margin-bottom:8px">
+      Koppel met Google
+    </button>
+    ${legacyConnected?`<div class="connect-btn connected" style="margin-bottom:10px;cursor:default;opacity:0.6">
+      <div class="cb-dot"></div>
+      <div class="cb-label"><div class="cb-name">Apps Script actief (legacy)</div></div>
+    </div>`:''}
+    ${_devBlock()}`;
+}
+
+function _devBlock(){
+  return `<details style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+    <summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;cursor:pointer">Dev — Apps Script</summary>
+    <div class="settings-field" style="margin-top:8px">
+      <label class="settings-label">Apps Script URL</label>
+      <div class="settings-hint" style="margin-bottom:6px">${T('connect_hint')}</div>
+      <input type="url" class="settings-input" id="scriptUrl" placeholder="${T('connect_url_placeholder')}"
+        value="${esc(state.scriptUrl)}">
+    </div>
+    <button class="btn-save" style="margin-top:4px" onclick="saveSettings()">Opslaan</button>
+  </details>`;
+}
+
+function oauthDisconnect(){
+  if(typeof authClear==='function')authClear();
+  localStorage.removeItem('oauth_sheetId');
+  state.data=null;
+  renderConnectSection();renderHeader();renderActiveView();
+  showToast('Ontkoppeld');
+}
+function disconnectSheet(){
+  // C26: disconnect but keep data
+  state.scriptUrl='';state.sheetName='';
+  localStorage.removeItem('scriptUrl');localStorage.removeItem('sheetName');
+  // keep state.data in memory so existing views still work until reload
+  renderConnectSection();
+  renderHeader();
+  showToast(T('saved'));
+}
+
+// Telegram verify
+function verifyTelegram(){
+  const user=document.getElementById('telegramUser')?.value.trim();
+  if(!user){showToast(T('notif_telegram'));return;}
+  showToast(T('tg_verifying'));
+  // Show hint to user
+  setTimeout(()=>showToast(T('tg_verify_hint')),2600);
+}
+
+function updateTelegramStatus(){
+  const dot=document.getElementById('tgDot'),txt=document.getElementById('tgStatusText');
+  const linked=!!localStorage.getItem('telegramLinked');
+  if(dot)dot.className='tg-dot'+(linked?' linked':'');
+  if(txt)txt.textContent=linked?T('tg_linked'):T('tg_not_linked');
+}
+
+function addPrField(){
+  const sel=document.getElementById('prDistSelect'),dist=sel.value;
+  if(!dist)return;sel.value='';
+  const prs=loadPRs();if(dist in prs)return;
+  prs[dist]='';persistPRs(prs);renderPrFields();
+}
+function removePrField(dist){const prs=loadPRs();delete prs[dist];persistPRs(prs);renderPrFields();}
+function updatePR(dist,val){const prs=loadPRs();prs[dist]=val;persistPRs(prs);}
+
+function renderPrFields(){
+  const c=document.getElementById('prFields');if(!c)return;
+  const prs=loadPRs(),active=PR_ORDER.filter(d=>d in prs);
+  if(!active.length){c.innerHTML=`<div style="font-size:11px;color:var(--faint);padding:4px 0">${T('pr_none')}</div>`;return;}
+  c.innerHTML=active.map(d=>`
+    <div class="pr-row">
+      <label class="pr-dist-lbl">${d}</label>
+      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
+      <button onclick="removePrField('${d}')" style="background:none;border:none;color:var(--faint);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button>
+    </div>`).join('');
+}
+
+function renderSettingsFields(){
+  // C26/C30: connect section is fully dynamic
+  renderConnectSection();
+  const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
+  const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
+  renderPrFields();renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
+}
+
+function saveSettingsName(){
+  localStorage.setItem('userName',document.getElementById('settingsName')?.value||'');
+  renderHeader();showToast(T('saved'));
+}
+
+function saveSettings(){
+  // Apps Script URL from dev section (optional)
+  const url=document.getElementById('scriptUrl')?.value.trim()||state.scriptUrl||'';
+  state.scriptUrl=url;if(url)localStorage.setItem('scriptUrl',url);
+  const sheetRaw=document.getElementById('sheetIdInput')?.value.trim()||'';
+  const sheetIdMatch=sheetRaw.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  const sid=sheetIdMatch?sheetIdMatch[1]:sheetRaw; // fallback: treat as raw ID
+  state.sheetId=sid;localStorage.setItem('sheetId',sid);
+  const sn=document.getElementById('sheetNameInput')?.value||'';
+  state.sheetName=sn;localStorage.setItem('sheetName',sn);
+  showToast(T('connecting'));
+  fetchData().then(()=>renderConnectSection());
+}
+
+function saveSheetName(){
+  state.sheetName=document.getElementById('sheetNameInput')?.value||'';
+  localStorage.setItem('sheetName',state.sheetName);
+}
+
+function saveTelegram(){
+  localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
+  updateTelegramStatus();showToast(T('saved'));
+}
+
+function saveNotifPrefs(){
+  const daily=!!document.getElementById('notifDaily')?.checked;
+  const feedback=!!document.getElementById('notifFeedback')?.checked;
+  localStorage.setItem('notifPrefs',JSON.stringify({daily,feedback}));
+  showToast(T('saved'));
+}
+
+function loadNotifPrefs(){
+  try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}catch{return{};}
+}
+
+function applyNotifPrefs(){
+  const p=loadNotifPrefs();
+  const d=document.getElementById('notifDaily');
+  const f=document.getElementById('notifFeedback');
+  if(d)d.checked=!!p.daily;
+  if(f)f.checked=!!p.feedback;
+}
+
+// ── I18N ──────────────────────────────────────────────────────────────────────
+function applyI18n(){
+  const tabKeys=['today','week','plan','calendar'];
+  document.querySelectorAll('#bottomNav .bn-label').forEach((el,i)=>{el.textContent=T(tabKeys[i]);});
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=T(el.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-opt]').forEach(el=>{el.textContent=T(el.dataset.i18nOpt);});
+  const nlBtn=document.getElementById('langBtnNl'),enBtn=document.getElementById('langBtnEn');
+  if(nlBtn){nlBtn.style.opacity=state.lang==='nl'?'1':'0.35';nlBtn.style.transform=state.lang==='nl'?'scale(1.15)':'scale(1)';}
+  if(enBtn){enBtn.style.opacity=state.lang==='en'?'1':'0.35';enBtn.style.transform=state.lang==='en'?'scale(1.15)':'scale(1)';}
+  document.documentElement.lang=state.lang;
+  // Update banner text if visible
+  const b=document.getElementById('updateBanner');
+  if(b&&b.style.display!=='none'){
+    document.getElementById('updateBannerText').textContent=T('update_available');
+    b.querySelector('button').textContent=T('update_apply');
+  }
+}
+
+function setLang(lang){
+  state.lang=lang;localStorage.setItem('lang',lang);
+  applyI18n();applyTheme();renderHeader();renderActiveView();
+  showToast(T('saved')); // X14: toast after lang switch, already in new language
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  state.currentTab=tab;state.selectedRating=0;
+  document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
+  document.getElementById('scrollArea').scrollTop=0;
+  renderActiveView();
+}
+
+function hideLoading(){
+  const el=document.getElementById('loadingOverlay');
+  el.classList.add('hidden');setTimeout(()=>el.style.display='none',350);
+}
+
+function showToast(msg, undoable=false){
+  const el=document.getElementById('toast');
+  if(undoable&&state._undoBuffer){
+    el.innerHTML=`${msg} <button onclick="undoDelete()" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-left:8px;padding:0">Ongedaan maken</button>`;
+  }else{
+    el.textContent=msg;
+  }
+  el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.classList.remove('show');el.innerHTML='';},4000);
+}
+
+async function undoDelete(){
+  if(!state._undoBuffer)return;
+  clearTimeout(state._undoBuffer.timeout);
+  const row=state._undoBuffer.row;
+  state._undoBuffer=null;
+  document.getElementById('toast').classList.remove('show');
+  try{
+    await createActivity({
+      datum:row.datum, type:row.type, titel:row.titel,
+      detail:row.detail, km:row.km, fase:row.fase, feedback:row.feedback,
+    });
+    showToast('↩ Hersteld');
+  }catch(e){showToast('❌ '+e.message);}
+}
+
+function updateConnectionStatus(ok,err){
+  // Update status dot/text if they exist in DOM (connect section when disconnected)
+  const dot=document.getElementById('statusDot'),txt=document.getElementById('statusText');
+  if(dot)dot.className='status-dot '+(ok?'ok':'err');
+  if(txt)txt.textContent=ok?T('connected'):`${T('conn_err')}: ${err||'?'}`;
+  // If connected, re-render the connect section to show connected state
+  if(ok&&state.currentTab==='settings')renderConnectSection();
+}
+
+// ── ONBOARDING ────────────────────────────────────────────────────────────────
+// U1: click outside sheet dismisses (wegklikbaar)
+function onboardingOverlayClick(e){
+  if(e.target===document.getElementById('onboarding'))onboardingFinish();
+}
+
+function shouldShowOnboarding(){
+  return loadRaces().length===0&&!localStorage.getItem('userName');
+}
+
+function onboardingNext(){
+  // B7: name removed from onboarding
+  const raceName=document.getElementById('obRace')?.value.trim();
+  const raceDate=document.getElementById('obDate')?.value;
+  const dist=document.getElementById('obDist')?.value;
+  const time=document.getElementById('obTime')?.value.trim();
+  if(raceName&&raceDate){
+    const races=loadRaces();
+    races.push({id:Date.now().toString(),name:raceName,date:raceDate,dist:dist||'',mainGoal:true});
+    persistRaces(races);
+  }
+  // X12: removed legacy goal object write
+  document.getElementById('onboardingStep1').style.display='none';
+  document.getElementById('onboardingStep2').style.display='block';
+}
+
+function addObPrField(){
+  const sel=document.getElementById('obPrDist'),dist=sel.value;
+  if(!dist)return;sel.value='';
+  const prs=loadPRs();if(dist in prs)return;
+  prs[dist]='';persistPRs(prs);
+  const c=document.getElementById('obPrFields');
+  c.innerHTML=PR_ORDER.filter(d=>d in prs).map(d=>`
+    <div class="pr-row" style="margin-bottom:8px">
+      <label class="pr-dist-lbl">${d}</label>
+      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
+    </div>`).join('');
+}
+
+function onboardingFinish(){
+  document.getElementById('onboarding').style.display='none';
+  renderHeader();renderActiveView();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  initServiceWorker();
+
+  document.getElementById('bottomNav').addEventListener('click',e=>{
+    const tab=e.target.closest('.bn-item')?.dataset.tab;if(tab)switchTab(tab);
+  });
+
+  // Check URL params for sheet config (X2/X3)
+  const urlParams=new URLSearchParams(window.location.search);
+  if(urlParams.get('sheet'))state.scriptUrl=urlParams.get('sheet');
+  if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
+
+  applyI18n();renderHeader();
+
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){
+    fetchData();
+    return;
+  }
+
+  if(shouldShowOnboarding()){
+    hideLoading();document.getElementById('onboarding').style.display='flex';
+  }else if(state.scriptUrl){
+    fetchData();
+  }else{
+    setTimeout(()=>{hideLoading();renderActiveView();},600);
+  }
+});
