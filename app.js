@@ -287,17 +287,6 @@ function fmtDateFull(s){
   const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
   return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
 }
-function getWeekDates(){return getWeekDatesOffset(0);}
-
-function fmtDate(s){
-  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-  return `${days[dayIdx(d)]} ${d.getDate()} ${months[d.getMonth()]}`;
-}
-function fmtDateFull(s){
-  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 function getMondayStr(){
   const n=new Date();n.setHours(12,0,0,0);
   const dow=n.getDay();n.setDate(n.getDate()-(dow===0?6:dow-1));
@@ -555,38 +544,16 @@ function openWeekAddActivity(){
 }
 
 function openDayFromRacesBar(datum){
-  openDayModal(datum);
+  // Open race edit modal directly
+  const r=state.data?.find(row=>row.datum===datum&&row.type==='race');
+  if(r?.rowIndex)openRaceModalFromSheet(r.rowIndex);
+  else openDayModal(datum);
 }
 
 function renderHeader(){
   const name=localStorage.getItem('userName')||'';
-  const topbarName=document.getElementById('topbarName');
-  if(topbarName)topbarName.textContent=name;
+  document.getElementById('topbarName').textContent=name;
   renderRacesBar();
-  renderSidebarPlanInfo();
-}
-
-function renderSidebarPlanInfo(){
-  // Only relevant on desktop
-  const planInfo=document.getElementById('sidebarPlanInfo');
-  if(!planInfo||planInfo.style.display==='none')return;
-  if(!state.data)return;
-  // Current fase
-  const t=todayStr();
-  const todayRow=state.data.find(r=>r.datum===t);
-  const fase=todayRow?.fase||state.currentFase||'';
-  const faseEl=document.getElementById('sbFaseLabel');
-  if(faseEl)faseEl.textContent=fase||'—';
-  // Week progress
-  const mondayStr=getMondayStr();
-  const weekRows=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=t);
-  const weekDone=weekRows.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const weekPlanned=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=(mondayStr.slice(0,8)+(parseInt(mondayStr.slice(8))+6).toString().padStart(2,'0'))).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const weekEl=document.getElementById('sbWeekLabel');
-  if(weekEl)weekEl.textContent=weekPlanned>0?`${weekDone.toFixed(0)} / ${weekPlanned.toFixed(0)} km`:'';
-  const pct=weekPlanned>0?Math.min(100,Math.round(weekDone/weekPlanned*100)):0;
-  const fillEl=document.getElementById('sbProgressFill');
-  if(fillEl)fillEl.style.width=pct+'%';
 }
 
 function renderRacesBar(){
@@ -628,21 +595,21 @@ function renderRacesBar(){
     const distStr=kmRaw?(kmVal>100?`${kmRaw} m`:`${kmRaw} km`):'';
     // raceType + mainGoal from localStorage (keyed by date)
     const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
-    const iconKey=raceTypeIconKey(lr?.raceType||r.race_type||'',r.km);
+    const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
     const isMain=!!lr?.mainGoal;
+    // Title font: larger for short names
     const titleLen=(r.titel||'').length;
-    const titleSize=titleLen<=6?'15px':titleLen<=10?'13px':titleLen<=16?'11px':'10px';
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:88px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      <div style="flex:1">
-        ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:3px">★ DOEL</div>`:''}
-        <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-          <div style="margin-top:2px;flex-shrink:0">${RXIcon(iconKey,11,'var(--race-text)','var(--race-text)')}</div>
-          <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
-        </div>
-        ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-        ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
+      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
+        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
       </div>
-      <div class="rb-countdown" style="margin-top:4px">${cd.val}<span>${cd.unit}</span></div>
+      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+      <div style="flex:1"></div>
+      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
     </div>`;
   });
   // C50: always show + to add race
@@ -1116,7 +1083,7 @@ function renderPlanRows(rows,t,faseBadge=''){
             <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
             ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
             ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
-            <div style="display:flex;gap:6px;margin-top:6px"><button style="background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button><button style="background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openMoveActivity(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Verplaatsen</button></div>
+            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
           </div>`;}).join('')}
       </div>
     </div>`;
@@ -1315,23 +1282,14 @@ function openDayModal(dateStr,targetRowIndex){
         </div>
         <div style="margin-bottom:8px">
           <label class="settings-label">${T('type_label')}</label>
-          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="const rfw=document.getElementById('raceFieldsWrap');if(rfw)rfw.style.display=this.value==='race'?'block':'none'">
+          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="document.getElementById('raceGoalWrap')&&(document.getElementById('raceGoalWrap').style.display=this.value==='race'?'block':'none')">
             ${typeOptions}
             <option value="${esc(row.type||'')}"${!TYPES[row.type]?' selected':''}>${esc(row.type||'')}</option>
           </select>
         </div>
-        <div id="raceFieldsWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
-          <div style="margin-bottom:8px">
-            <label class="settings-label">Type race</label>
-            <select class="plan-edit-field" id="edit-race-type" style="width:100%;padding:8px 10px">
-              <option value="">—</option>
-              ${['Weg','Baan','Trail','Ultra','Virtueel'].map(t=>`<option value="${t}"${(row.race_type||'')==t?' selected':''}>${t}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label class="settings-label">Doeltijd (optioneel)</label>
-            <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
-          </div>
+        <div id="raceGoalWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
+          <label class="settings-label">Doeltijd (optioneel)</label>
+          <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
         </div>
         <div style="margin-bottom:8px">
           <label class="settings-label">${'Afstand'}</label>
@@ -1342,7 +1300,6 @@ function openDayModal(dateStr,targetRowIndex){
           <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none">${esc(row?.detail||'')}</textarea>
         </div>
         <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
-        ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px" onclick="openMoveActivity(${row.rowIndex},'${dateStr}');closeDayModal()">Verplaatsen</button>`:''}
         ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px;color:var(--race-text);border-color:rgba(244,67,54,0.4)" onclick="deleteActivity(${row.rowIndex})">Verwijderen</button>`:''}
       </div>
     </div>`;
@@ -1420,13 +1377,9 @@ async function saveDayEdit(datum){
   const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
   const type=toSheetType(typeRaw)||typeRaw;
   const km=document.getElementById('edit-km')?.value.trim()||'';
-  const detailRaw=document.getElementById('edit-detail')?.value.trim()||'';
+  const detail=document.getElementById('edit-detail')?.value.trim()||'';
   const fase=getFaseForDate(datum);
-  const isRaceType=typeRaw==='race';
-  const goal=isRaceType?(document.getElementById('edit-goal')?.value.trim()||''):'';
-  const raceType=isRaceType?(document.getElementById('edit-race-type')?.value||''):'';
-  const detail=isRaceType&&goal?`${detailRaw?detailRaw+' ':''}(Doel: ${goal})`:detailRaw;
-  const fields={datum,titel,type,km,detail,fase,...(isRaceType?{race_type:raceType}:{})};
+  const fields={datum,titel,type,km,detail,fase};
 
   // Use only the explicitly set editingRowIndex — never infer from datum
   const editingRowIndex=state.editingRowIndex||null;
@@ -1548,35 +1501,6 @@ function openAddActivity(dateStr){
   document.getElementById('dayModal').classList.add('open');
 }
 
-function openMoveActivity(rowIndex,currentDatum){
-  if(!rowIndex)return;
-  const c=document.getElementById('dayModalContent');
-  document.getElementById('dayModal').classList.add('open');
-  c.innerHTML=`<div class="modal-title">Verplaatsen</div>
-    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Huidige datum: <strong>${currentDatum}</strong></div>
-    <div style="margin-bottom:12px">
-      <label class="settings-label">Nieuwe datum</label>
-      <input type="date" class="settings-input" id="moveDate" value="${currentDatum}">
-    </div>
-    <button class="btn-primary" onclick="confirmMoveActivity(${rowIndex})">Verplaatsen</button>`;
-  state.editingRowIndex=rowIndex;
-}
-
-async function confirmMoveActivity(rowIndex){
-  const newDatum=document.getElementById('moveDate')?.value;
-  if(!newDatum){showToast('Kies een datum');return;}
-  const btn=document.querySelector('#dayModalContent .btn-primary');
-  if(btn){btn.disabled=true;btn.textContent='...';}
-  try{
-    await sheetUpdateRow(rowIndex,{datum:newDatum});
-    showToast('✓ Verplaatst naar '+newDatum);
-    closeDayModal();renderActiveView();renderHeader();
-  }catch(e){
-    showToast('❌ '+e.message);
-    if(btn){btn.disabled=false;btn.textContent='Verplaatsen';}
-  }
-}
-
 function closeDayModal(e){
   if(e&&e.target!==document.getElementById('dayModal'))return;
   document.getElementById('dayModal').classList.remove('open');
@@ -1587,9 +1511,62 @@ function closeDayModal(e){
 // ── STATS OVERLAY ─────────────────────────────────────────────────────────────
 function openStats(){
   const el=document.getElementById('statsOverlay');
-  if(!el)return;
+  const content=document.getElementById('statsContent');
+  if(!el||!content)return;
+  const t=todayStr();
+  const past=state.data?state.data.filter(r=>r.datum<=t):[];
+  const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const runCount=past.filter(r=>hasType(r.type,'run')).length;
+  const fbRows=past.filter(r=>r.feedback);
+  const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
+  const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
+  const sheetRaceRows3=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const nextRace3=sheetRaceRows3.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows3[0];
+  const daysLeft=nextRace3?daysUntil(nextRace3.datum):0;
+  const mondayStr=getMondayStr();
+  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+
+  const tiles=[
+    {label:T('stats_total'),val:totalKm.toFixed(0),unit:T('stats_done'),hi:true},
+    {label:T('stats_days'),val:daysLeft,unit:nextRace3?.titel||nextRace3?.datum||'—',hi:true},
+    {label:T('stats_runs'),val:runCount,unit:T('stats_sessions'),hi:false},
+    {label:T('stats_week'),val:weekKm.toFixed(0),unit:T('stats_week_sub'),hi:true},
+    avgRating>0?{label:T('stats_feel'),val:avgRating.toFixed(1),unit:`/5 · ${ratingRows.length} ${T('stats_fb_sub')}`,hi:false}:null,
+    {label:T('stats_feedback'),val:fbRows.length,unit:T('stats_fb_sub'),hi:false},
+  ].filter(Boolean);
+
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div>
+      <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">Stats · all-time</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:22px;text-transform:uppercase;margin-top:2px">Jouw run</div>
+    </div>
+    <button onclick="closeStats()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sluit ✕</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">`;
+  tiles.forEach(t=>{
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px">
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${esc(t.label)}</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:32px;line-height:1;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:4px">${esc(t.unit)}</div>
+    </div>`;
+  });
+  h+='</div>';
+  if(fbRows.length){
+    h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('stats_recent')}</div>`;
+    fbRows.slice(-3).reverse().forEach(row=>{
+      const d=parseDate(row.datum);
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between">
+          <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'Training')}</div>
+          <span style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
+        </div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--text);margin-top:4px;line-height:1.5">${esc(row.feedback)}</div>
+      </div>`;
+    });
+  }
+  content.innerHTML=h;
   el.style.display='flex';
-  renderStats();
 }
 
 function closeStats(e){
@@ -1688,7 +1665,7 @@ function renderCalendar(){
   const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
   let h=`<div class="page-title" style="padding:14px 20px 4px">
     <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
-    <button onclick="openRaceModal(null,state.calSelectedDate||undefined)" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
+    <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
   </div>
   <div style="padding:8px 20px 0">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
@@ -1726,7 +1703,10 @@ function renderCalendar(){
 
   // Dot legend
   h+=`<div class="cal-dot-legend" style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-    <span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--race-text);margin-right:4px;vertical-align:middle;opacity:0.9"></span>Race</span>
+    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:4px"></span>Gedaan</span>
+    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;border:1px solid var(--accent);margin-right:4px"></span>Gepland</span>
+
+    <span><span style="display:inline-block;width:14px;height:3px;background:var(--accent);margin-right:4px;vertical-align:middle"></span>Race</span>
   </div>`;
 
   if(state.calSelectedDate){
@@ -1951,27 +1931,24 @@ function closeRaceModal(e){
 }
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
-function getWeekKey(dateStr){
-  const d=parseDate(dateStr);
-  const mon=new Date(d);mon.setDate(d.getDate()-((d.getDay()+6)%7));
-  return mon.toISOString().split('T')[0];
-}
-
 function renderStats(){
   const el=document.getElementById('statsContent');
   const t=todayStr();
-  const currentWk=getWeekKey(t);
   const past=state.data?state.data.filter(r=>r.datum<=t):[];
   const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const runCount=past.filter(r=>hasType(r.type,'run')||hasType(r.type,'race')).length;
+  // C24: count by type 'run'
+  const runCount=past.filter(r=>hasType(r.type,'run')).length;
   const fbRows=past.filter(r=>r.feedback);
   const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
   const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
-  const nextRace=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum)).find(r=>daysUntil(r.datum)>=0);
-  const daysLeft=nextRace?daysUntil(nextRace.datum):0;
-  const raceName=nextRace?.titel||nextRace?.datum||'—';
-  const weekKm=(state.data||[]).filter(r=>r.datum>=currentWk&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const mo=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  // C34: races from sheet
+  const sheetRaceRows2=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const nextRace2=sheetRaceRows2.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows2[0];
+  const daysLeft=nextRace2?daysUntil(nextRace2.datum):0;
+  const raceName=nextRace2?.titel||nextRace2?.datum||'—';
+  const mondayStr=getMondayStr();
+  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
 
   let h=`<div class="stats-grid">
     <div class="stat-card"><div class="stat-label">${T('stats_total')}</div><div class="stat-val">${totalKm.toFixed(0)}</div><div class="stat-sub">${T('stats_done')}</div></div>
@@ -1982,86 +1959,15 @@ function renderStats(){
     <div class="stat-card"><div class="stat-label">${T('stats_feedback')}</div><div class="stat-val">${fbRows.length}</div><div class="stat-sub">${T('stats_fb_sub')}</div></div>
   </div>`;
 
-  if(!state.data){h+=noSchemaHint();el.innerHTML=h;return;}
+  if(!state.data)h+=noSchemaHint();
 
-  const weekMap={};
-  (state.data||[]).forEach(r=>{
-    const km=parseFloat(r.km)||0;
-    if(!km||!r.datum)return;
-    const wk=getWeekKey(r.datum);
-    weekMap[wk]=(weekMap[wk]||0)+km;
-  });
-  const weekKeys=Object.keys(weekMap).sort();
-  if(weekKeys.length>1){
-    const vals=weekKeys.map(k=>weekMap[k]);
-    const currentIdx=weekKeys.indexOf(currentWk);
-    const raceIdxs=weekKeys.map((wk,i)=>(state.data||[]).some(r=>r.type==='race'&&getWeekKey(r.datum)===wk)?i:-1).filter(i=>i>=0);
-    const mo=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-    const labels=weekKeys.map(wk=>{const d=parseDate(wk);return `${d.getDate()} ${mo[d.getMonth()]}`;});
-    const pointColors=weekKeys.map((wk,i)=>raceIdxs.includes(i)?'var(--race-text)':i===currentIdx?'var(--accent)':'rgba(198,242,78,0.8)');
-    const pointRadii=weekKeys.map((wk,i)=>i===currentIdx?5:raceIdxs.includes(i)?4:3);
-    const chartId='kmChart_'+Date.now();
-    h+=`<div style="margin:16px 0 4px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">KM PER WEEK</div>
-    <div style="position:relative;height:140px;margin-bottom:8px"><canvas id="${chartId}"></canvas></div>
-    <script>
-    (function(){
-      const script=document.createElement('script');
-      script.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-      script.onload=function(){
-        const ctx=document.getElementById('${chartId}');if(!ctx)return;
-        const isPast=${JSON.stringify(weekKeys.map(wk=>wk<=currentWk))};
-        new Chart(ctx,{
-          type:'line',
-          data:{
-            labels:${JSON.stringify(labels)},
-            datasets:[{
-              data:${JSON.stringify(vals)},
-              borderColor:'var(--accent)',
-              borderWidth:2,
-              pointBackgroundColor:${JSON.stringify(weekKeys.map((wk,i)=>raceIdxs.includes(i)?'#F44336':i===currentIdx?'#c6f24e':'rgba(198,242,78,0.8)'))},
-              pointBorderColor:'transparent',
-              pointRadius:${JSON.stringify(weekKeys.map((wk,i)=>i===currentIdx?5:raceIdxs.includes(i)?4:2.5))},
-              pointHoverRadius:6,
-              fill:true,
-              backgroundColor:function(ctx){
-                const c=ctx.chart.ctx,g=c.createLinearGradient(0,0,0,ctx.chart.height);
-                g.addColorStop(0,'rgba(198,242,78,0.18)');g.addColorStop(1,'rgba(198,242,78,0)');return g;
-              },
-              tension:0.35,
-              segment:{borderColor:ctx=>isPast[ctx.p1DataIndex]?undefined:'rgba(198,242,78,0.3)'},
-            }]
-          },
-          options:{
-            responsive:true,maintainAspectRatio:false,
-            interaction:{mode:'index',intersect:false},
-            plugins:{
-              legend:{display:false},
-              tooltip:{
-                backgroundColor:'rgba(20,20,20,0.92)',borderColor:'rgba(198,242,78,0.2)',borderWidth:1,
-                titleFont:{family:"'JetBrains Mono',monospace",size:10},
-                bodyFont:{family:"'JetBrains Mono',monospace",size:11},
-                callbacks:{label:ctx=>' '+ctx.parsed.y.toFixed(1)+' km'}
-              }
-            },
-            scales:{
-              x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{family:"'JetBrains Mono',monospace",size:8},color:'rgba(255,255,255,0.3)',maxRotation:0,autoSkip:true,maxTicksLimit:6}},
-              y:{grid:{color:'rgba(255,255,255,0.06)'},ticks:{font:{family:"'JetBrains Mono',monospace",size:8},color:'rgba(255,255,255,0.3)'},beginAtZero:true}
-            }
-          }
-        });
-      };
-      if(window.Chart)script.onload();else document.head.appendChild(script);
-    })();
-    <\/script>`;
-  }
-
-    const recent=fbRows.slice(-8).reverse();
+  const recent=fbRows.slice(-8).reverse();
   if(recent.length){
-    h+=`<div style="margin:16px 0 8px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${T('stats_recent')}</div><div class="feedback-history">`;
+    h+=`<div class="section-label" style="margin-bottom:10px">${T('stats_recent')}</div><div class="feedback-history">`;
     recent.forEach(row=>{
       const d=parseDate(row.datum);
       h+=`<div class="fh-row">
-        <div class="fh-date">${d.getDate()} ${mo[d.getMonth()]}</div>
+        <div class="fh-date">${d.getDate()} ${months[d.getMonth()]}</div>
         <div class="fh-body"><div class="fh-title">${esc(row.titel||row.type||'Training')}</div><div class="fh-text">${esc(row.feedback)}</div></div>
         ${row.km?`<div class="fh-km">${esc(row.km)}km</div>`:''}
       </div>`;
@@ -2212,7 +2118,7 @@ function renderSettingsFields(){
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
-  renderPrFields();renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
+  renderPrFields();renderAccountSection();updateTelegramStatus();applyI18n();
 }
 
 function saveSettingsName(){
@@ -2242,25 +2148,6 @@ function saveSheetName(){
 function saveTelegram(){
   localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
   updateTelegramStatus();showToast(T('saved'));
-}
-
-function saveNotifPrefs(){
-  const daily=!!document.getElementById('notifDaily')?.checked;
-  const feedback=!!document.getElementById('notifFeedback')?.checked;
-  localStorage.setItem('notifPrefs',JSON.stringify({daily,feedback}));
-  showToast(T('saved'));
-}
-
-function loadNotifPrefs(){
-  try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}catch{return{};}
-}
-
-function applyNotifPrefs(){
-  const p=loadNotifPrefs();
-  const d=document.getElementById('notifDaily');
-  const f=document.getElementById('notifFeedback');
-  if(d)d.checked=!!p.daily;
-  if(f)f.checked=!!p.feedback;
 }
 
 // ── I18N ──────────────────────────────────────────────────────────────────────
@@ -2293,10 +2180,6 @@ function switchTab(tab){
   document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
   document.getElementById('scrollArea').scrollTop=0;
-  // Update desktop breadcrumb
-  const tabNames={today:'VANDAAG',week:'WEEK',plan:'TRAINING',calendar:'KALENDER',settings:'INSTELLINGEN'};
-  const dtEl=document.getElementById('dtCurrentTab');
-  if(dtEl)dtEl.textContent=tabNames[tab]||tab.toUpperCase();
   renderActiveView();
 }
 
@@ -2398,8 +2281,41 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
 
   applyI18n();renderHeader();
-  // Desktop elements shown/hidden via CSS media query
 
+  // Desktop: show topbar based on screen width
+  (function applyDesktopState(){
+    const wide=window.innerWidth>=768;
+    const dt=document.getElementById('desktopTopbar');
+    if(dt)dt.style.display=wide?'flex':'none';
+    renderSidebarPlanInfo();
+  })();
+  window.addEventListener('resize',function(){
+    const wide=window.innerWidth>=768;
+    const dt=document.getElementById('desktopTopbar');
+    if(dt)dt.style.display=wide?'flex':'none';
+  });
+
+  // E7: check if returning from OAuth redirect (code in URL)
+  const oauthCode=new URLSearchParams(window.location.search).get('code');
+  if(oauthCode){
+    history.replaceState({},'',window.location.pathname);
+    (async()=>{
+      try{
+        await _exchangeCode(oauthCode);
+        hideLoading();
+        renderHeader();renderAccountSection();renderConnectSection();
+        switchTab('settings');
+        // Small delay so DOM is ready, then show sheet picker
+        setTimeout(()=>showOAuthConnectSheet(),300);
+      }catch(e){
+        showToast('❌ OAuth fout: '+e.message);
+        hideLoading();renderActiveView();renderHeader();
+      }
+    })();
+    return;
+  }
+
+  // E7: if OAuth token + sheet already stored, fetch directly
   if(typeof isOAuthMode==='function'&&isOAuthMode()){
     fetchData();
     return;
