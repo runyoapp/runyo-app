@@ -2180,10 +2180,8 @@ function renderConnectSection(){
         if(_emD)localStorage.setItem('sheetFileName_'+_emD,fileName);
       }
       localStorage.setItem('driveFileName_'+sheetId,fileName);
-      state.sheetName=fileName;
-      localStorage.setItem('sheetName',fileName);
       const _em=typeof authEmail==='function'?authEmail():'';
-      if(_em)localStorage.setItem('sheetName_'+_em,fileName);
+      if(_em)localStorage.setItem('sheetFileName_'+_em,fileName);
       _saveSchemaHistory(sheetId,fileName,sheetUrl);
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -2270,13 +2268,14 @@ function _loadSchemaHistory(){
 function _syncSettingsToAccount(){
   const email=typeof authEmail==='function'?authEmail():'';
   if(!email)return;
-  // Schema list is already stored per email — sync other settings
   const snap={
     prs:localStorage.getItem('prs')||'{}',
     lang:localStorage.getItem('lang')||'nl',
     theme:localStorage.getItem('theme')||'dark',
     telegramUser:localStorage.getItem('telegramUser')||'',
     notifPrefs:localStorage.getItem('notifPrefs')||'{}',
+    schemaList:localStorage.getItem('schemaList_'+email)||'[]',
+    schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
   };
   localStorage.setItem('accountSnap_'+email,JSON.stringify(snap));
 }
@@ -2290,6 +2289,27 @@ function _restoreSettingsFromAccount(email){
     if(snap.notifPrefs)localStorage.setItem('notifPrefs',snap.notifPrefs);
     if(snap.lang){localStorage.setItem('lang',snap.lang);if(typeof state!=='undefined')state.lang=snap.lang;}
     if(snap.theme){localStorage.setItem('theme',snap.theme);if(typeof state!=='undefined')state.theme=snap.theme;}
+    if(snap.schemaList){
+      try{
+        const snapList=JSON.parse(snap.schemaList||'[]');
+        const localDeleted=JSON.parse(localStorage.getItem('schemaDeleted_'+email)||'[]');
+        const localList=_getSchemaList(email);
+        const localIds=new Set(localList.map(s=>s.id));
+        const merged=[...localList];
+        for(const entry of snapList){
+          if(!localIds.has(entry.id)&&!localDeleted.includes(entry.id)){merged.push(entry);localIds.add(entry.id);}
+        }
+        merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
+        localStorage.setItem('schemaList_'+email,JSON.stringify(merged.slice(0,50)));
+      }catch{}
+    }
+    if(snap.schemaDeleted){
+      try{
+        const snapDel=JSON.parse(snap.schemaDeleted||'[]');
+        const localDel=JSON.parse(localStorage.getItem('schemaDeleted_'+email)||'[]');
+        localStorage.setItem('schemaDeleted_'+email,JSON.stringify([...new Set([...localDel,...snapDel])]));
+      }catch{}
+    }
     state._prs=null;
     if(typeof applyTheme==='function')applyTheme();
     if(typeof applyI18n==='function')applyI18n();
