@@ -713,6 +713,7 @@ async function loadSettingsFromAppData(){
 // Uses the same values API as training data — guaranteed to work with
 // the existing spreadsheets scope, no developer metadata quirks.
 const _SYNC_TAB='_rxsync';
+const _syncTabKnown=new Set(); // sheetIds where we've confirmed _rxsync exists this session
 
 async function _saveSchemaListToSheetMeta(sheetId){
   try{
@@ -722,10 +723,15 @@ async function _saveSchemaListToSheetMeta(sheetId){
       schemaList:localStorage.getItem('schemaList_'+email)||'[]',
       schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
     });
-    // Ensure the sync tab exists (ignore 400 if it already exists)
-    try{
-      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:_SYNC_TAB}}}]});
-    }catch{}
+    if(!_syncTabKnown.has(sheetId)){
+      // Check if the tab exists before blindly calling addSheet (avoids 400 in console)
+      const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties.title`);
+      const exists=meta.sheets?.some(s=>s.properties?.title===_SYNC_TAB);
+      if(!exists){
+        await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:_SYNC_TAB}}}]});
+      }
+      _syncTabKnown.add(sheetId);
+    }
     await sheetsPut(`/${sheetId}/values/${_SYNC_TAB}!A1`,{
       range:`${_SYNC_TAB}!A1`,majorDimension:'ROWS',values:[[value]]
     });
