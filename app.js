@@ -2652,9 +2652,9 @@ async function _runImportAI(){
     userContent=[block,{type:'text',text:userText}];
   }
 
-  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+  const resp=await fetch(GAUTH.AUTH_BACKEND+'/ai/import',{
     method:'POST',
-    headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       model:'claude-sonnet-4-20250514',max_tokens:2000,
       system:'Je krijgt een trainingsschema. Retourneer ALLEEN een JSON array, geen uitleg, geen markdown. Velden per item: datum (YYYY-MM-DD), type (run/kracht/mobiliteit/rust/herstel/werk/race), titel (string), detail (string), km (number of null), fase (lege string).',
