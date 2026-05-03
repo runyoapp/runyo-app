@@ -2424,6 +2424,7 @@ async function loadSheetPickerInline(){
       _addToSchemaList(_em2,{id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:Date.now()});
     });
   }catch{}
+  const deleted=_getDeletedSchemas(_em2);
   // Ensure the active schema is always in the list, even if never saved to schemaList
   if(currentId&&!deleted.includes(currentId)){
     const already=_getSchemaList(_em2).find(s=>s.id===currentId);
@@ -2436,7 +2437,6 @@ async function loadSheetPickerInline(){
     }
   }
   const hist=_getSchemaList(_em2);
-  const deleted=_getDeletedSchemas(_em2);
   const filtered=hist.filter(s=>!deleted.includes(s.id)).slice(0,10);
   // If active schema was pushed past position 10 by newer entries, add it back
   if(currentId&&!filtered.find(s=>s.id===currentId)){

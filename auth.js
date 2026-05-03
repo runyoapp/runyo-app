@@ -722,11 +722,9 @@ async function _saveSchemaListToSheetMeta(sheetId){
       schemaList:localStorage.getItem('schemaList_'+email)||'[]',
       schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
     });
-    // Ensure the sync tab exists (ignore error if already present)
+    // Ensure the sync tab exists (ignore 400 if it already exists)
     try{
-      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{
-        addSheet:{properties:{title:_SYNC_TAB,hidden:true,gridProperties:{rowCount:2,columnCount:1}}}
-      }]});
+      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{addSheet:{properties:{title:_SYNC_TAB}}}]});
     }catch{}
     await sheetsPut(`/${sheetId}/values/${_SYNC_TAB}!A1`,{
       range:`${_SYNC_TAB}!A1`,majorDimension:'ROWS',values:[[value]]
