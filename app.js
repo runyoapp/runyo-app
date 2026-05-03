@@ -2614,7 +2614,19 @@ async function _importStep2Next(){
   Object.assign(state.importData,{loading:true,error:null,preview:null});
   _renderImportModal();
   try{await _runImportAI();}
-  catch(e){Object.assign(state.importData,{error:e.message||'Fout bij AI-analyse',loading:false});_renderImportModal();}
+  catch(e){
+    const d=state.importData;
+    Object.assign(d,{error:e.message||'Fout bij AI-analyse',loading:false});
+    _renderImportModal();
+    _importSendLog({
+      ts:new Date().toISOString(),success:false,
+      fileName:d.file?.name||'',fileType:d.type||'',fileSize:d.file?.size||0,
+      settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
+      rawResponse:d.rawResponse||'',parsedCount:d.parsedCount||0,
+      tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
+      error:e.message||'Fout bij AI-analyse',client:_importClientInfo(),
+    });
+  }
 }
 
 async function _readFileBase64(file){
@@ -2763,8 +2775,18 @@ async function _confirmImport(hasOverlap){
     });
     await fetchData();
   }catch(e){
-    Object.assign(state.importData,{error:'Importeren mislukt: '+(e.message||e),loading:false});
+    const errMsg='Importeren mislukt: '+(e.message||e);
+    const d2=state.importData;
+    Object.assign(d2,{error:errMsg,loading:false});
     _renderImportModal();
+    _importSendLog({
+      ts:new Date().toISOString(),success:false,
+      fileName:d2.file?.name||'',fileType:d2.type||'',fileSize:d2.file?.size||0,
+      settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
+      rawResponse:d2.rawResponse||'',parsedCount:d2.parsedCount||0,
+      tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
+      error:errMsg,client:_importClientInfo(),
+    });
   }
 }
 
