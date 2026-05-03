@@ -2671,13 +2671,17 @@ async function _runImportAI(){
   const json=await resp.json();
   const raw=json.content?.[0]?.text||'';
   state.importData.rawResponse=raw; // store for debug
-  // Try complete array first, then recover truncated JSON
-  const match=raw.match(/\[[\s\S]*\]/);
   let parsed=null;
-  if(match){try{parsed=JSON.parse(match[0]);}catch{}}
+  // 1. Strip markdown fences if present (```json ... ``` or ``` ... ```)
+  const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const cleaned=fenced?fenced[1].trim():raw.trim();
+  // 2. Try parsing cleaned text as complete JSON array
+  if(!parsed){const m=cleaned.match(/\[[\s\S]*\]/);if(m)try{parsed=JSON.parse(m[0]);}catch{}}
+  // 3. Try raw fallback (in case no fences)
+  if(!parsed){const m=raw.match(/\[[\s\S]*\]/);if(m)try{parsed=JSON.parse(m[0]);}catch{}}
+  // 4. Recover individual objects from truncated response
   if(!parsed){
-    // Fallback: extract individual objects from truncated response
-    const objs=[...raw.matchAll(/\{[^{}]*"datum"\s*:\s*"(\d{4}-\d{2}-\d{2})"[^{}]*\}/g)].map(m=>{try{return JSON.parse(m[0]);}catch{return null;}}).filter(Boolean);
+    const objs=[...raw.matchAll(/\{[^{}]*?"datum"\s*:\s*"(\d{4}-\d{2}-\d{2})"[\s\S]*?\}/g)].map(m=>{try{return JSON.parse(m[0]);}catch{return null;}}).filter(Boolean);
     if(objs.length)parsed=objs;
   }
   if(!Array.isArray(parsed)||!parsed.length)throw new Error('Geen schema gevonden, probeer een ander bestand');
@@ -2743,10 +2747,10 @@ async function _importReportBug(){
         fileContent=window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).slice(0,8000);
       } else {
         fileContent=await _readFileBase64(d.file);
-        fileContent=fileContent.slice(0,8000); // cap size
+        fileContent=fileContent.slice(0,8000);
       }
     }
-    await fetch(GAUTH.AUTH_BACKEND+'/ai/debug-log',{
+    const resp=await fetch(GAUTH.AUTH_BACKEND+'/ai/debug-log',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -2758,9 +2762,9 @@ async function _importReportBug(){
         fileContent,
       }),
     });
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
     showToast('✓ Fout gemeld, bedankt!');
-  }catch(e){showToast('Melden mislukt: '+e.message);}
-}
+  }catch(e){showToast('❌ Melden mislukt ('+e.message+') — voeg /ai/debug-log toe aan backend');}
 
 function oauthDisconnect(){
   if(typeof authClear==='function')authClear();
