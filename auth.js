@@ -49,7 +49,13 @@ function authSheetId(){
   const email=localStorage.getItem(GAUTH.EMAIL_KEY)||'';
   if(email){
     const saved=localStorage.getItem('sheetId_'+email)||'';
-    if(saved){authSetSheetId(saved);return saved;}
+    if(saved){
+      authSetSheetId(saved);
+      // Restore tab name (not file name) for API calls
+      const tabName=localStorage.getItem('sheetTabName_'+email)||localStorage.getItem('sheetName_'+email)||'';
+      if(tabName){localStorage.setItem('sheetName',tabName);if(typeof state!=='undefined')state.sheetName=tabName;}
+      return saved;
+    }
   }
   return '';
 }
@@ -580,20 +586,30 @@ async function _getDriveFileName(sheetId){
 }
 
 async function _finalizeOAuthSheet(sheetId,name,url){
-  // Fetch Drive file name (not tab name)
+  // 1. Get tab name for API range queries
+  let tabName='';
+  try{
+    const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties`);
+    tabName=meta.sheets?.[0]?.properties?.title||'';
+  }catch{}
+  // state.sheetName = tab name (used for API: "TabName!A:K")
+  state.sheetName=tabName;
+  localStorage.setItem('sheetName',tabName);
+  // 2. Get Drive file name for display
   const fileName=await _getDriveFileName(sheetId)||name||sheetId;
-  state.sheetName=fileName;
-  localStorage.setItem('sheetName',fileName);
+  localStorage.setItem('driveFileName_'+sheetId,fileName);
   authSetSheetId(sheetId);
   state.sheetId=sheetId;
   localStorage.setItem('sheetId',sheetId);
-  // Persist per email
+  // 3. Persist per email
   const _em=authEmail();
   if(_em){
     localStorage.setItem('sheetId_'+_em,sheetId);
-    localStorage.setItem('sheetName_'+_em,fileName);
+    localStorage.setItem('sheetTabName_'+_em,tabName);  // for API
+    localStorage.setItem('sheetName_'+_em,tabName);     // backward compat
+    localStorage.setItem('sheetFileName_'+_em,fileName); // for display
+    localStorage.setItem('driveFileName_'+sheetId,fileName);
   }
-  // Save to history
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
   if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,fileName,sheetUrl);
   if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount();
