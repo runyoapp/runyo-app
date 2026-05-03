@@ -2661,7 +2661,7 @@ async function _runImportAI(){
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      model:'claude-sonnet-4-6',max_tokens:2000,
+      model:'claude-sonnet-4-6',max_tokens:8000,
       system:'Je krijgt een trainingsschema. Retourneer ALLEEN een JSON array, geen uitleg, geen markdown. Velden per item: datum (YYYY-MM-DD), type (run/kracht/mobiliteit/rust/herstel/werk/race), titel (string), detail (string), km (number of null), fase (lege string).',
       messages:[{role:'user',content:userContent}],
     }),
@@ -2671,9 +2671,15 @@ async function _runImportAI(){
   const json=await resp.json();
   const raw=json.content?.[0]?.text||'';
   state.importData.rawResponse=raw; // store for debug
+  // Try complete array first, then recover truncated JSON
   const match=raw.match(/\[[\s\S]*\]/);
-  if(!match)throw new Error('Geen schema gevonden, probeer een ander bestand');
-  let parsed;try{parsed=JSON.parse(match[0]);}catch{throw new Error('Geen schema gevonden, probeer een ander bestand');}
+  let parsed=null;
+  if(match){try{parsed=JSON.parse(match[0]);}catch{}}
+  if(!parsed){
+    // Fallback: extract individual objects from truncated response
+    const objs=[...raw.matchAll(/\{[^{}]*"datum"\s*:\s*"(\d{4}-\d{2}-\d{2})"[^{}]*\}/g)].map(m=>{try{return JSON.parse(m[0]);}catch{return null;}}).filter(Boolean);
+    if(objs.length)parsed=objs;
+  }
   if(!Array.isArray(parsed)||!parsed.length)throw new Error('Geen schema gevonden, probeer een ander bestand');
 
   const rows=parsed
