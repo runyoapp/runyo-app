@@ -2560,8 +2560,13 @@ function _renderImportModal(){
 
   if(s===3){
     if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">AI analyseert schema…</div>`;return;}
-    if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>`;return;}
-    if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div>${back(1)}`;return;}
+    const _debugBlock=()=>{
+      const raw=d.rawResponse||'';
+      const reportBtn=`<button class="btn-secondary" style="margin-top:8px;width:100%" onclick="_importReportBug()">Fout melden (bestand + respons opsturen)</button>`;
+      return`<details style="margin-top:12px"><summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);cursor:pointer;letter-spacing:1px;text-transform:uppercase">Debug — AI respons</summary><pre style="font-family:var(--font-m);font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px;margin-top:6px;overflow:auto;max-height:160px;white-space:pre-wrap;word-break:break-all">${esc(raw||'(leeg)')}</pre>${reportBtn}</details>`;
+    };
+    if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>${_debugBlock()}`;return;}
+    if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div><div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw proberen</button></div>${_debugBlock()}`;return;}
 
     const existing=state.data||[];
     const existingDates=new Set(existing.map(r=>r.datum));
@@ -2665,6 +2670,7 @@ async function _runImportAI(){
   if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e?.error?.message||`API fout ${resp.status}`);}
   const json=await resp.json();
   const raw=json.content?.[0]?.text||'';
+  state.importData.rawResponse=raw; // store for debug
   const match=raw.match(/\[[\s\S]*\]/);
   if(!match)throw new Error('Geen schema gevonden, probeer een ander bestand');
   let parsed;try{parsed=JSON.parse(match[0]);}catch{throw new Error('Geen schema gevonden, probeer een ander bestand');}
@@ -2716,6 +2722,38 @@ async function _confirmImport(hasOverlap){
     Object.assign(state.importData,{error:'Importeren mislukt: '+(e.message||e),loading:false});
     _renderImportModal();
   }
+}
+
+async function _importReportBug(){
+  const d=state.importData;
+  try{
+    let fileContent='';
+    if(d.file){
+      const name=d.file.name.toLowerCase();
+      if(name.endsWith('.xlsx')){
+        await _loadSheetJS();
+        const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(d.file);});
+        const wb=window.XLSX.read(buf,{type:'array'});
+        fileContent=window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).slice(0,8000);
+      } else {
+        fileContent=await _readFileBase64(d.file);
+        fileContent=fileContent.slice(0,8000); // cap size
+      }
+    }
+    await fetch(GAUTH.AUTH_BACKEND+'/ai/debug-log',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        ts:new Date().toISOString(),
+        fileName:d.file?.name||'',
+        fileType:d.type||'',
+        rawResponse:d.rawResponse||'',
+        error:d.error||'',
+        fileContent,
+      }),
+    });
+    showToast('✓ Fout gemeld, bedankt!');
+  }catch(e){showToast('Melden mislukt: '+e.message);}
 }
 
 function oauthDisconnect(){
