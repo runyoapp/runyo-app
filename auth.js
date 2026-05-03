@@ -568,14 +568,15 @@ async function oauthCreateNew(){
 
 async function _getDriveFileName(sheetId){
   try{
-    const token=authGetToken();
+    const token=await authEnsureToken();
     if(!token)return'';
     const res=await fetch(`https://www.googleapis.com/drive/v3/files/${sheetId}?fields=name`,{
       headers:{Authorization:'Bearer '+token}
     });
+    if(!res.ok)return'';
     const json=await res.json();
     return json.name||'';
-  }catch{return'';}
+  }catch(e){return'';}
 }
 
 async function _finalizeOAuthSheet(sheetId,name,url){
@@ -595,6 +596,7 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   // Save to history
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
   if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,fileName,sheetUrl);
+  if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount();
   closeDayModal();
   if(typeof renderHeader==='function')renderHeader();
   if(typeof renderConnectSection==='function')renderConnectSection();
