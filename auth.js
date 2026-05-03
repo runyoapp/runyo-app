@@ -474,11 +474,11 @@ async function oauthConnectFlow(){
   try{
     await authSignIn();
     if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
-    // If sheet already known for this account, go straight to app
+    const _em2=typeof authEmail==='function'?authEmail():'';
+    // Always restore — picks up schema list + settings from Drive on any device
+    if(_em2&&typeof _restoreSettingsFromAccount==='function')_restoreSettingsFromAccount(_em2);
     if(authSheetId()){
       showToast('✓ Ingelogd');
-      const _em2=typeof authEmail==='function'?authEmail():'';
-      if(_em2&&typeof _restoreSettingsFromAccount==='function')_restoreSettingsFromAccount(_em2);
       if(typeof renderHeader==='function')renderHeader();
       if(typeof renderConnectSection==='function')renderConnectSection();
       if(typeof renderAccountSection==='function')renderAccountSection();
@@ -496,9 +496,17 @@ async function oauthConnectFlow(){
 function showOAuthConnectSheet(){
   const content=document.getElementById('dayModalContent');
   document.getElementById('dayModal').classList.add('open');
+  const email=authEmail();
+  const allDeleted=typeof _getDeletedSchemas==='function'?_getDeletedSchemas(email):[];
+  const list=typeof _getSchemaList==='function'?_getSchemaList(email).filter(s=>!allDeleted.includes(s.id)).slice(0,8):[];
+  const histHtml=list.length?`<div style="margin-bottom:14px">
+    <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Eerder gekoppeld</div>
+    ${list.map(s=>`<button onclick="oauthSelectSheet('${s.id}','${esc(s.name||s.id)}')" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 10px;margin-bottom:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer"><span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name||s.id)}</span></button>`).join('')}
+  </div>`:'';
   content.innerHTML=`<div class="modal-title">Schema koppelen</div>
-    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:16px">Ingelogd als <strong>${authEmail()}</strong></div>
-    <button class="btn-primary" style="margin-bottom:10px" onclick="oauthPickExisting()">Bestaand schema koppelen</button>
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Ingelogd als <strong>${esc(email)}</strong></div>
+    ${histHtml}
+    <button class="btn-primary" style="margin-bottom:8px" onclick="oauthPickExisting()">Bestaand schema koppelen</button>
     <button class="btn-secondary" onclick="oauthCreateNew()">Nieuw leeg schema aanmaken</button>`;
 }
 

@@ -2299,52 +2299,63 @@ async function _syncSettingsToAccount(){
     _saveSchemaListToSheetMeta(_curSheetId).catch(()=>{});
   }
 }
+function _applySnapToLocal(snap,email){
+  if(!snap||!email)return;
+  if(snap.prs)localStorage.setItem('prs',snap.prs);
+  if(snap.telegramUser)localStorage.setItem('telegramUser',snap.telegramUser);
+  if(snap.notifPrefs)localStorage.setItem('notifPrefs',snap.notifPrefs);
+  if(snap.lang){localStorage.setItem('lang',snap.lang);if(typeof state!=='undefined')state.lang=snap.lang;}
+  if(snap.theme){localStorage.setItem('theme',snap.theme);if(typeof state!=='undefined')state.theme=snap.theme;}
+  // Merge schema deleted lists (union)
+  if(snap.schemaDeleted){
+    try{
+      const snapDel=JSON.parse(snap.schemaDeleted||'[]');
+      const localDel=JSON.parse(localStorage.getItem('schemaDeleted_'+email)||'[]');
+      localStorage.setItem('schemaDeleted_'+email,JSON.stringify([...new Set([...localDel,...snapDel])]));
+    }catch{}
+  }
+  // Merge schema lists (add remote entries not already local, filter deleted)
+  if(snap.schemaList){
+    try{
+      const snapList=JSON.parse(snap.schemaList||'[]');
+      const allDeleted=JSON.parse(localStorage.getItem('schemaDeleted_'+email)||'[]');
+      const localList=_getSchemaList(email);
+      const localIds=new Set(localList.map(s=>s.id));
+      const merged=localList.filter(s=>!allDeleted.includes(s.id));
+      const mergedIds=new Set(merged.map(s=>s.id));
+      for(const entry of snapList){
+        if(!mergedIds.has(entry.id)&&!allDeleted.includes(entry.id)){merged.push(entry);mergedIds.add(entry.id);}
+      }
+      merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
+      localStorage.setItem('schemaList_'+email,JSON.stringify(merged.slice(0,50)));
+    }catch{}
+  }
+  if(typeof state!=='undefined')state._prs=null;
+  if(typeof applyTheme==='function')applyTheme();
+  if(typeof applyI18n==='function')applyI18n();
+}
+
 function _restoreSettingsFromAccount(email){
   if(!email)return;
   try{
+    // Apply local snap immediately (fast path)
     const snap=JSON.parse(localStorage.getItem('accountSnap_'+email)||'null');
-    if(!snap){
-      // New device: no local snapshot — try Drive appDataFolder
-      if(typeof loadSettingsFromAppData==='function'){
-        loadSettingsFromAppData().then(driveSnap=>{
-          if(!driveSnap)return;
-          localStorage.setItem('accountSnap_'+email,JSON.stringify(driveSnap));
-          _restoreSettingsFromAccount(email);
-          if(typeof renderHeader==='function')renderHeader();
-          if(typeof renderConnectSection==='function')renderConnectSection();
-        }).catch(()=>{});
-      }
-      return;
+    if(snap)_applySnapToLocal(snap,email);
+    // Always sync with Drive — bidirectional: picks up changes from other devices
+    if(typeof loadSettingsFromAppData==='function'){
+      loadSettingsFromAppData().then(driveSnap=>{
+        if(!driveSnap)return;
+        // Merge Drive state into local (local deletions take effect too)
+        _applySnapToLocal(driveSnap,email);
+        // Write merged state back to Drive so it becomes the new single source of truth
+        if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount().catch(()=>{});
+        if(typeof renderHeader==='function')renderHeader();
+        if(typeof renderConnectSection==='function')renderConnectSection();
+        // Refresh connect modal if it's open (so schema list appears on Device B)
+        const modal=document.getElementById('dayModal');
+        if(modal?.classList.contains('open')&&typeof showOAuthConnectSheet==='function')showOAuthConnectSheet();
+      }).catch(()=>{});
     }
-    if(snap.prs)localStorage.setItem('prs',snap.prs);
-    if(snap.telegramUser)localStorage.setItem('telegramUser',snap.telegramUser);
-    if(snap.notifPrefs)localStorage.setItem('notifPrefs',snap.notifPrefs);
-    if(snap.lang){localStorage.setItem('lang',snap.lang);if(typeof state!=='undefined')state.lang=snap.lang;}
-    if(snap.theme){localStorage.setItem('theme',snap.theme);if(typeof state!=='undefined')state.theme=snap.theme;}
-    if(snap.schemaList){
-      try{
-        const snapList=JSON.parse(snap.schemaList||'[]');
-        const localDeleted=JSON.parse(localStorage.getItem('schemaDeleted_'+email)||'[]');
-        const localList=_getSchemaList(email);
-        const localIds=new Set(localList.map(s=>s.id));
-        const merged=[...localList];
-        for(const entry of snapList){
-          if(!localIds.has(entry.id)&&!localDeleted.includes(entry.id)){merged.push(entry);localIds.add(entry.id);}
-        }
-        merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
-        localStorage.setItem('schemaList_'+email,JSON.stringify(merged.slice(0,50)));
-      }catch{}
-    }
-    if(snap.schemaDeleted){
-      try{
-        const snapDel=JSON.parse(snap.schemaDeleted||'[]');
-        const localDel=JSON.parse(localStorage.getItem('schemaDeleted_'+email)||'[]');
-        localStorage.setItem('schemaDeleted_'+email,JSON.stringify([...new Set([...localDel,...snapDel])]));
-      }catch{}
-    }
-    state._prs=null;
-    if(typeof applyTheme==='function')applyTheme();
-    if(typeof applyI18n==='function')applyI18n();
   }catch(e){}
 }
 function _confirmDeleteSchema(sheetId){
