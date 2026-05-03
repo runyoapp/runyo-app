@@ -2571,6 +2571,7 @@ function _renderImportModal(){
     if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>${_debugBlock()}`;return;}
     if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div><div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw proberen</button></div>${_debugBlock()}`;return;}
 
+    const rapportHtml=d.rapport?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.6"><span style="color:var(--accent);font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:9px">AI rapport </span>${esc(d.rapport)}</div>`:'';
     const typeEmoji={run:'🏃',work:'💼',strength:'💪',mobility:'🧘',rest:'😴',race:'🏆',recovery:'🔄'};
     const rows=d.preview.slice(0,60).map(r=>{
       const t=normalizeType(r.type||'rest');
@@ -2579,7 +2580,8 @@ function _renderImportModal(){
     }).join('');
     el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div>
       <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:8px">${d.preview.length} activiteiten gevonden${d.preview.length>60?' (eerste 60 getoond)':''}</div>
-      <div style="overflow:auto;max-height:260px;border:1px solid var(--border);border-radius:4px;margin-bottom:12px">
+      ${rapportHtml}
+      <div style="overflow:auto;max-height:240px;border:1px solid var(--border);border-radius:4px;margin-bottom:12px">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="position:sticky;top:0;background:var(--surface)">
             ${['Datum','Type','Titel','Km'].map(h=>`<th style="padding:4px 6px;font-family:var(--font-m);font-size:9px;color:var(--muted);text-align:left;letter-spacing:1px;text-transform:uppercase">${h}</th>`).join('')}
@@ -2620,7 +2622,7 @@ async function _importStep2Next(){
       ts:new Date().toISOString(),success:false,
       fileName:d.file?.name||'',fileType:d.type||'',fileSize:d.file?.size||0,
       settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
-      rawResponse:d.rawResponse||'',parsedCount:d.parsedCount||0,
+      rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
       tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
       error:e.message||'Fout bij AI-analyse',client:_importClientInfo(),
     });
@@ -2693,7 +2695,23 @@ async function _runImportAI(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       model:'claude-sonnet-4-6',max_tokens:8000,
-      system:'Je krijgt een trainingsschema. Retourneer ALLEEN een JSON array, geen uitleg, geen markdown. Velden per item: datum (YYYY-MM-DD), type (run/kracht/mobiliteit/rust/herstel/werk/race), titel (string), detail (string), km (number of null), fase (lege string).',
+      system:`Je krijgt een trainingsschema (PDF, Excel, afbeelding of tekst).
+
+Eerste stap (kritiek): Scan onmiddellijk naar de kern: zoek naar "WEEK", "Week", tabellen met MON/TUE/... of herhaalde dag-structuren. Sla alle inleidingen, motivatie, glossary, pace charts, uitleg over audio guided runs, marketing en algemene adviezen over. Ga rechtstreeks naar de week-per-week workouts.
+
+Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (string, max 70 tekens), detail (string, max 170 tekens), km (number|null), fase ("" altijd leeg).
+
+Regels (strikt):
+1. Structuur: volg exact de weken en dagen uit het schema. Dubbele schema's (miles+km of identieke content): neem alleen de meest gedetailleerde versie. Negeer duplicaten.
+2. Datum mapping: begindatum = eerste dag week 1. Elke week +7 dagen. Ontbrekende dagen vullen met rust.
+3. Hardloopdagen: schema leidend. Neem alle run-sessies over.
+4. Rust: REST/Off/Off Day → type rust, detail "rust". REST or Cross-Training → type rust, detail "rust (optioneel cross/mobiliteit)". Als rustdagen behouden = nee → vervang pure rust door mobiliteit of herstel (behalve taper/race week).
+5. Type mapping: Easy/Recovery/Long Run/Steady/Speed/Interval/Tempo/Threshold/Hill/Fartlek → run. Race/Tune-up Race → race. Cross-Training/Yoga/Pilates/Bike/Swim/Core → mobiliteit of kracht. Stretch/Mobility → mobiliteit.
+6. Meerdere sessies per dag: altijd combineren in één item. WU+main+CD in detail.
+7. km: gebruik expliciete afstanden. Ranges zonder afstand → null. Miles × 1.609, afronden op 1 decimaal.
+8. Output: chronologisch, één entry per dag, geen dubbele datums.
+
+Schrijf eerst een RAPPORT van max 5 regels: beschrijf hoe je het schema hebt geïnterpreteerd (gevonden weken, datum-mapping, bijzondere keuzes, eventuele duplicaten genegeerd). Begin de rapportregel met "RAPPORT:". Daarna direct de JSON array zonder verdere uitleg of markdown.`,
       messages:[{role:'user',content:userContent}],
     }),
   });
@@ -2704,6 +2722,9 @@ async function _runImportAI(){
   state.importData.rawResponse=raw;
   state.importData.tokenUsage=json.usage||null;
   state.importData.aiDuration=Date.now()-(state.importData.aiStart||Date.now());
+  // Extract rapport (text before the JSON array)
+  const rapportMatch=raw.match(/RAPPORT\s*:\s*([^\[]*)/i);
+  state.importData.rapport=rapportMatch?rapportMatch[1].trim():'';
   let parsed=null;
   // 1. Strip markdown fences if present (```json ... ``` or ``` ... ```)
   const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -2763,7 +2784,7 @@ async function _confirmImport(){
       ts:new Date().toISOString(),success:true,
       fileName:d2.file?.name||'',fileType:d2.type||'',fileSize:d2.file?.size||0,
       settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
-      rawResponse:d2.rawResponse||'',parsedCount:rows.length,
+      rawResponse:d2.rawResponse||'',rapport:d2.rapport||'',parsedCount:rows.length,
       tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
       error:'',client:_importClientInfo(),
     });
@@ -2777,7 +2798,7 @@ async function _confirmImport(){
       ts:new Date().toISOString(),success:false,
       fileName:d2.file?.name||'',fileType:d2.type||'',fileSize:d2.file?.size||0,
       settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
-      rawResponse:d2.rawResponse||'',parsedCount:d2.parsedCount||0,
+      rawResponse:d2.rawResponse||'',rapport:d2.rapport||'',parsedCount:d2.parsedCount||0,
       tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
       error:errMsg,client:_importClientInfo(),
     });
@@ -2805,7 +2826,7 @@ async function _importReportBug(){
         ts:new Date().toISOString(),success:false,
         fileName:d.file?.name||'',fileType:d.type||'',fileSize:d.file?.size||0,
         settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
-        rawResponse:d.rawResponse||'',parsedCount:d.parsedCount||0,
+        rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
         tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
         error:d.error||'',fileContent,client:_importClientInfo(),
       }),

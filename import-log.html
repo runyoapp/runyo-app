@@ -129,6 +129,10 @@ function renderEntry(e, idx) {
 
   const errorBlock = e.error ? `<div class="error-box">${esc(e.error)}</div>` : '';
 
+  const rapportBlock = e.rapport ? `
+    <div class="section-title">AI rapport</div>
+    <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;padding:10px 12px;font-size:11px;color:#aaa;line-height:1.7;margin-bottom:4px">${esc(e.rapport)}</div>` : '';
+
   const rawBlock = e.rawResponse ? `
     <div class="section-title">AI respons (raw)</div>
     <pre>${esc(e.rawResponse)}</pre>` : '';
@@ -148,6 +152,7 @@ function renderEntry(e, idx) {
       ${metaGrid}
       ${tokenBlock}
       ${clientInfo}
+      ${rapportBlock}
       ${rawBlock}
       ${fileBlock}
     </div>
