@@ -708,10 +708,11 @@ async function loadSettingsFromAppData(){
   }catch{return null;}
 }
 
-// ── Sheets developer metadata — cross-device schema list sync ─────────────────
-// Stores the schema list inside the connected spreadsheet as invisible metadata.
-// Works with the existing `spreadsheets` scope — no re-auth needed.
-const _SCHEMA_SYNC_KEY='runningx_schema_list';
+// ── Hidden sync tab — cross-device schema list storage ────────────────────────
+// Writes JSON to _rxsync!A1 in the connected spreadsheet (hidden tab).
+// Uses the same values API as training data — guaranteed to work with
+// the existing spreadsheets scope, no developer metadata quirks.
+const _SYNC_TAB='_rxsync';
 
 async function _saveSchemaListToSheetMeta(sheetId){
   try{
@@ -721,43 +722,22 @@ async function _saveSchemaListToSheetMeta(sheetId){
       schemaList:localStorage.getItem('schemaList_'+email)||'[]',
       schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
     });
-    // Check if metadata entry already exists
-    let existingId=null;
+    // Ensure the sync tab exists (ignore error if already present)
     try{
-      const sr=await sheetsPost(`/${sheetId}/developerMetadata:search`,{
-        dataFilters:[{developerMetadataLookup:{metadataKey:_SCHEMA_SYNC_KEY}}]
-      });
-      existingId=sr.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataId??null;
+      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{
+        addSheet:{properties:{title:_SYNC_TAB,hidden:true,gridProperties:{rowCount:2,columnCount:1}}}
+      }]});
     }catch{}
-    if(existingId!=null){
-      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{
-        updateDeveloperMetadata:{
-          dataFilters:[{developerMetadataLookup:{metadataKey:_SCHEMA_SYNC_KEY}}],
-          developerMetadata:{metadataKey:_SCHEMA_SYNC_KEY,metadataValue:value,visibility:'DOCUMENT'},
-          fields:'metadataValue'
-        }
-      }]});
-    }else{
-      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{
-        createDeveloperMetadata:{
-          developerMetadata:{
-            metadataKey:_SCHEMA_SYNC_KEY,
-            metadataValue:value,
-            location:{spreadsheet:true},
-            visibility:'DOCUMENT'
-          }
-        }
-      }]});
-    }
+    await sheetsPut(`/${sheetId}/values/${_SYNC_TAB}!A1`,{
+      range:`${_SYNC_TAB}!A1`,majorDimension:'ROWS',values:[[value]]
+    });
   }catch{}
 }
 
 async function _loadSchemaListFromSheetMeta(sheetId){
   try{
-    const sr=await sheetsPost(`/${sheetId}/developerMetadata:search`,{
-      dataFilters:[{developerMetadataLookup:{metadataKey:_SCHEMA_SYNC_KEY}}]
-    });
-    const raw=sr.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataValue;
+    const data=await sheetsGet(`/${sheetId}/values/${_SYNC_TAB}!A1`);
+    const raw=data.values?.[0]?.[0];
     if(!raw)return null;
     return JSON.parse(raw);
   }catch{return null;}

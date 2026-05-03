@@ -2424,9 +2424,25 @@ async function loadSheetPickerInline(){
       _addToSchemaList(_em2,{id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:Date.now()});
     });
   }catch{}
+  // Ensure the active schema is always in the list, even if never saved to schemaList
+  if(currentId&&!deleted.includes(currentId)){
+    const already=_getSchemaList(_em2).find(s=>s.id===currentId);
+    if(!already){
+      const fn=localStorage.getItem('driveFileName_'+currentId)||
+               localStorage.getItem('sheetFileName_'+_em2)||
+               localStorage.getItem('sheetTabName_'+_em2)||
+               localStorage.getItem('sheetName')||'';
+      _addToSchemaList(_em2,{id:currentId,name:fn,url:`https://docs.google.com/spreadsheets/d/${currentId}/edit`,ts:Date.now()});
+    }
+  }
   const hist=_getSchemaList(_em2);
   const deleted=_getDeletedSchemas(_em2);
   const filtered=hist.filter(s=>!deleted.includes(s.id)).slice(0,10);
+  // If active schema was pushed past position 10 by newer entries, add it back
+  if(currentId&&!filtered.find(s=>s.id===currentId)){
+    const act=hist.find(s=>s.id===currentId);
+    if(act&&!deleted.includes(currentId))filtered.unshift(act);
+  }
   // Fix stale entries where name is a raw URL or the bare sheet ID
   const needsNameFix=filtered.filter(s=>!s.name||s.name===s.id||s.name.startsWith('http'));
   if(needsNameFix.length){
