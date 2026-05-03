@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RunningX — Import Log</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0a;color:#e0e0e0;font-family:'JetBrains Mono',monospace,sans-serif;font-size:13px;padding:24px;min-height:100vh}
+  h1{font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;color:#fff}
+  .sub{font-size:10px;color:#555;margin-bottom:24px}
+  .refresh{font-size:10px;color:#666;margin-left:12px}
+  .entry{background:#111;border:1px solid #222;border-radius:6px;margin-bottom:16px;overflow:hidden}
+  .entry-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1a1a1a;cursor:pointer;user-select:none}
+  .badge{font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:3px;text-transform:uppercase;flex-shrink:0}
+  .ok{background:rgba(198,242,78,0.15);color:#c6f24e}
+  .fail{background:rgba(255,80,80,0.15);color:#ff5050}
+  .entry-title{flex:1;font-size:12px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .entry-meta{font-size:10px;color:#555;flex-shrink:0}
+  .entry-body{padding:16px;display:none}
+  .entry.open .entry-body{display:block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:14px}
+  .kv{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;padding:8px 10px}
+  .kv-label{font-size:9px;color:#555;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+  .kv-value{font-size:11px;color:#ccc;word-break:break-word}
+  .kv-value.good{color:#c6f24e}
+  .kv-value.bad{color:#ff5050}
+  .kv-value.muted{color:#555}
+  .section-title{font-size:9px;color:#555;letter-spacing:1px;text-transform:uppercase;margin:14px 0 6px}
+  .error-box{background:rgba(255,80,80,0.07);border:1px solid #ff5050;border-radius:4px;padding:8px 10px;font-size:11px;color:#ff5050;margin-bottom:10px}
+  pre{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;padding:10px 12px;font-size:10px;color:#aaa;overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+  .token-row{display:flex;gap:8px;flex-wrap:wrap}
+  .token-chip{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;padding:5px 10px;font-size:10px;color:#888}
+  .token-chip span{color:#c6f24e;font-weight:700}
+  .empty{text-align:center;padding:60px 20px;color:#333;font-size:12px}
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .filter-btn{background:#111;border:1px solid #222;color:#666;font-size:10px;padding:5px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;text-transform:uppercase}
+  .filter-btn.active{border-color:#c6f24e;color:#c6f24e}
+  #count{font-size:10px;color:#444;margin-left:auto}
+</style>
+</head>
+<body>
+<h1>RunningX — Import Log</h1>
+<div class="sub">AI schema import history · <span id="lastUpdate">laden…</span> <button onclick="load()" style="background:none;border:none;color:#555;cursor:pointer;font-size:10px;font-family:inherit">↺ vernieuwen</button></div>
+
+<div class="toolbar">
+  <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Alles</button>
+  <button class="filter-btn" data-filter="ok" onclick="setFilter('ok',this)">✓ Geslaagd</button>
+  <button class="filter-btn" data-filter="fail" onclick="setFilter('fail',this)">✗ Mislukt</button>
+  <span id="count"></span>
+</div>
+
+<div id="log"></div>
+
+<script>
+const API = 'https://runningx-auth-production.up.railway.app/ai/debug-log';
+const DAYS = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+let _data = [];
+let _filter = 'all';
+
+function setFilter(f, btn) {
+  _filter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render(_data);
+}
+
+function fmt(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleDateString('nl-NL') + ' ' + d.toLocaleTimeString('nl-NL', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function fmtDur(ms) {
+  if (!ms) return '—';
+  return ms > 1000 ? (ms/1000).toFixed(1)+'s' : ms+'ms';
+}
+
+function fmtSize(b) {
+  if (!b) return '—';
+  return b > 1024*1024 ? (b/1024/1024).toFixed(1)+' MB' : b > 1024 ? (b/1024).toFixed(0)+' KB' : b+' B';
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function kv(label, value, cls='') {
+  return `<div class="kv"><div class="kv-label">${label}</div><div class="kv-value ${cls}">${esc(value)}</div></div>`;
+}
+
+function renderEntry(e, idx) {
+  const ok = e.success === true;
+  const ts = fmt(e.ts || e._received);
+  const dur = fmtDur(e.aiDuration);
+  const s = e.settings || {};
+  const runDays = Array.isArray(s.runDays) ? s.runDays.map(i => DAYS[i]).join(', ') : '—';
+  const tu = e.tokenUsage || {};
+
+  const metaGrid = `<div class="grid">
+    ${kv('Bestand', e.fileName || '—')}
+    ${kv('Type', e.fileType || '—')}
+    ${kv('Grootte', fmtSize(e.fileSize))}
+    ${kv('Tijdstip', ts)}
+    ${kv('AI duur', dur, dur==='—'?'muted':'')}
+    ${kv('Resultaat', ok ? (e.parsedCount||0)+' activiteiten' : 'Mislukt', ok?'good':'bad')}
+    ${kv('Begindatum', s.startDate || '—')}
+    ${kv('Hardloopdagen', runDays)}
+    ${kv('Rustdagen behouden', s.keepRest !== undefined ? (s.keepRest ? 'Ja' : 'Nee') : '—')}
+  </div>`;
+
+  const tokenBlock = (tu.input_tokens || tu.output_tokens) ? `
+    <div class="section-title">Token gebruik</div>
+    <div class="token-row">
+      <div class="token-chip">Input <span>${tu.input_tokens ?? '—'}</span></div>
+      <div class="token-chip">Output <span>${tu.output_tokens ?? '—'}</span></div>
+      <div class="token-chip">Totaal <span>${(tu.input_tokens||0)+(tu.output_tokens||0)}</span></div>
+    </div>` : '';
+
+  const clientInfo = e.client ? `
+    <div class="section-title">Client info</div>
+    <div class="grid">
+      ${kv('Scherm', e.client.screen || '—')}
+      ${kv('Taal', e.client.lang || '—')}
+      ${kv('Online', e.client.online !== undefined ? (e.client.online ? 'Ja' : 'Nee') : '—')}
+      ${kv('Platform', e.client.platform || '—')}
+    </div>
+    <div class="kv" style="margin-bottom:14px"><div class="kv-label">User Agent</div><div class="kv-value" style="font-size:9px;color:#555">${esc(e.client.userAgent || '—')}</div></div>` : '';
+
+  const errorBlock = e.error ? `<div class="error-box">${esc(e.error)}</div>` : '';
+
+  const rawBlock = e.rawResponse ? `
+    <div class="section-title">AI respons (raw)</div>
+    <pre>${esc(e.rawResponse)}</pre>` : '';
+
+  const fileBlock = e.fileContent ? `
+    <div class="section-title">Bestandsinhoud (eerste 8000 tekens)</div>
+    <pre>${esc(e.fileContent)}</pre>` : '';
+
+  return `<div class="entry" id="e${idx}">
+    <div class="entry-header" onclick="toggle(${idx})">
+      <span class="badge ${ok?'ok':'fail'}">${ok?'✓ OK':'✗ FOUT'}</span>
+      <span class="entry-title">${esc(e.fileName||'onbekend bestand')}</span>
+      <span class="entry-meta">${ts} · ${dur}</span>
+    </div>
+    <div class="entry-body">
+      ${errorBlock}
+      ${metaGrid}
+      ${tokenBlock}
+      ${clientInfo}
+      ${rawBlock}
+      ${fileBlock}
+    </div>
+  </div>`;
+}
+
+function toggle(idx) {
+  document.getElementById('e'+idx).classList.toggle('open');
+}
+
+function render(data) {
+  const filtered = data.filter(e => {
+    if (_filter === 'ok') return e.success === true;
+    if (_filter === 'fail') return e.success !== true;
+    return true;
+  });
+  document.getElementById('count').textContent = filtered.length + ' / ' + data.length + ' items';
+  const log = document.getElementById('log');
+  if (!filtered.length) {
+    log.innerHTML = '<div class="empty">Geen entries' + (_filter !== 'all' ? ' voor dit filter' : '') + '</div>';
+    return;
+  }
+  log.innerHTML = filtered.map((e,i) => renderEntry(e,i)).join('');
+  // Auto-open first failed entry
+  if (filtered[0]?.success !== true) document.getElementById('e0')?.classList.add('open');
+}
+
+async function load() {
+  try {
+    const r = await fetch(API + '?_=' + Date.now());
+    _data = await r.json();
+    document.getElementById('lastUpdate').textContent = 'bijgewerkt ' + new Date().toLocaleTimeString('nl-NL');
+    render(_data);
+  } catch(e) {
+    document.getElementById('log').innerHTML = '<div class="empty">Kon log niet laden: ' + e.message + '</div>';
+  }
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

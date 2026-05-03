@@ -2635,11 +2635,32 @@ async function _loadSheetJS(){
   });
 }
 
+function _importClientInfo(){
+  return{
+    userAgent:navigator.userAgent,
+    screen:`${screen.width}x${screen.height}`,
+    lang:navigator.language,
+    online:navigator.onLine,
+    platform:navigator.platform||'',
+  };
+}
+
+async function _importSendLog(payload){
+  try{
+    const resp=await fetch(GAUTH.AUTH_BACKEND+'/ai/debug-log',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+    });
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+  }catch{}
+}
+
 async function _runImportAI(){
   const d=state.importData;
   const name=d.file.name.toLowerCase();
   const dayNames=_IMP_DAYS.map((n,i)=>d.runDays.includes(i)?n:null).filter(Boolean).join(', ')||'geen';
   const userText=`Begindatum: ${d.startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${d.keepRest?'ja':'nee'}.`;
+  state.importData.aiStart=Date.now();
 
   let userContent;
   if(name.endsWith('.xlsx')){
@@ -2670,7 +2691,9 @@ async function _runImportAI(){
   if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e?.error?.message||`API fout ${resp.status}`);}
   const json=await resp.json();
   const raw=json.content?.[0]?.text||'';
-  state.importData.rawResponse=raw; // store for debug
+  state.importData.rawResponse=raw;
+  state.importData.tokenUsage=json.usage||null;
+  state.importData.aiDuration=Date.now()-(state.importData.aiStart||Date.now());
   let parsed=null;
   // 1. Strip markdown fences if present (```json ... ``` or ``` ... ```)
   const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -2691,6 +2714,7 @@ async function _runImportAI(){
     .map(r=>({datum:r.datum,type:r.type||'run',titel:String(r.titel||''),detail:String(r.detail||''),km:r.km!=null&&r.km!==''?Number(r.km)||null:null,fase:r.fase||''}));
   if(!rows.length)throw new Error('Geen schema gevonden, probeer een ander bestand');
 
+  state.importData.parsedCount=rows.length;
   Object.assign(state.importData,{preview:rows,loading:false});
   _renderImportModal();
 }
@@ -2727,6 +2751,16 @@ async function _confirmImport(hasOverlap){
     await oauthSortByDate(sheetId,sheetName);
     closeDayModal();
     showToast(`✓ ${rows.length} activiteiten geïmporteerd`);
+    // Auto-log successful imports
+    const d2=state.importData;
+    _importSendLog({
+      ts:new Date().toISOString(),success:true,
+      fileName:d2.file?.name||'',fileType:d2.type||'',fileSize:d2.file?.size||0,
+      settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
+      rawResponse:d2.rawResponse||'',parsedCount:rows.length,
+      tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
+      error:'',client:_importClientInfo(),
+    });
     await fetchData();
   }catch(e){
     Object.assign(state.importData,{error:'Importeren mislukt: '+(e.message||e),loading:false});
@@ -2739,32 +2773,31 @@ async function _importReportBug(){
   try{
     let fileContent='';
     if(d.file){
-      const name=d.file.name.toLowerCase();
-      if(name.endsWith('.xlsx')){
+      const n=d.file.name.toLowerCase();
+      if(n.endsWith('.xlsx')){
         await _loadSheetJS();
         const buf=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsArrayBuffer(d.file);});
         const wb=window.XLSX.read(buf,{type:'array'});
         fileContent=window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).slice(0,8000);
       } else {
-        fileContent=await _readFileBase64(d.file);
-        fileContent=fileContent.slice(0,8000);
+        fileContent=(await _readFileBase64(d.file)).slice(0,8000);
       }
     }
     const resp=await fetch(GAUTH.AUTH_BACKEND+'/ai/debug-log',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        ts:new Date().toISOString(),
-        fileName:d.file?.name||'',
-        fileType:d.type||'',
-        rawResponse:d.rawResponse||'',
-        error:d.error||'',
-        fileContent,
+        ts:new Date().toISOString(),success:false,
+        fileName:d.file?.name||'',fileType:d.type||'',fileSize:d.file?.size||0,
+        settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
+        rawResponse:d.rawResponse||'',parsedCount:d.parsedCount||0,
+        tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
+        error:d.error||'',fileContent,client:_importClientInfo(),
       }),
     });
     if(!resp.ok)throw new Error('HTTP '+resp.status);
     showToast('✓ Fout gemeld, bedankt!');
-  }catch(e){showToast('❌ Melden mislukt ('+e.message+') — voeg /ai/debug-log toe aan backend');}
+  }catch(e){showToast('❌ Melden mislukt ('+e.message+')');}
+}
 
 function oauthDisconnect(){
   if(typeof authClear==='function')authClear();
