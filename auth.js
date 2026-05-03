@@ -617,7 +617,14 @@ async function _finalizeOAuthSheet(sheetId,name,url){
     localStorage.setItem('sheetFileName_'+_em,displayName);
   }
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
-  // 4. Save to per-email schema list
+  // 4. Remove from deleted list — user is actively linking this schema
+  if(_em){
+    try{
+      const d=typeof _getDeletedSchemas==='function'?_getDeletedSchemas(_em):[];
+      const clean=d.filter(id=>id!==sheetId);
+      if(clean.length<d.length)localStorage.setItem('schemaDeleted_'+_em,JSON.stringify(clean));
+    }catch{}
+  }
   if(typeof _addToSchemaList==='function')_addToSchemaList(_em,{id:sheetId,name:displayName,url:sheetUrl,ts:Date.now()});
   if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,displayName,sheetUrl);
   // 5. Cross-device sync: load remote schema list from sheet metadata and merge
@@ -625,7 +632,8 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   if(_sheetMeta&&_em){
     try{
       const snapList=JSON.parse(_sheetMeta.schemaList||'[]');
-      const snapDeleted=JSON.parse(_sheetMeta.schemaDeleted||'[]');
+      // Exclude the currently-linked schema from remote deleted list so re-linking always works
+      const snapDeleted=JSON.parse(_sheetMeta.schemaDeleted||'[]').filter(id=>id!==sheetId);
       const localDeleted=typeof _getDeletedSchemas==='function'?_getDeletedSchemas(_em):[];
       const allDeleted=[...new Set([...localDeleted,...snapDeleted])];
       if(allDeleted.length!==localDeleted.length)localStorage.setItem('schemaDeleted_'+_em,JSON.stringify(allDeleted));
@@ -639,6 +647,15 @@ async function _finalizeOAuthSheet(sheetId,name,url){
       localStorage.setItem('schemaList_'+_em,JSON.stringify(merged.slice(0,50)));
     }catch{}
   }
+  // Ensure linked schema is in list and not in deleted after merge
+  if(_em){
+    try{
+      const d=typeof _getDeletedSchemas==='function'?_getDeletedSchemas(_em):[];
+      const clean=d.filter(id=>id!==sheetId);
+      if(clean.length<d.length)localStorage.setItem('schemaDeleted_'+_em,JSON.stringify(clean));
+    }catch{}
+  }
+  if(typeof _addToSchemaList==='function')_addToSchemaList(_em,{id:sheetId,name:displayName,url:sheetUrl,ts:Date.now()});
   if(typeof _syncSettingsToAccount==='function')await _syncSettingsToAccount();
   // Save updated schema list back to sheet metadata
   await _saveSchemaListToSheetMeta(sheetId);
