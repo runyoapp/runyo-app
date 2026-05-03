@@ -2157,8 +2157,19 @@ function renderConnectSection(){
     el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0">Laden…</div>`;
     (async()=>{
       let fileName=localStorage.getItem('driveFileName_'+sheetId)||'';
-      try{if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||fileName;}catch{}
-      if(!fileName)fileName=sheetId;
+      if(!fileName){
+        // Try to get from recent Drive list first (cheaper)
+        try{
+          const sheets=await listRecentSheets();
+          const found=sheets.find(s=>s.id===sheetId);
+          if(found)fileName=found.name;
+        }catch{}
+      }
+      if(!fileName){
+        try{if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||'';}catch{}
+      }
+      if(!fileName)fileName=state.sheetName&&state.sheetName!==sheetId?state.sheetName:'';
+      if(!fileName){showToast('⚠ Bestandsnaam niet gevonden');fileName='Schema';}
       localStorage.setItem('driveFileName_'+sheetId,fileName);
       state.sheetName=fileName;
       localStorage.setItem('sheetName',fileName);
@@ -2325,9 +2336,23 @@ async function loadSheetPickerInline(){
   if(!el)return;
   el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
-  // Restore deleted list from accountSnap for cross-device sync
+  // Restore history + deleted from accountSnap for cross-device sync
   const _em2=typeof authEmail==='function'?authEmail():'';
-  if(_em2){try{const snap=JSON.parse(localStorage.getItem('accountSnap_'+_em2)||'null');if(snap?.schemaDeleted)localStorage.setItem('schemaDeleted',snap.schemaDeleted);}catch{}}
+  if(_em2){
+    try{
+      const snap=JSON.parse(localStorage.getItem('accountSnap_'+_em2)||'null');
+      if(snap?.schemaDeleted)localStorage.setItem('schemaDeleted',snap.schemaDeleted);
+      // Merge remote history into local (cross-device)
+      if(snap?.schemaHistory){
+        const local=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
+        const remote=JSON.parse(snap.schemaHistory||'[]');
+        const merged=[...local];
+        const seen=new Set(local.map(h=>h.id));
+        remote.forEach(h=>{if(!seen.has(h.id)){merged.push(h);seen.add(h.id);}});
+        localStorage.setItem('schemaHistory',JSON.stringify(merged));
+      }
+    }catch{}
+  }
   const hist=_loadSchemaHistory();
   // Always fetch Drive fresh — Drive is source of truth for names and cross-device
   try{
