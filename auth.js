@@ -468,6 +468,8 @@ async function oauthConnectFlow(){
     // If sheet already known for this account, go straight to app
     if(authSheetId()){
       showToast('✓ Ingelogd');
+      const _em2=typeof authEmail==='function'?authEmail():'';
+      if(_em2&&typeof _restoreSettingsFromAccount==='function')_restoreSettingsFromAccount(_em2);
       if(typeof renderHeader==='function')renderHeader();
       if(typeof renderConnectSection==='function')renderConnectSection();
       if(typeof renderAccountSection==='function')renderAccountSection();
