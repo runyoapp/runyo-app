@@ -2190,9 +2190,11 @@ function renderConnectSection(){
       }
       const _em=typeof authEmail==='function'?authEmail():'';
       if(_em)localStorage.setItem('sheetFileName_'+_em,fileName);
-      // Push schema list into sheet metadata so other devices can read it
+      // Push schema list to sheet tab + Drive appDataFolder on every load
       if(typeof _saveSchemaListToSheetMeta==='function')_saveSchemaListToSheetMeta(sheetId).catch(()=>{});
+      if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount().catch(()=>{});
       _saveSchemaHistory(sheetId,fileName,sheetUrl);
+      const _driveMissing=localStorage.getItem('rx_drive_scope_missing')==='1';
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
@@ -2201,6 +2203,7 @@ function renderConnectSection(){
             <a href="${esc(sheetUrl)}" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Schema openen in Google Sheets ↗</a>
           </div>
         </div>
+        ${_driveMissing?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1">Log opnieuw in voor automatische synchronisatie naar andere apparaten.</span><button class="btn-save" onclick="authSignOut&&authSignOut();oauthConnectFlow&&oauthConnectFlow()" style="white-space:nowrap;flex-shrink:0">Opnieuw inloggen</button></div>`:''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
           <button class="btn-save" onclick="toggleConnectPanel('new')">Nieuw schema koppelen</button>
