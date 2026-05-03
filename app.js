@@ -2218,19 +2218,65 @@ function renderConnectSection(){
     ${_devBlock()}`;
 }
 
-// ── ACCOUNT SETTINGS SYNC (B12) ───────────────────────────────────────────────
+// ── PER-EMAIL SCHEMA LIST ─────────────────────────────────────────────────────
+// Simple list per email: [{id, name, url, ts}]
+// This IS the cross-device source of truth — stored per email in localStorage
+
+function _schemaListKey(email){return 'schemaList_'+(email||'');}
+
+function _getSchemaList(email){
+  try{return JSON.parse(localStorage.getItem(_schemaListKey(email))||'[]');}catch{return[];}
+}
+
+function _addToSchemaList(email,entry){
+  if(!email||!entry?.id)return;
+  try{
+    const list=_getSchemaList(email);
+    const deleted=_getDeletedSchemas(email);
+    if(deleted.includes(entry.id))return;
+    const idx=list.findIndex(s=>s.id===entry.id);
+    if(idx>=0)list[idx]={...list[idx],...entry};
+    else list.unshift(entry);
+    localStorage.setItem(_schemaListKey(email),JSON.stringify(list.slice(0,50)));
+  }catch{}
+}
+
+function _getDeletedSchemas(email){
+  try{return JSON.parse(localStorage.getItem('schemaDeleted_'+(email||''))||'[]');}catch{return[];}
+}
+
+function _deleteFromSchemaList(email,sheetId){
+  if(!email||!sheetId)return;
+  try{
+    const list=_getSchemaList(email).filter(s=>s.id!==sheetId);
+    localStorage.setItem(_schemaListKey(email),JSON.stringify(list));
+    const deleted=_getDeletedSchemas(email);
+    if(!deleted.includes(sheetId))deleted.push(sheetId);
+    localStorage.setItem('schemaDeleted_'+email,JSON.stringify(deleted));
+  }catch{}
+}
+
+// Compat shims
+function _saveSchemaHistory(sheetId,name,url){
+  const email=typeof authEmail==='function'?authEmail():'';
+  _addToSchemaList(email,{id:sheetId,name:name||sheetId,url:url||'https://docs.google.com/spreadsheets/d/'+sheetId+'/edit',ts:Date.now()});
+}
+function _loadSchemaHistory(){
+  const email=typeof authEmail==='function'?authEmail():'';
+  return _getSchemaList(email);
+}
+
+// ── SETTINGS SYNC ─────────────────────────────────────────────────────────────
 function _syncSettingsToAccount(){
   const email=typeof authEmail==='function'?authEmail():'';
   if(!email)return;
+  // Schema list is already stored per email — sync other settings
   const snap={
-    schemaHistory:localStorage.getItem('schemaHistory')||'[]',
-    schemaDeleted:localStorage.getItem('schemaDeleted')||'[]',
     prs:localStorage.getItem('prs')||'{}',
     lang:localStorage.getItem('lang')||'nl',
     theme:localStorage.getItem('theme')||'dark',
     telegramUser:localStorage.getItem('telegramUser')||'',
     notifPrefs:localStorage.getItem('notifPrefs')||'{}',
-    sheetName:localStorage.getItem('sheetName')||'',
   };
   localStorage.setItem('accountSnap_'+email,JSON.stringify(snap));
 }
@@ -2239,32 +2285,15 @@ function _restoreSettingsFromAccount(email){
   try{
     const snap=JSON.parse(localStorage.getItem('accountSnap_'+email)||'null');
     if(!snap)return;
-    const keys=['schemaHistory','schemaDeleted','prs','telegramUser','notifPrefs','sheetName'];
-    keys.forEach(k=>{if(snap[k])localStorage.setItem(k,snap[k]);});
+    if(snap.prs)localStorage.setItem('prs',snap.prs);
+    if(snap.telegramUser)localStorage.setItem('telegramUser',snap.telegramUser);
+    if(snap.notifPrefs)localStorage.setItem('notifPrefs',snap.notifPrefs);
     if(snap.lang){localStorage.setItem('lang',snap.lang);if(typeof state!=='undefined')state.lang=snap.lang;}
     if(snap.theme){localStorage.setItem('theme',snap.theme);if(typeof state!=='undefined')state.theme=snap.theme;}
     state._prs=null;
     if(typeof applyTheme==='function')applyTheme();
     if(typeof applyI18n==='function')applyI18n();
   }catch(e){}
-}
-
-// ── SCHEMA HISTORY (B13) ──────────────────────────────────────────────────────
-function _saveSchemaHistory(sheetId,name,url){
-  if(!sheetId)return;
-  try{
-    const hist=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
-    const deleted=JSON.parse(localStorage.getItem('schemaDeleted')||'[]');
-    if(deleted.includes(sheetId))return; // don't re-add deleted schemas
-    const idx=hist.findIndex(h=>h.id===sheetId);
-    const entry={id:sheetId,name:name||sheetId,url:url||'https://docs.google.com/spreadsheets/d/'+sheetId+'/edit',ts:Date.now()};
-    if(idx>=0)hist[idx]=entry;else hist.unshift(entry);
-    localStorage.setItem('schemaHistory',JSON.stringify(hist.slice(0,20)));
-    _syncSettingsToAccount();
-  }catch(e){}
-}
-function _loadSchemaHistory(){
-  try{return JSON.parse(localStorage.getItem('schemaHistory')||'[]');}catch{return[];}
 }
 function _confirmDeleteSchema(sheetId){
   const btns=document.querySelectorAll(`[data-trash="${sheetId}"]`);
@@ -2277,18 +2306,10 @@ function _confirmDeleteSchema(sheetId){
     setTimeout(()=>{if(btn){btn.textContent='🗑';btn.style.color='';btn.style.borderColor='';delete btn.dataset.confirming;}},3000);
     return;
   }
-  _deleteSchemaHistory(sheetId);
-}
-function _deleteSchemaHistory(sheetId){
-  try{
-    const hist=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
-    const deleted=JSON.parse(localStorage.getItem('schemaDeleted')||'[]');
-    if(!deleted.includes(sheetId))deleted.push(sheetId);
-    localStorage.setItem('schemaHistory',JSON.stringify(hist.filter(h=>h.id!==sheetId)));
-    localStorage.setItem('schemaDeleted',JSON.stringify(deleted));
-    _syncSettingsToAccount();
-    loadSheetPickerInline();
-  }catch(e){}
+  const email=typeof authEmail==='function'?authEmail():'';
+  _deleteFromSchemaList(email,sheetId);
+  _syncSettingsToAccount();
+  loadSheetPickerInline();
 }
 
 function toggleConnectPanel(panel){
@@ -2345,38 +2366,18 @@ async function loadSheetPickerInline(){
   if(!el)return;
   el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
-  // Restore history + deleted from accountSnap for cross-device sync
+  // Use per-email schema list as source of truth
   const _em2=typeof authEmail==='function'?authEmail():'';
-  if(_em2){
-    try{
-      const snap=JSON.parse(localStorage.getItem('accountSnap_'+_em2)||'null');
-      if(snap?.schemaDeleted)localStorage.setItem('schemaDeleted',snap.schemaDeleted);
-      // Merge remote history into local (cross-device)
-      if(snap?.schemaHistory){
-        const local=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
-        const remote=JSON.parse(snap.schemaHistory||'[]');
-        const merged=[...local];
-        const seen=new Set(local.map(h=>h.id));
-        remote.forEach(h=>{if(!seen.has(h.id)){merged.push(h);seen.add(h.id);}});
-        localStorage.setItem('schemaHistory',JSON.stringify(merged));
-      }
-    }catch{}
-  }
-  const hist=_loadSchemaHistory();
-  // Always fetch Drive fresh — Drive is source of truth for names and cross-device
+  // Also add any Drive sheets we haven't seen yet (merge)
   try{
     const driveSheets=await listRecentSheets();
     driveSheets.forEach(s=>{
-      // Prefer cached driveFileName (set by _getDriveFileName), else use Drive API name
       const fn=localStorage.getItem('driveFileName_'+s.id)||s.name;
-      localStorage.setItem('driveFileName_'+s.id,fn);
-      _saveSchemaHistory(s.id,fn,`https://docs.google.com/spreadsheets/d/${s.id}/edit`);
-      const existing=hist.find(h=>h.id===s.id);
-      if(existing)existing.name=fn;
-      else hist.unshift({id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:s.modifiedTime||0});
+      _addToSchemaList(_em2,{id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:Date.now()});
     });
   }catch{}
-  const deleted=[];try{deleted.push(...JSON.parse(localStorage.getItem('schemaDeleted')||'[]'));}catch{}
+  const hist=_getSchemaList(_em2);
+  const deleted=_getDeletedSchemas(_em2);
   const filtered=hist.filter(s=>!deleted.includes(s.id)).slice(0,10);
   const rows=filtered.map(s=>{
     const isActive=s.id===currentId;
