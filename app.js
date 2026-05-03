@@ -2294,25 +2294,32 @@ async function loadSheetPickerInline(){
   el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
   const hist=_loadSchemaHistory();
-  // Always fetch fresh from Drive for realtime sync
+  // Always fetch fresh from Drive for realtime sync across devices
   try{
     const driveSheets=await listRecentSheets();
-    driveSheets.forEach(s=>_saveSchemaHistory(s.id,s.name,`https://docs.google.com/spreadsheets/d/${s.id}/edit`));
-    const seen=new Set(hist.map(h=>h.id));
-    driveSheets.forEach(s=>{if(!seen.has(s.id))hist.unshift({id:s.id,name:s.name,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:0});});
+    // Drive names are the true file names — overwrite any cached tab names
+    driveSheets.forEach(s=>{
+      _saveSchemaHistory(s.id,s.name,`https://docs.google.com/spreadsheets/d/${s.id}/edit`);
+      // Update in hist array too
+      const existing=hist.find(h=>h.id===s.id);
+      if(existing)existing.name=s.name;
+      else hist.unshift({id:s.id,name:s.name,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:s.modifiedTime||0});
+    });
   }catch{}
-  const rows=hist.slice(0,8).map(s=>{
+  const deleted=[];try{deleted.push(...JSON.parse(localStorage.getItem('schemaDeleted')||'[]'));}catch{}
+  const filtered=hist.filter(s=>!deleted.includes(s.id)).slice(0,10);
+  const rows=filtered.map(s=>{
     const isActive=s.id===currentId;
-    return `<button onclick="_saveSchemaHistory('${s.id}','${esc(s.name)}','${esc(s.url||'')}');oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid ${isActive?'var(--run-text)':'var(--border)'};border-radius:4px;cursor:pointer;text-align:left;width:100%;margin-bottom:4px">
-      <div style="width:7px;height:7px;border-radius:50%;background:${isActive?'var(--run-text)':'var(--faint)'};flex-shrink:0"></div>
-      <span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(s.name||s.id)}</span>
-    </button>`;
-  }).join('');
-  el.innerHTML=`<div style="margin-bottom:4px">${rows||'<div style="font-family:var(--font-m);font-size:10px;color:var(--faint);padding:4px 0">Nog geen schema\'s gevonden.</div>'}</div>
-    <div style="display:flex;gap:6px;margin-top:6px">
-      <input type="url" class="settings-input" id="inlineSheetUrl" placeholder="Plak nieuwe sheet URL…" style="flex:1">
-      <button class="btn-save" onclick="oauthSelectFromUrl()">OK</button>
+    return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+      <button onclick="_saveSchemaHistory('${s.id}','${esc(s.name)}','${esc(s.url||'')}');oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid ${isActive?'var(--run-text)':'var(--border)'};border-radius:4px;cursor:pointer;text-align:left;flex:1;min-width:0">
+        <div style="width:7px;height:7px;border-radius:50%;background:${isActive?'var(--run-text)':'var(--faint)'};flex-shrink:0"></div>
+        <span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(s.name||s.id)}</span>
+      </button>
+      <button data-trash="${s.id}" onclick="_confirmDeleteSchema('${s.id}')" style="background:none;border:1px solid var(--border);color:var(--faint);cursor:pointer;padding:5px 9px;border-radius:4px;flex-shrink:0;font-size:13px;line-height:1" title="Verwijderen">🗑</button>
     </div>`;
+  }).join('');
+  const target=document.getElementById('connectPanel')||el;
+  target.innerHTML=`<div style="margin-bottom:4px">${rows||'<div style="font-family:var(--font-m);font-size:10px;color:var(--faint);padding:4px 0">Geen schema\'s gevonden.</div>'}</div>`;
 }
 
 
