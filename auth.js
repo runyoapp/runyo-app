@@ -566,27 +566,38 @@ async function oauthCreateNew(){
   }
 }
 
-async function _finalizeOAuthSheet(sheetId,name,url){
-  // Detect tab name
+async function _getDriveFileName(sheetId){
   try{
-    const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties`);
-    const firstName=meta.sheets?.[0]?.properties?.title||'';
-    if(firstName)state.sheetName=firstName;
-    localStorage.setItem('sheetName',firstName);
-  }catch{}
+    const token=authGetToken();
+    if(!token)return'';
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files/${sheetId}?fields=name`,{
+      headers:{Authorization:'Bearer '+token}
+    });
+    const json=await res.json();
+    return json.name||'';
+  }catch{return'';}
+}
+
+async function _finalizeOAuthSheet(sheetId,name,url){
+  // Fetch Drive file name (not tab name)
+  const fileName=await _getDriveFileName(sheetId)||name||sheetId;
+  state.sheetName=fileName;
+  localStorage.setItem('sheetName',fileName);
   authSetSheetId(sheetId);
   state.sheetId=sheetId;
   localStorage.setItem('sheetId',sheetId);
-  // Persist per email so re-login auto-restores
+  // Persist per email
   const _em=authEmail();
   if(_em){
     localStorage.setItem('sheetId_'+_em,sheetId);
-    const _sn=state?.sheetName||localStorage.getItem('sheetName')||'';
-    if(_sn)localStorage.setItem('sheetName_'+_em,_sn);
+    localStorage.setItem('sheetName_'+_em,fileName);
   }
+  // Save to history
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+  if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,fileName,sheetUrl);
   closeDayModal();
-  renderConnectSection();
+  if(typeof renderHeader==='function')renderHeader();
+  if(typeof renderConnectSection==='function')renderConnectSection();
   showToast('✓ Schema gekoppeld');
   await fetchData();
 }
