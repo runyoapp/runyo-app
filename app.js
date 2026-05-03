@@ -721,11 +721,13 @@ function renderToday(){
       <div class="pt-kicker">${kicker}</div>
       <div class="pt-h">${off===0?'Vandaag':days[dayIdx(d)]+' '+d.getDate()+' '+mf[d.getMonth()]}</div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px">
+    <div style="display:flex;align-items:center;gap:4px">
+      <button onclick="state.dayOffset=(state.dayOffset||0)-1;renderToday()" class="day-nav-btn">‹</button>
       <div style="display:flex;align-items:center;gap:6px">
         ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Vandaag</button>`:''}
         <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
       </div>
+      <button onclick="state.dayOffset=(state.dayOffset||0)+1;renderToday()" class="day-nav-btn">›</button>
     </div>
   </div>`;
 
@@ -2183,11 +2185,85 @@ function renderConnectSection(){
     ${_devBlock()}`;
 }
 
+// ── ACCOUNT SETTINGS SYNC (B12) ───────────────────────────────────────────────
+function _syncSettingsToAccount(){
+  const email=typeof authEmail==='function'?authEmail():'';
+  if(!email)return;
+  const snap={
+    schemaHistory:localStorage.getItem('schemaHistory')||'[]',
+    schemaDeleted:localStorage.getItem('schemaDeleted')||'[]',
+    prs:localStorage.getItem('prs')||'{}',
+    lang:localStorage.getItem('lang')||'nl',
+    theme:localStorage.getItem('theme')||'dark',
+    telegramUser:localStorage.getItem('telegramUser')||'',
+    notifPrefs:localStorage.getItem('notifPrefs')||'{}',
+    sheetName:localStorage.getItem('sheetName')||'',
+  };
+  localStorage.setItem('accountSnap_'+email,JSON.stringify(snap));
+}
+function _restoreSettingsFromAccount(email){
+  if(!email)return;
+  try{
+    const snap=JSON.parse(localStorage.getItem('accountSnap_'+email)||'null');
+    if(!snap)return;
+    const keys=['schemaHistory','schemaDeleted','prs','telegramUser','notifPrefs','sheetName'];
+    keys.forEach(k=>{if(snap[k])localStorage.setItem(k,snap[k]);});
+    if(snap.lang){localStorage.setItem('lang',snap.lang);if(typeof state!=='undefined')state.lang=snap.lang;}
+    if(snap.theme){localStorage.setItem('theme',snap.theme);if(typeof state!=='undefined')state.theme=snap.theme;}
+    state._prs=null;
+    if(typeof applyTheme==='function')applyTheme();
+    if(typeof applyI18n==='function')applyI18n();
+  }catch(e){}
+}
+
+// ── SCHEMA HISTORY (B13) ──────────────────────────────────────────────────────
+function _saveSchemaHistory(sheetId,name,url){
+  if(!sheetId)return;
+  try{
+    const hist=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
+    const deleted=JSON.parse(localStorage.getItem('schemaDeleted')||'[]');
+    if(deleted.includes(sheetId))return; // don't re-add deleted schemas
+    const idx=hist.findIndex(h=>h.id===sheetId);
+    const entry={id:sheetId,name:name||sheetId,url:url||'https://docs.google.com/spreadsheets/d/'+sheetId+'/edit',ts:Date.now()};
+    if(idx>=0)hist[idx]=entry;else hist.unshift(entry);
+    localStorage.setItem('schemaHistory',JSON.stringify(hist.slice(0,20)));
+    _syncSettingsToAccount();
+  }catch(e){}
+}
+function _loadSchemaHistory(){
+  try{return JSON.parse(localStorage.getItem('schemaHistory')||'[]');}catch{return[];}
+}
+function _confirmDeleteSchema(sheetId){
+  const btns=document.querySelectorAll(`[data-trash="${sheetId}"]`);
+  const btn=btns[0];
+  if(btn&&!btn.dataset.confirming){
+    btn.dataset.confirming='1';
+    btn.textContent='✓?';
+    btn.style.color='var(--race-text)';
+    btn.style.borderColor='var(--race-text)';
+    setTimeout(()=>{if(btn){btn.textContent='🗑';btn.style.color='';btn.style.borderColor='';delete btn.dataset.confirming;}},3000);
+    return;
+  }
+  _deleteSchemaHistory(sheetId);
+}
+function _deleteSchemaHistory(sheetId){
+  try{
+    const hist=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
+    const deleted=JSON.parse(localStorage.getItem('schemaDeleted')||'[]');
+    if(!deleted.includes(sheetId))deleted.push(sheetId);
+    localStorage.setItem('schemaHistory',JSON.stringify(hist.filter(h=>h.id!==sheetId)));
+    localStorage.setItem('schemaDeleted',JSON.stringify(deleted));
+    _syncSettingsToAccount();
+    loadSheetPickerInline();
+  }catch(e){}
+}
+
 function oauthSelectFromUrl(){
   const u=document.getElementById('inlineSheetUrl')?.value.trim();
   if(!u){showToast('Voer een URL in');return;}
   const m=u.match(/spreadsheets.d.([a-zA-Z0-9_-]+)/);
   if(!m){showToast('Ongeldige sheet URL');return;}
+  _saveSchemaHistory(m[1],'',u);
   oauthSelectSheet(m[1],u);
 }
 
