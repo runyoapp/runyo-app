@@ -2571,10 +2571,6 @@ function _renderImportModal(){
     if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>${_debugBlock()}`;return;}
     if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div><div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw proberen</button></div>${_debugBlock()}`;return;}
 
-    const existing=state.data||[];
-    const existingDates=new Set(existing.map(r=>r.datum));
-    const overlapCount=d.preview.filter(r=>existingDates.has(r.datum)).length;
-    const overlapHtml=overlapCount?`<div style="font-family:var(--font-m);font-size:10px;color:var(--race-text);background:rgba(255,80,80,0.07);border:1px solid var(--race-text);border-radius:4px;padding:8px 10px;margin-bottom:10px">⚠ ${overlapCount} dag${overlapCount>1?'en':''} overlapt — bestaande rijen worden overschreven bij importeren.</div>`:'';
     const typeEmoji={run:'🏃',work:'💼',strength:'💪',mobility:'🧘',rest:'😴',race:'🏆',recovery:'🔄'};
     const rows=d.preview.slice(0,60).map(r=>{
       const t=normalizeType(r.type||'rest');
@@ -2583,7 +2579,6 @@ function _renderImportModal(){
     }).join('');
     el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div>
       <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:8px">${d.preview.length} activiteiten gevonden${d.preview.length>60?' (eerste 60 getoond)':''}</div>
-      ${overlapHtml}
       <div style="overflow:auto;max-height:260px;border:1px solid var(--border);border-radius:4px;margin-bottom:12px">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="position:sticky;top:0;background:var(--surface)">
@@ -2592,7 +2587,7 @@ function _renderImportModal(){
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_confirmImport(${!!overlapCount})">Importeren${overlapCount?' (overschrijven)':''}</button></div>`;
+      <div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_confirmImport()">Importeren</button></div>`;
   }
 }
 
@@ -2734,7 +2729,7 @@ async function _runImportAI(){
   _renderImportModal();
 }
 
-async function _confirmImport(hasOverlap){
+async function _confirmImport(){
   const d=state.importData;
   const rows=d.preview;if(!rows?.length)return;
   const el=document.getElementById('dayModalContent');
@@ -2742,13 +2737,9 @@ async function _confirmImport(hasOverlap){
   try{
     const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
     const sheetName=state.sheetName||'Schema';
-    const headers=await oauthGetHeaders();
-    if(hasOverlap){
-      const importDates=new Set(rows.map(r=>r.datum));
-      const toDelete=(state.data||[]).filter(r=>importDates.has(r.datum)).sort((a,b)=>b.rowIndex-a.rowIndex);
-      for(const row of toDelete)await oauthDeleteRow(row.rowIndex);
-    }
-    const values=rows.map(r=>headers.map(h=>{
+    // Fixed column order — no header read needed
+    const COLS=['datum','type','titel','detail','km','feedback','fase','id','updated_at','created_at','race_type'];
+    const values=rows.map(r=>COLS.map(h=>{
       if(h==='id')return _uuid();
       if(h==='updated_at'||h==='created_at')return _nowISO();
       if(h==='type')return toSheetType(normalizeType(r.type));
@@ -2757,11 +2748,11 @@ async function _confirmImport(hasOverlap){
       return String(r[h]??'');
     }));
     const token=await authEnsureToken();
-    const range=encodeURIComponent(sheetName+'!A:A');
-    const res=await fetch(`${SHEETS_BASE}/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,{
-      method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({majorDimension:'ROWS',values}),
-    });
+    const url=`${SHEETS_BASE}/${sheetId}/values/${encodeURIComponent(sheetName+'!A:A')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const body=JSON.stringify({majorDimension:'ROWS',values});
+    const doPost=()=>fetch(url,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body});
+    let res=await doPost();
+    if(res.status===429){await new Promise(r=>setTimeout(r,2000));res=await doPost();}
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'HTTP '+res.status);}
     await oauthSortByDate(sheetId,sheetName);
     closeDayModal();
