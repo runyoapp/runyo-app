@@ -2156,32 +2156,42 @@ function renderConnectSection(){
     const sheetUrl=`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
     el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0">Laden…</div>`;
     (async()=>{
-      // driveFileName_ is always the Drive file name (not tab name)
-      let fileName=localStorage.getItem('driveFileName_'+sheetId)||'';
       const _emD=typeof authEmail==='function'?authEmail():'';
+      let fileName=localStorage.getItem('driveFileName_'+sheetId)||'';
       if(!fileName&&_emD)fileName=localStorage.getItem('sheetFileName_'+_emD)||'';
+      // If cached value is a raw URL or bare sheetId, it's poisoned — wipe it first
+      if(fileName.startsWith('http')||fileName===sheetId){
+        localStorage.removeItem('driveFileName_'+sheetId);
+        if(_emD)localStorage.removeItem('sheetFileName_'+_emD);
+        fileName='';
+      }
       if(!fileName){
-        // Try Drive API
+        // Sheets API: works for any accessible sheet with spreadsheets scope
         try{
-          if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||'';
+          const meta=await sheetsGet(`/${sheetId}?fields=properties.title`);
+          const t=meta?.properties?.title;
+          if(t)fileName=t;
         }catch{}
       }
       if(!fileName){
-        // Last resort: Drive recent list
-        try{
-          const sheets=await listRecentSheets();
-          fileName=sheets.find(s=>s.id===sheetId)?.name||'';
-        }catch{}
+        try{if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||'';}catch{}
+      }
+      if(!fileName){
+        try{const sh=await listRecentSheets();fileName=sh.find(s=>s.id===sheetId)?.name||'';}catch{}
+      }
+      if(!fileName){
+        // Tab name is always stored locally and is better than 'Schema'
+        fileName=localStorage.getItem('sheetTabName_'+_emD)||localStorage.getItem('sheetName')||'';
       }
       if(!fileName)fileName='Schema';
-      // Cache for future
       if(fileName!=='Schema'){
         localStorage.setItem('driveFileName_'+sheetId,fileName);
         if(_emD)localStorage.setItem('sheetFileName_'+_emD,fileName);
       }
-      localStorage.setItem('driveFileName_'+sheetId,fileName);
       const _em=typeof authEmail==='function'?authEmail():'';
       if(_em)localStorage.setItem('sheetFileName_'+_em,fileName);
+      // Push schema list into sheet metadata so other devices can read it
+      if(typeof _saveSchemaListToSheetMeta==='function')_saveSchemaListToSheetMeta(sheetId).catch(()=>{});
       _saveSchemaHistory(sheetId,fileName,sheetUrl);
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -2265,7 +2275,7 @@ function _loadSchemaHistory(){
 }
 
 // ── SETTINGS SYNC ─────────────────────────────────────────────────────────────
-function _syncSettingsToAccount(){
+async function _syncSettingsToAccount(){
   const email=typeof authEmail==='function'?authEmail():'';
   if(!email)return;
   const snap={
@@ -2278,12 +2288,31 @@ function _syncSettingsToAccount(){
     schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
   };
   localStorage.setItem('accountSnap_'+email,JSON.stringify(snap));
+  if(typeof saveSettingsToAppData==='function'){
+    saveSettingsToAppData(snap).catch(()=>{});
+  }
+  const _curSheetId=typeof authSheetId==='function'?authSheetId():'';
+  if(_curSheetId&&typeof _saveSchemaListToSheetMeta==='function'){
+    _saveSchemaListToSheetMeta(_curSheetId).catch(()=>{});
+  }
 }
 function _restoreSettingsFromAccount(email){
   if(!email)return;
   try{
     const snap=JSON.parse(localStorage.getItem('accountSnap_'+email)||'null');
-    if(!snap)return;
+    if(!snap){
+      // New device: no local snapshot — try Drive appDataFolder
+      if(typeof loadSettingsFromAppData==='function'){
+        loadSettingsFromAppData().then(driveSnap=>{
+          if(!driveSnap)return;
+          localStorage.setItem('accountSnap_'+email,JSON.stringify(driveSnap));
+          _restoreSettingsFromAccount(email);
+          if(typeof renderHeader==='function')renderHeader();
+          if(typeof renderConnectSection==='function')renderConnectSection();
+        }).catch(()=>{});
+      }
+      return;
+    }
     if(snap.prs)localStorage.setItem('prs',snap.prs);
     if(snap.telegramUser)localStorage.setItem('telegramUser',snap.telegramUser);
     if(snap.notifPrefs)localStorage.setItem('notifPrefs',snap.notifPrefs);
@@ -2377,7 +2406,6 @@ function oauthSelectFromUrl(){
   if(!u){showToast('Voer een URL in');return;}
   const m=u.match(/spreadsheets.d.([a-zA-Z0-9_-]+)/);
   if(!m){showToast('Ongeldige sheet URL');return;}
-  _saveSchemaHistory(m[1],'',u);
   oauthSelectSheet(m[1],u);
 }
 
@@ -2399,6 +2427,23 @@ async function loadSheetPickerInline(){
   const hist=_getSchemaList(_em2);
   const deleted=_getDeletedSchemas(_em2);
   const filtered=hist.filter(s=>!deleted.includes(s.id)).slice(0,10);
+  // Fix stale entries where name is a raw URL or the bare sheet ID
+  const needsNameFix=filtered.filter(s=>!s.name||s.name===s.id||s.name.startsWith('http'));
+  if(needsNameFix.length){
+    await Promise.all(needsNameFix.map(async s=>{
+      // Wipe URL-like name immediately so rendering shows sheetId at worst
+      if(s.name&&(s.name.startsWith('http')||s.name===s.id))s.name='';
+      try{
+        const meta=await sheetsGet(`/${s.id}?fields=properties.title`);
+        const title=meta?.properties?.title;
+        if(title){
+          s.name=title;
+          _addToSchemaList(_em2,{...s,name:title});
+          localStorage.setItem('driveFileName_'+s.id,title);
+        }
+      }catch{}
+    }));
+  }
   const rows=filtered.map(s=>{
     const isActive=s.id===currentId;
     return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">

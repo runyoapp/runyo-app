@@ -8,6 +8,7 @@ const GAUTH = {
   SCOPES: [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.appdata',
     'https://www.googleapis.com/auth/userinfo.email',
   ].join(' '),
   REDIRECT_URI: window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/oauth-callback.html',
@@ -586,17 +587,19 @@ async function _getDriveFileName(sheetId){
 }
 
 async function _finalizeOAuthSheet(sheetId,name,url){
-  // 1. Get tab name via Sheets API (always works, needed for range queries)
-  let tabName='';
+  // 1. Get tab name + spreadsheet title via Sheets API (works for all accessible sheets)
+  let tabName='';let sheetsFileTitle='';
   try{
-    const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties`);
+    const meta=await sheetsGet(`/${sheetId}?fields=properties.title,sheets.properties`);
     tabName=meta.sheets?.[0]?.properties?.title||'';
+    sheetsFileTitle=meta.properties?.title||'';
   }catch{}
   // state.sheetName = tab name only (used for API: "TabName!A:K")
   state.sheetName=tabName;
   localStorage.setItem('sheetName',tabName);
-  // 2. Display name = Drive file name if accessible, else tab name, else fallback
-  let displayName=name||tabName||sheetId;
+  // 2. Display name: spreadsheet title from Sheets API (works even for URL-linked sheets),
+  //    fall back to Drive API (for drive.file-scoped sheets), then tab name, then id
+  let displayName=sheetsFileTitle||tabName||sheetId;
   try{
     const dn=await _getDriveFileName(sheetId);
     if(dn)displayName=dn;
@@ -617,10 +620,145 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   // 4. Save to per-email schema list
   if(typeof _addToSchemaList==='function')_addToSchemaList(_em,{id:sheetId,name:displayName,url:sheetUrl,ts:Date.now()});
   if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,displayName,sheetUrl);
-  if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount();
+  // 5. Cross-device sync: load remote schema list from sheet metadata and merge
+  const _sheetMeta=await _loadSchemaListFromSheetMeta(sheetId);
+  if(_sheetMeta&&_em){
+    try{
+      const snapList=JSON.parse(_sheetMeta.schemaList||'[]');
+      const snapDeleted=JSON.parse(_sheetMeta.schemaDeleted||'[]');
+      const localDeleted=typeof _getDeletedSchemas==='function'?_getDeletedSchemas(_em):[];
+      const allDeleted=[...new Set([...localDeleted,...snapDeleted])];
+      if(allDeleted.length!==localDeleted.length)localStorage.setItem('schemaDeleted_'+_em,JSON.stringify(allDeleted));
+      const localList=typeof _getSchemaList==='function'?_getSchemaList(_em):[];
+      const localIds=new Set(localList.map(s=>s.id));
+      const merged=[...localList];
+      for(const entry of snapList){
+        if(!localIds.has(entry.id)&&!allDeleted.includes(entry.id)){merged.push(entry);localIds.add(entry.id);}
+      }
+      merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
+      localStorage.setItem('schemaList_'+_em,JSON.stringify(merged.slice(0,50)));
+    }catch{}
+  }
+  if(typeof _syncSettingsToAccount==='function')await _syncSettingsToAccount();
+  // Save updated schema list back to sheet metadata
+  await _saveSchemaListToSheetMeta(sheetId);
   closeDayModal();
   if(typeof renderHeader==='function')renderHeader();
   if(typeof renderConnectSection==='function')renderConnectSection();
   showToast('✓ Schema gekoppeld');
   await fetchData();
+}
+
+// ── Drive appDataFolder — cross-device settings sync ──────────────────────────
+let _appDataFileIdCache=null;
+
+async function _getOrCreateAppDataFile(){
+  if(_appDataFileIdCache)return _appDataFileIdCache;
+  try{
+    const token=await authEnsureToken();
+    if(!token)return null;
+    const res=await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D'runningx-settings.json'&fields=files(id)",{
+      headers:{Authorization:'Bearer '+token}
+    });
+    if(!res.ok)return null;
+    const data=await res.json();
+    if(data.files?.length){_appDataFileIdCache=data.files[0].id;return _appDataFileIdCache;}
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name:'runningx-settings.json',parents:['appDataFolder']})],{type:'application/json'}));
+    form.append('file',new Blob(['{}'],{type:'application/json'}));
+    const cr=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',headers:{Authorization:'Bearer '+token},body:form
+    });
+    if(!cr.ok)return null;
+    const created=await cr.json();
+    _appDataFileIdCache=created.id;
+    return _appDataFileIdCache;
+  }catch{return null;}
+}
+
+async function saveSettingsToAppData(settings){
+  try{
+    const token=await authEnsureToken();
+    if(!token)return;
+    const fileId=await _getOrCreateAppDataFile();
+    if(!fileId)return;
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({})],{type:'application/json'}));
+    form.append('file',new Blob([JSON.stringify(settings)],{type:'application/json'}));
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,{
+      method:'PATCH',headers:{Authorization:'Bearer '+token},body:form
+    });
+  }catch{}
+}
+
+async function loadSettingsFromAppData(){
+  try{
+    const token=await authEnsureToken();
+    if(!token)return null;
+    const fileId=await _getOrCreateAppDataFile();
+    if(!fileId)return null;
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{
+      headers:{Authorization:'Bearer '+token}
+    });
+    if(!res.ok)return null;
+    const data=await res.json();
+    // Return null for empty/uninitialized file
+    if(!data||Object.keys(data).length===0)return null;
+    return data;
+  }catch{return null;}
+}
+
+// ── Sheets developer metadata — cross-device schema list sync ─────────────────
+// Stores the schema list inside the connected spreadsheet as invisible metadata.
+// Works with the existing `spreadsheets` scope — no re-auth needed.
+const _SCHEMA_SYNC_KEY='runningx_schema_list';
+
+async function _saveSchemaListToSheetMeta(sheetId){
+  try{
+    const email=typeof authEmail==='function'?authEmail():'';
+    if(!email||!sheetId)return;
+    const value=JSON.stringify({
+      schemaList:localStorage.getItem('schemaList_'+email)||'[]',
+      schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
+    });
+    // Check if metadata entry already exists
+    let existingId=null;
+    try{
+      const sr=await sheetsPost(`/${sheetId}/developerMetadata:search`,{
+        dataFilters:[{developerMetadataLookup:{metadataKey:_SCHEMA_SYNC_KEY}}]
+      });
+      existingId=sr.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataId??null;
+    }catch{}
+    if(existingId!=null){
+      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{
+        updateDeveloperMetadata:{
+          dataFilters:[{developerMetadataLookup:{metadataKey:_SCHEMA_SYNC_KEY}}],
+          developerMetadata:{metadataKey:_SCHEMA_SYNC_KEY,metadataValue:value,visibility:'DOCUMENT'},
+          fields:'metadataValue'
+        }
+      }]});
+    }else{
+      await sheetsPost(`/${sheetId}:batchUpdate`,{requests:[{
+        createDeveloperMetadata:{
+          developerMetadata:{
+            metadataKey:_SCHEMA_SYNC_KEY,
+            metadataValue:value,
+            location:{spreadsheet:true},
+            visibility:'DOCUMENT'
+          }
+        }
+      }]});
+    }
+  }catch{}
+}
+
+async function _loadSchemaListFromSheetMeta(sheetId){
+  try{
+    const sr=await sheetsPost(`/${sheetId}/developerMetadata:search`,{
+      dataFilters:[{developerMetadataLookup:{metadataKey:_SCHEMA_SYNC_KEY}}]
+    });
+    const raw=sr.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataValue;
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch{return null;}
 }
