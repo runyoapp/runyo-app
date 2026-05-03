@@ -586,32 +586,37 @@ async function _getDriveFileName(sheetId){
 }
 
 async function _finalizeOAuthSheet(sheetId,name,url){
-  // 1. Get tab name for API range queries
+  // 1. Get tab name via Sheets API (always works, needed for range queries)
   let tabName='';
   try{
     const meta=await sheetsGet(`/${sheetId}?fields=sheets.properties`);
     tabName=meta.sheets?.[0]?.properties?.title||'';
   }catch{}
-  // state.sheetName = tab name (used for API: "TabName!A:K")
+  // state.sheetName = tab name only (used for API: "TabName!A:K")
   state.sheetName=tabName;
   localStorage.setItem('sheetName',tabName);
-  // 2. Get Drive file name for display
-  const fileName=await _getDriveFileName(sheetId)||name||sheetId;
-  localStorage.setItem('driveFileName_'+sheetId,fileName);
+  // 2. Display name = Drive file name if accessible, else tab name, else fallback
+  let displayName=name||tabName||sheetId;
+  try{
+    const dn=await _getDriveFileName(sheetId);
+    if(dn)displayName=dn;
+  }catch{}
   authSetSheetId(sheetId);
   state.sheetId=sheetId;
   localStorage.setItem('sheetId',sheetId);
+  localStorage.setItem('driveFileName_'+sheetId,displayName);
   // 3. Persist per email
   const _em=authEmail();
   if(_em){
     localStorage.setItem('sheetId_'+_em,sheetId);
-    localStorage.setItem('sheetTabName_'+_em,tabName);  // for API
-    localStorage.setItem('sheetName_'+_em,tabName);     // backward compat
-    localStorage.setItem('sheetFileName_'+_em,fileName); // for display
-    localStorage.setItem('driveFileName_'+sheetId,fileName);
+    localStorage.setItem('sheetTabName_'+_em,tabName);
+    localStorage.setItem('sheetName_'+_em,tabName);
+    localStorage.setItem('sheetFileName_'+_em,displayName);
   }
   const sheetUrl=url||`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
-  if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,fileName,sheetUrl);
+  // 4. Save to per-email schema list
+  if(typeof _addToSchemaList==='function')_addToSchemaList(_em,{id:sheetId,name:displayName,url:sheetUrl,ts:Date.now()});
+  if(typeof _saveSchemaHistory==='function')_saveSchemaHistory(sheetId,displayName,sheetUrl);
   if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount();
   closeDayModal();
   if(typeof renderHeader==='function')renderHeader();
