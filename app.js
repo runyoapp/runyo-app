@@ -2502,7 +2502,221 @@ function _devBlock(){
   </details>`;
 }
 
-function openImportModal(type){showToast('AI import — binnenkort beschikbaar 🚀');}
+// ── E6 AI SCHEMA IMPORT ───────────────────────────────────────────────────────
+state.importStep=0;
+state.importData={};
+
+const _IMP_DAYS=['Ma','Di','Wo','Do','Vr','Za','Zo'];
+
+function openImportModal(type){
+  state.importStep=1;
+  state.importData={type,file:null,fileName:'',startDate:todayStr(),runDays:[0,2,4],keepRest:true,preview:null,error:null,loading:false};
+  document.getElementById('dayModal').classList.add('open');
+  _renderImportModal();
+}
+
+function _renderImportModal(){
+  const el=document.getElementById('dayModalContent');
+  if(!el)return;
+  const s=state.importStep,d=state.importData;
+  const back=(toStep)=>`<button class="btn-secondary" onclick="state.importStep=${toStep};_renderImportModal()">← Terug</button>`;
+
+  if(s===1){
+    const accept=d.type==='excel'?'.xlsx':d.type==='pdf'?'.pdf':'.jpg,.jpeg,.png';
+    const icon=d.type==='excel'?'📊':d.type==='pdf'?'📑':'🖼';
+    el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">1/3</span></div>
+      <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Upload je trainingsschema als ${d.type==='excel'?'Excel-bestand':d.type==='pdf'?'PDF':'afbeelding'}.</div>
+      <label style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--border);border-radius:var(--r);cursor:pointer;background:var(--surface);margin-bottom:14px">
+        <span style="font-size:32px">${icon}</span>
+        <span style="font-family:var(--font-m);font-size:11px;color:${d.fileName?'var(--text)':'var(--muted)'}">${esc(d.fileName)||'Klik om bestand te kiezen'}</span>
+        <input type="file" accept="${accept}" style="display:none" onchange="_importFileSelected(this)">
+      </label>
+      <button class="btn-primary" style="width:100%" ${d.file?'':'disabled'} onclick="_importStep1Next()">Volgende →</button>`;
+    return;
+  }
+
+  if(s===2){
+    const rd=d.runDays;
+    el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">2/3</span></div>
+      <div style="margin-bottom:14px">
+        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Begindatum</div>
+        <input type="date" class="settings-input" value="${d.startDate}" onchange="state.importData.startDate=this.value">
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Hardloopdagen</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${_IMP_DAYS.map((n,i)=>`<button onclick="_importToggleDay(${i})" style="padding:6px 10px;border-radius:4px;border:1px solid ${rd.includes(i)?'var(--accent)':'var(--border)'};background:${rd.includes(i)?'var(--accent)':'var(--surface)'};color:${rd.includes(i)?'#000':'var(--muted)'};font-family:var(--font-m);font-size:10px;cursor:pointer">${n}</button>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <span style="font-family:var(--font-m);font-size:11px;color:var(--text)">Rustdagen uit schema behouden</span>
+        <button onclick="_importToggleRest()" style="width:40px;height:22px;border-radius:11px;border:none;background:${d.keepRest?'var(--accent)':'var(--border)'};cursor:pointer;position:relative;flex-shrink:0">
+          <span style="position:absolute;top:3px;${d.keepRest?'left:21px':'left:3px'};width:16px;height:16px;border-radius:50%;background:${d.keepRest?'#000':'var(--surface)'}"></span>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Preview →</button></div>`;
+    return;
+  }
+
+  if(s===3){
+    if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">AI analyseert schema…</div>`;return;}
+    if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>`;return;}
+    if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div>${back(1)}`;return;}
+
+    const existing=state.data||[];
+    const existingDates=new Set(existing.map(r=>r.datum));
+    const overlapCount=d.preview.filter(r=>existingDates.has(r.datum)).length;
+    const overlapHtml=overlapCount?`<div style="font-family:var(--font-m);font-size:10px;color:var(--race-text);background:rgba(255,80,80,0.07);border:1px solid var(--race-text);border-radius:4px;padding:8px 10px;margin-bottom:10px">⚠ ${overlapCount} dag${overlapCount>1?'en':''} overlapt — bestaande rijen worden overschreven bij importeren.</div>`:'';
+    const typeEmoji={run:'🏃',work:'💼',strength:'💪',mobility:'🧘',rest:'😴',race:'🏆',recovery:'🔄'};
+    const rows=d.preview.slice(0,60).map(r=>{
+      const t=normalizeType(r.type||'rest');
+      const cfg=TYPE_DISPLAY[t]||TYPE_DISPLAY.rest;
+      return`<tr><td style="padding:4px 6px;font-family:var(--font-m);font-size:10px;color:var(--muted);white-space:nowrap">${esc(r.datum)}</td><td style="padding:4px 6px"><span style="background:${cfg.bg};color:${cfg.text};padding:2px 5px;border-radius:3px;font-family:var(--font-m);font-size:9px;white-space:nowrap">${typeEmoji[t]||''} ${t}</span></td><td style="padding:4px 6px;font-family:var(--font-m);font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.titel||'')}</td><td style="padding:4px 6px;font-family:var(--font-m);font-size:10px;color:var(--muted);white-space:nowrap">${r.km!=null&&r.km!==''?r.km+' km':''}</td></tr>`;
+    }).join('');
+    el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div>
+      <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:8px">${d.preview.length} activiteiten gevonden${d.preview.length>60?' (eerste 60 getoond)':''}</div>
+      ${overlapHtml}
+      <div style="overflow:auto;max-height:260px;border:1px solid var(--border);border-radius:4px;margin-bottom:12px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="position:sticky;top:0;background:var(--surface)">
+            ${['Datum','Type','Titel','Km'].map(h=>`<th style="padding:4px 6px;font-family:var(--font-m);font-size:9px;color:var(--muted);text-align:left;letter-spacing:1px;text-transform:uppercase">${h}</th>`).join('')}
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_confirmImport(${!!overlapCount})">Importeren${overlapCount?' (overschrijven)':''}</button></div>`;
+  }
+}
+
+function _importFileSelected(input){
+  const f=input.files[0];if(!f)return;
+  state.importData.file=f;state.importData.fileName=f.name;
+  _renderImportModal();
+}
+function _importStep1Next(){
+  if(!state.importData.file){showToast('Selecteer eerst een bestand');return;}
+  state.importStep=2;_renderImportModal();
+}
+function _importToggleDay(i){
+  const a=state.importData.runDays,idx=a.indexOf(i);
+  idx>=0?a.splice(idx,1):a.push(i);
+  _renderImportModal();
+}
+function _importToggleRest(){state.importData.keepRest=!state.importData.keepRest;_renderImportModal();}
+
+async function _importStep2Next(){
+  state.importStep=3;
+  Object.assign(state.importData,{loading:true,error:null,preview:null});
+  _renderImportModal();
+  try{await _runImportAI();}
+  catch(e){Object.assign(state.importData,{error:e.message||'Fout bij AI-analyse',loading:false});_renderImportModal();}
+}
+
+async function _readFileBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=e=>resolve(e.target.result.split(',')[1]);
+    r.onerror=reject;r.readAsDataURL(file);
+  });
+}
+
+async function _loadSheetJS(){
+  if(window.XLSX)return;
+  await new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=resolve;s.onerror=()=>reject(new Error('SheetJS laden mislukt'));
+    document.head.appendChild(s);
+  });
+}
+
+async function _runImportAI(){
+  const d=state.importData;
+  const name=d.file.name.toLowerCase();
+  const dayNames=_IMP_DAYS.map((n,i)=>d.runDays.includes(i)?n:null).filter(Boolean).join(', ')||'geen';
+  const userText=`Begindatum: ${d.startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${d.keepRest?'ja':'nee'}.`;
+
+  let userContent;
+  if(name.endsWith('.xlsx')){
+    await _loadSheetJS();
+    const buf=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.onerror=reject;r.readAsArrayBuffer(d.file);});
+    const wb=window.XLSX.read(buf,{type:'array'});
+    const csv=window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+    userContent=`${userText}\n\n${csv}`;
+  } else {
+    const b64=await _readFileBase64(d.file);
+    const mt=name.endsWith('.pdf')?'application/pdf':name.endsWith('.png')?'image/png':'image/jpeg';
+    const block=name.endsWith('.pdf')
+      ?{type:'document',source:{type:'base64',media_type:mt,data:b64}}
+      :{type:'image',source:{type:'base64',media_type:mt,data:b64}};
+    userContent=[block,{type:'text',text:userText}];
+  }
+
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',max_tokens:2000,
+      system:'Je krijgt een trainingsschema. Retourneer ALLEEN een JSON array, geen uitleg, geen markdown. Velden per item: datum (YYYY-MM-DD), type (run/kracht/mobiliteit/rust/herstel/werk/race), titel (string), detail (string), km (number of null), fase (lege string).',
+      messages:[{role:'user',content:userContent}],
+    }),
+  });
+
+  if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e?.error?.message||`API fout ${resp.status}`);}
+  const json=await resp.json();
+  const raw=json.content?.[0]?.text||'';
+  const match=raw.match(/\[[\s\S]*\]/);
+  if(!match)throw new Error('Geen schema gevonden, probeer een ander bestand');
+  let parsed;try{parsed=JSON.parse(match[0]);}catch{throw new Error('Geen schema gevonden, probeer een ander bestand');}
+  if(!Array.isArray(parsed)||!parsed.length)throw new Error('Geen schema gevonden, probeer een ander bestand');
+
+  const rows=parsed
+    .filter(r=>r?.datum&&/^\d{4}-\d{2}-\d{2}$/.test(r.datum))
+    .map(r=>({datum:r.datum,type:r.type||'run',titel:String(r.titel||''),detail:String(r.detail||''),km:r.km!=null&&r.km!==''?Number(r.km)||null:null,fase:r.fase||''}));
+  if(!rows.length)throw new Error('Geen schema gevonden, probeer een ander bestand');
+
+  Object.assign(state.importData,{preview:rows,loading:false});
+  _renderImportModal();
+}
+
+async function _confirmImport(hasOverlap){
+  const d=state.importData;
+  const rows=d.preview;if(!rows?.length)return;
+  const el=document.getElementById('dayModalContent');
+  el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Rijen wegschrijven naar schema…</div>`;
+  try{
+    const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
+    const sheetName=state.sheetName||'Schema';
+    const headers=await oauthGetHeaders();
+    if(hasOverlap){
+      const importDates=new Set(rows.map(r=>r.datum));
+      const toDelete=(state.data||[]).filter(r=>importDates.has(r.datum)).sort((a,b)=>b.rowIndex-a.rowIndex);
+      for(const row of toDelete)await oauthDeleteRow(row.rowIndex);
+    }
+    const values=rows.map(r=>headers.map(h=>{
+      if(h==='id')return _uuid();
+      if(h==='updated_at'||h==='created_at')return _nowISO();
+      if(h==='type')return toSheetType(normalizeType(r.type));
+      if(h==='km')return r.km!=null?String(r.km):'';
+      if(h==='feedback'||h==='race_type')return'';
+      return String(r[h]??'');
+    }));
+    const token=await authEnsureToken();
+    const range=encodeURIComponent(sheetName+'!A:A');
+    const res=await fetch(`${SHEETS_BASE}/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,{
+      method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({majorDimension:'ROWS',values}),
+    });
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'HTTP '+res.status);}
+    await oauthSortByDate(sheetId,sheetName);
+    closeDayModal();
+    showToast(`✓ ${rows.length} activiteiten geïmporteerd`);
+    await fetchData();
+  }catch(e){
+    Object.assign(state.importData,{error:'Importeren mislukt: '+(e.message||e),loading:false});
+    _renderImportModal();
+  }
+}
 
 function oauthDisconnect(){
   if(typeof authClear==='function')authClear();
