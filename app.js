@@ -2153,23 +2153,33 @@ function renderConnectSection(){
   const connected=oauthActive&&!!sheetId;
 
   if(connected){
-    const _em=typeof authEmail==='function'?authEmail():'';
-    const displayName=(_em&&localStorage.getItem('sheetName_'+_em))||state.sheetName||'Schema';
-    if(sheetId)_saveSchemaHistory(sheetId,displayName,`https://docs.google.com/spreadsheets/d/${sheetId}/edit`);
-    el.innerHTML=`
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(displayName)}</div>
-          <a href="https://docs.google.com/spreadsheets/d/${esc(sheetId)}/edit" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Schema openen in Google Sheets ↗</a>
+    const sheetUrl=`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+    el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0">Laden…</div>`;
+    (async()=>{
+      let fileName=localStorage.getItem('driveFileName_'+sheetId)||'';
+      try{if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||fileName;}catch{}
+      if(!fileName)fileName=sheetId;
+      localStorage.setItem('driveFileName_'+sheetId,fileName);
+      state.sheetName=fileName;
+      localStorage.setItem('sheetName',fileName);
+      const _em=typeof authEmail==='function'?authEmail():'';
+      if(_em)localStorage.setItem('sheetName_'+_em,fileName);
+      _saveSchemaHistory(sheetId,fileName,sheetUrl);
+      el.innerHTML=`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(fileName)}</div>
+            <a href="${esc(sheetUrl)}" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Schema openen in Google Sheets ↗</a>
+          </div>
         </div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
-        <button class="btn-save" onclick="toggleConnectPanel('new')">Nieuw schema koppelen</button>
-      </div>
-      <div id="connectPanel" style="margin-top:12px"></div>
-      ${_devBlock()}`;
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
+          <button class="btn-save" onclick="toggleConnectPanel('new')">Nieuw schema koppelen</button>
+        </div>
+        <div id="connectPanel" style="margin-top:12px"></div>
+        ${_devBlock()}`;
+    })();
     return;
   }
 
@@ -2269,12 +2279,34 @@ function toggleConnectPanel(panel){
     el.innerHTML='<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>';
     loadSheetPickerInline();
   }else{
-    el.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-      <div style="position:relative;flex:1">
-        <div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-        <input type="url" class="settings-input" id="inlineSheetUrl" placeholder="Plak Google Sheets URL…" style="padding-left:32px">
+    el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <button onclick="oauthCreateNew()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">📄</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Nieuw leeg trainingsschema aanmaken</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:2px">Maakt een nieuw Google Sheets bestand aan in je Drive</span></span>
+      </button>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">URL van bestaand Google Sheets bestand</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Plak de URL van een sheet met de juiste kolommen</span></span>
+          <span style="font-family:var(--font-m);font-size:8px;color:var(--faint);border:1px solid var(--border);padding:2px 5px;border-radius:4px;flex-shrink:0;white-space:nowrap">Drive picker binnenkort</span>
+        </div>
+        <div style="display:flex;gap:6px"><input type="url" class="settings-input" id="inlineSheetUrl" placeholder="https://docs.google.com/spreadsheets/…" style="flex:1"><button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button></div>
       </div>
-      <button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button>
+      <button onclick="openImportModal('excel')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">📊</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Excel bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">AI analyseert en importeert je trainingsschema</span></span>
+        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+      </button>
+      <button onclick="openImportModal('pdf')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">📑</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">PDF bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">AI leest je trainingsschema uit een PDF</span></span>
+        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+      </button>
+      <button onclick="openImportModal('image')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">🖼</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Afbeelding importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Foto van een schema? AI zet het om naar digitaal</span></span>
+        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+      </button>
     </div>`;
   }
 }
@@ -2293,17 +2325,21 @@ async function loadSheetPickerInline(){
   if(!el)return;
   el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
+  // Restore deleted list from accountSnap for cross-device sync
+  const _em2=typeof authEmail==='function'?authEmail():'';
+  if(_em2){try{const snap=JSON.parse(localStorage.getItem('accountSnap_'+_em2)||'null');if(snap?.schemaDeleted)localStorage.setItem('schemaDeleted',snap.schemaDeleted);}catch{}}
   const hist=_loadSchemaHistory();
-  // Always fetch fresh from Drive for realtime sync across devices
+  // Always fetch Drive fresh — Drive is source of truth for names and cross-device
   try{
     const driveSheets=await listRecentSheets();
-    // Drive names are the true file names — overwrite any cached tab names
     driveSheets.forEach(s=>{
-      _saveSchemaHistory(s.id,s.name,`https://docs.google.com/spreadsheets/d/${s.id}/edit`);
-      // Update in hist array too
+      // Prefer cached driveFileName (set by _getDriveFileName), else use Drive API name
+      const fn=localStorage.getItem('driveFileName_'+s.id)||s.name;
+      localStorage.setItem('driveFileName_'+s.id,fn);
+      _saveSchemaHistory(s.id,fn,`https://docs.google.com/spreadsheets/d/${s.id}/edit`);
       const existing=hist.find(h=>h.id===s.id);
-      if(existing)existing.name=s.name;
-      else hist.unshift({id:s.id,name:s.name,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:s.modifiedTime||0});
+      if(existing)existing.name=fn;
+      else hist.unshift({id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:s.modifiedTime||0});
     });
   }catch{}
   const deleted=[];try{deleted.push(...JSON.parse(localStorage.getItem('schemaDeleted')||'[]'));}catch{}
@@ -2335,6 +2371,8 @@ function _devBlock(){
     <button class="btn-save" style="margin-top:4px" onclick="saveSettings()">Opslaan</button>
   </details>`;
 }
+
+function openImportModal(type){showToast('AI import — binnenkort beschikbaar 🚀');}
 
 function oauthDisconnect(){
   if(typeof authClear==='function')authClear();
