@@ -2155,17 +2155,20 @@ function renderConnectSection(){
   if(connected){
     const _em=typeof authEmail==='function'?authEmail():'';
     const displayName=(_em&&localStorage.getItem('sheetName_'+_em))||state.sheetName||'Schema';
-    if(sheetId)_saveSchemaHistory(sheetId,displayName,'');
+    if(sheetId)_saveSchemaHistory(sheetId,displayName,`https://docs.google.com/spreadsheets/d/${sheetId}/edit`);
     el.innerHTML=`
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
         <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;margin-bottom:2px">${esc(displayName)}</div>
-          <a href="https://docs.google.com/spreadsheets/d/${esc(sheetId)}/edit" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none">Sheet openen ↗</a>
+          <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(displayName)}</div>
+          <a href="https://docs.google.com/spreadsheets/d/${esc(sheetId)}/edit" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Schema openen in Google Sheets ↗</a>
         </div>
       </div>
-      <div id="sheetPickerInline"></div>
-      <button class="btn-save" style="width:100%;margin-top:8px" onclick="loadSheetPickerInline()">Ander schema koppelen</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
+        <button class="btn-save" onclick="toggleConnectPanel('new')">Nieuw schema koppelen</button>
+      </div>
+      <div id="connectPanel" style="margin-top:12px"></div>
       ${_devBlock()}`;
     return;
   }
@@ -2258,6 +2261,24 @@ function _deleteSchemaHistory(sheetId){
   }catch(e){}
 }
 
+function toggleConnectPanel(panel){
+  const el=document.getElementById('connectPanel');if(!el)return;
+  if(el.dataset.panel===panel){el.innerHTML='';delete el.dataset.panel;return;}
+  el.dataset.panel=panel;
+  if(panel==='history'){
+    el.innerHTML='<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>';
+    loadSheetPickerInline();
+  }else{
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+      <div style="position:relative;flex:1">
+        <div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+        <input type="url" class="settings-input" id="inlineSheetUrl" placeholder="Plak Google Sheets URL…" style="padding-left:32px">
+      </div>
+      <button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button>
+    </div>`;
+  }
+}
+
 function oauthSelectFromUrl(){
   const u=document.getElementById('inlineSheetUrl')?.value.trim();
   if(!u){showToast('Voer een URL in');return;}
@@ -2268,15 +2289,17 @@ function oauthSelectFromUrl(){
 }
 
 async function loadSheetPickerInline(){
-  const el=document.getElementById('sheetPickerInline');if(!el)return;
+  const el=document.getElementById('sheetPickerInline')||document.getElementById('connectPanel');
+  if(!el)return;
   el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
   const hist=_loadSchemaHistory();
-  // Try Drive API too
+  // Always fetch fresh from Drive for realtime sync
   try{
     const driveSheets=await listRecentSheets();
+    driveSheets.forEach(s=>_saveSchemaHistory(s.id,s.name,`https://docs.google.com/spreadsheets/d/${s.id}/edit`));
     const seen=new Set(hist.map(h=>h.id));
-    driveSheets.forEach(s=>{if(!seen.has(s.id))hist.push({id:s.id,name:s.name,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:0});});
+    driveSheets.forEach(s=>{if(!seen.has(s.id))hist.unshift({id:s.id,name:s.name,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:0});});
   }catch{}
   const rows=hist.slice(0,8).map(s=>{
     const isActive=s.id===currentId;
