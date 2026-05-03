@@ -2156,20 +2156,29 @@ function renderConnectSection(){
     const sheetUrl=`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
     el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0">Laden…</div>`;
     (async()=>{
+      // driveFileName_ is always the Drive file name (not tab name)
       let fileName=localStorage.getItem('driveFileName_'+sheetId)||'';
+      const _emD=typeof authEmail==='function'?authEmail():'';
+      if(!fileName&&_emD)fileName=localStorage.getItem('sheetFileName_'+_emD)||'';
       if(!fileName){
-        // Try to get from recent Drive list first (cheaper)
+        // Try Drive API
         try{
-          const sheets=await listRecentSheets();
-          const found=sheets.find(s=>s.id===sheetId);
-          if(found)fileName=found.name;
+          if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||'';
         }catch{}
       }
       if(!fileName){
-        try{if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||'';}catch{}
+        // Last resort: Drive recent list
+        try{
+          const sheets=await listRecentSheets();
+          fileName=sheets.find(s=>s.id===sheetId)?.name||'';
+        }catch{}
       }
-      if(!fileName)fileName=state.sheetName&&state.sheetName!==sheetId?state.sheetName:'';
-      if(!fileName){showToast('⚠ Bestandsnaam niet gevonden');fileName='Schema';}
+      if(!fileName)fileName='Schema';
+      // Cache for future
+      if(fileName!=='Schema'){
+        localStorage.setItem('driveFileName_'+sheetId,fileName);
+        if(_emD)localStorage.setItem('sheetFileName_'+_emD,fileName);
+      }
       localStorage.setItem('driveFileName_'+sheetId,fileName);
       state.sheetName=fileName;
       localStorage.setItem('sheetName',fileName);
