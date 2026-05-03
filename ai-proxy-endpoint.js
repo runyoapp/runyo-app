@@ -13,7 +13,7 @@ app.post('/ai/import', async (req, res) => {
         'anthropic-version': '2023-06-01',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify({ ...req.body, model: 'claude-sonnet-4-6' }),
     });
     const data = await response.json();
     res.status(response.status).json(data);

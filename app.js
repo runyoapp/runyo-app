@@ -2656,7 +2656,7 @@ async function _runImportAI(){
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
-      model:'claude-sonnet-4-20250514',max_tokens:2000,
+      model:'claude-sonnet-4-6',max_tokens:2000,
       system:'Je krijgt een trainingsschema. Retourneer ALLEEN een JSON array, geen uitleg, geen markdown. Velden per item: datum (YYYY-MM-DD), type (run/kracht/mobiliteit/rust/herstel/werk/race), titel (string), detail (string), km (number of null), fase (lege string).',
       messages:[{role:'user',content:userContent}],
     }),
