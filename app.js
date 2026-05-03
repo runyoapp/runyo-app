@@ -2190,9 +2190,12 @@ function renderConnectSection(){
       }
       const _em=typeof authEmail==='function'?authEmail():'';
       if(_em)localStorage.setItem('sheetFileName_'+_em,fileName);
-      // Push schema list to sheet tab + Drive appDataFolder on every load
-      if(typeof _saveSchemaListToSheetMeta==='function')_saveSchemaListToSheetMeta(sheetId).catch(()=>{});
-      if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount().catch(()=>{});
+      // Push schema list to sheet tab + Drive — once per session to avoid quota hits
+      if(!window._rxSyncedThisSession){
+        window._rxSyncedThisSession=true;
+        if(typeof _saveSchemaListToSheetMeta==='function')_saveSchemaListToSheetMeta(sheetId).catch(()=>{});
+        if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount().catch(()=>{});
+      }
       _saveSchemaHistory(sheetId,fileName,sheetUrl);
       const _driveMissing=localStorage.getItem('rx_drive_scope_missing')==='1';
       el.innerHTML=`
