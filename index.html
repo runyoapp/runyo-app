@@ -1,271 +1,2742 @@
-<!DOCTYPE html>
-<html lang="nl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="RunningX">
-  <meta name="theme-color" content="#0a0a0a">
-  <title>RunningX</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+// ── ACTIVITY DATA MODEL ───────────────────────────────────────────────────────
+// Canonical activity enum (English)
+const ACTIVITY_ENUM=['run','work','strength','mobility','rest','race','recovery'];
 
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-logo">RUNNING<span>X</span></div>
-  <div class="loading-sub" id="loadingSub">Laden...</div>
-  <div class="loading-bar"><div class="loading-bar-fill"></div></div>
-</div>
+// Dutch → English normalization map (backward compat with sheet values)
+const TYPE_NL_MAP={
+  werk:'work', rust:'rest', kracht:'strength',
+  mobiliteit:'mobility', herstel:'recovery',
+};
 
-<div class="toast" id="toast"></div>
+// Normalize a raw type string from the sheet to canonical enum value
+function normalizeType(raw){
+  if(!raw)return'rest';
+  const t=raw.toLowerCase().trim().split(',')[0].trim();
+  return TYPE_NL_MAP[t]||t; // map Dutch, pass through English
+}
 
-<div class="modal-backdrop" id="dayModal" onclick="closeDayModal(event)">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <button class="modal-close" onclick="closeDayModal()">x</button>
-    <div id="dayModalContent"></div>
-  </div>
-</div>
+// Map canonical enum → TYPES display config (English keys added)
+const TYPE_DISPLAY={
+  run:     {bg:'var(--run-bg)',    text:'var(--run-text)',    i18n:'type_run'},
+  work:    {bg:'var(--work-bg)',   text:'var(--work-text)',   i18n:'type_werk'},
+  strength:{bg:'var(--str-bg)',    text:'var(--str-text)',    i18n:'type_kracht'},
+  mobility:{bg:'var(--mob-bg)',    text:'var(--mob-text)',    i18n:'type_mob'},
+  rest:    {bg:'var(--rest-bg)',   text:'var(--rest-text)',   i18n:'type_rust'},
+  race:    {bg:'var(--race-bg)',   text:'var(--race-text)',   i18n:'type_race'},
+  recovery:{bg:'var(--herstel-bg)',text:'var(--herstel-text)',i18n:'type_herstel'},
+  // Dutch aliases for backward compat
+  werk:    {bg:'var(--work-bg)',   text:'var(--work-text)',   i18n:'type_werk'},
+  kracht:  {bg:'var(--str-bg)',    text:'var(--str-text)',    i18n:'type_kracht'},
+  mobiliteit:{bg:'var(--mob-bg)', text:'var(--mob-text)',    i18n:'type_mob'},
+  rust:    {bg:'var(--rest-bg)',   text:'var(--rest-text)',   i18n:'type_rust'},
+  herstel: {bg:'var(--herstel-bg)',text:'var(--herstel-text)',i18n:'type_herstel'},
+};
 
-<div class="modal-backdrop" id="raceModal" onclick="closeRaceModal(event)">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <button class="modal-close" onclick="closeRaceModal()">x</button>
-    <div id="raceModalContent"></div>
-  </div>
-</div>
+// Normalize distance: "10km" → 10, "800 m" → 0.8, "10" → 10
+function normalizeDistance(raw){
+  if(!raw&&raw!==0)return null;
+  const s=raw.toString().trim().toLowerCase();
+  const mMatch=s.match(/^([\d.]+)\s*m$/);
+  if(mMatch)return parseFloat(mMatch[1])/1000; // meters to km
+  return parseFloat(s)||null;
+}
 
-<div class="onboarding-overlay" id="onboarding" style="display:none" onclick="onboardingOverlayClick(event)">
-  <div class="onboarding-sheet" id="onboardingSheet">
-    <div class="ob-header">
-      <div class="ob-logo">RUNNING<span>X</span></div>
-      <button class="ob-skip" onclick="onboardingFinish()">Overslaan</button>
-    </div>
-    <div id="onboardingStep1">
-      <div class="ob-step">Stap 1 van 2</div>
-      <div class="ob-title">Welkom bij RunningX<br>Wat is je doel?</div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_race"></label>
-        <input type="text" class="settings-input" id="obRace" placeholder="Bijv. Big10 Rotterdam">
+// Format distance for display: <0.1 → meters, else km
+function formatDistance(km){
+  if(km===null||km===undefined)return'';
+  if(km<0.1)return`${Math.round(km*1000)} m`;
+  return`${km} km`;
+}
+
+// Normalize empty/null values
+function normalizeEmptyValues(obj){
+  const out={};
+  for(const k in obj)out[k]=obj[k]??'';
+  return out;
+}
+
+// Activity options for dropdowns — value=canonical English, sheet writes remapped
+const ACTIVITY_OPTIONS=[
+  {value:'run',      sheet:'run',        nl:'Hardlopen'},
+  {value:'work',     sheet:'werk',       nl:'Werk'},
+  {value:'strength', sheet:'kracht',     nl:'Kracht'},
+  {value:'mobility', sheet:'mobiliteit', nl:'Mobiliteit'},
+  {value:'rest',     sheet:'rust',       nl:'Rust'},
+  {value:'race',     sheet:'race',       nl:'Race'},
+  {value:'recovery', sheet:'herstel',    nl:'Herstel'},
+];
+// Map canonical type back to Dutch sheet value
+function toSheetType(canonical){
+  return ACTIVITY_OPTIONS.find(o=>o.value===canonical)?.sheet||canonical;
+}
+
+// ── DATA SERVICE LAYER ────────────────────────────────────────────────────────
+// Thin wrappers — UI always goes through these, never calls sheet directly.
+
+function getActivities(filters={}){
+  let rows=state.data||[];
+  // Support both old (datum/fase) and new (date/phase) field names
+  if(filters.date)rows=rows.filter(r=>(r.date||r.datum)===filters.date);
+  if(filters.phase)rows=rows.filter(r=>(r.phase||r.fase)===filters.phase);
+  if(filters.fase)rows=rows.filter(r=>(r.fase||r.phase)===filters.fase);
+  if(filters.type)rows=rows.filter(r=>r.type===filters.type);
+  if(filters.excludeTypes)rows=rows.filter(r=>!filters.excludeTypes.includes(r.type));
+  return rows;
+}
+
+// C52: find the fase for a given date from existing data
+function getFaseForDate(datum){
+  if(!state.data||!datum)return'';
+  // Find rows around this date to determine fase
+  const sorted=[...state.data].filter(r=>r.fase&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  let fase='';
+  for(const r of sorted){
+    if(r.datum<=datum)fase=r.fase;
+    else break;
+  }
+  return fase;
+}
+
+async function createActivity(fields){
+  // fields: {datum, type, titel, detail, km, fase}
+  const normalized={...fields, type: fields.type||'rest'};
+  if(state.scriptUrl){
+    await sheetAddRow(normalized);
+  }else{
+    if(!state.data)state.data=[];
+    state.data.push({...normalized,feedback:'',rowIndex:null});
+    renderActiveView();
+  }
+}
+
+async function updateActivity(rowIndex,fields){
+  if(state.scriptUrl){
+    await sheetUpdateRow(rowIndex,fields);
+  }else{
+    const row=state.data?.find(r=>r.rowIndex===rowIndex);
+    if(row)Object.assign(row,fields);
+    renderActiveView();
+  }
+}
+
+async function deleteActivityById(rowIndex){
+  // Undo buffer — keep for 10 seconds
+  const row=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(row){
+    state._undoBuffer={row,timeout:setTimeout(()=>{state._undoBuffer=null;},10000)};
+  }
+  if(state.scriptUrl){
+    await sheetDeleteRow(rowIndex);
+  }else{
+    if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
+    renderActiveView();
+  }
+}
+
+// ── CONSTANTS (keep for backward compat) ─────────────────────────────────────
+// TYPES is now an alias for TYPE_DISPLAY for backward compat
+const TYPES=TYPE_DISPLAY;
+const TYPE_FALLBACK=TYPES.rest;
+
+
+
+const PR_ORDER=['800m','1500m','1mile','5km','10km','10mile','HM','M'];
+const DAYS_NL=['Ma','Di','Wo','Do','Vr','Za','Zo'];
+const DAYS_EN=['Mo','Tu','We','Th','Fr','Sa','Su'];
+const MONTHS_FULL_NL=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+const MONTHS_FULL_EN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_NL=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const MONTHS_EN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+// ── I18N ─────────────────────────────────────────────────────────────────────
+const STRINGS={
+  nl:{
+    today:'Vandaag',week:'Week',plan:'Training',calendar:'Kalender',stats:'Stats',settings:'Instellingen',
+    sg_account:'Account',sg_profile:'Profiel',sg_notif:'Notificaties',sg_connect:'Koppeling',sg_app:'App',
+    your_name:'Jouw naam',
+    pr_title:'Persoonlijke records',pr_add:'Afstand toevoegen',pr_none:'Nog geen records toegevoegd.',
+    lang_title:'Taal',
+    notif_telegram_title:'Telegram',notif_telegram:'Gebruikersnaam',notif_hint:'Koppel je Telegram-account om dagelijkse schema\'s, weekoverzichten en feedback-verzoeken te ontvangen.',
+    tg_not_linked:'Niet gekoppeld',tg_linked:'Gekoppeld',tg_verify:'Koppeling starten',tg_verifying:'Verificatie starten…',tg_verify_hint:'Stuur /start naar @RunningXBot in Telegram om de koppeling te bevestigen.',
+    schema_title:'Koppel je trainingsschema',schema_hint:'Plak de URL van je gepubliceerde Google Apps Script Web App.',
+    sheet_name_label:'Tabblad naam (optioneel)',sheet_name_hint:'Laat leeg om het eerste tabblad automatisch te gebruiken.',
+    api_save:'Opslaan & verbinden',not_connected:'Niet verbonden',
+    connected:'Verbonden ✓',conn_err:'Fout',
+    enter_url:'Voer een URL in',connecting:'Verbinding testen…',
+    goal_dist:'Afstand',goal_time:'Doeltijd',goal_race:'Race naam',goal_date:'Racedatum',
+    rest_day:'Rustdag',rest_msg:'Vandaag herstel je. Morgen ga je er weer voor.',
+    mob_reminder:'Mobiliteit',mob_text:'Dagelijkse routine',
+    tomorrow:'Morgen',setup_title:'Koppel je trainingsschema',setup_body:'Ga naar Instellingen → Koppeling.',
+    no_schema:'Koppel je trainingsschema',
+    feedback_q:'Hoe ging het?',feedback_save:'Feedback opslaan',notes_q:'Notities',notes_save:'Opslaan',
+    feedback_logged:'✓ Gelogd',feedback_edit:'Aanpassen',feedback_update:'Bijwerken',feedback_cancel:'Annuleren',
+    select_score:'Selecteer eerst een score',
+    week_km:'km gepland',week_sessions:'sessies',week_werk:'werkdagen',
+    week_progress:'Weekvoortgang',week_done:'gedaan',week_feedback:'feedback',week_todo:'Nog te doen',
+    type_run:'Hardlopen',type_kracht:'Kracht',type_mob:'Mobiliteit',type_race:'Race',type_werk:'Werk',type_rust:'Rust',type_herstel:'Herstel',
+    days_ago:'geweest',days_today:'Vandaag!',days_label:'dagen',weeks_label:'weken',months_label:'maanden',
+    hm:'Halve marathon',marathon:'Marathon',other_dist:'Vrij invoer',
+    stats_total:'Totaal km',stats_done:'km in plan',stats_days:'Dagen tot race',
+    stats_runs:'Runs gelogd',stats_sessions:'sessies gedaan',stats_week:'Deze week',stats_week_sub:'km tot nu toe',
+    stats_feel:'Gem. gevoel',stats_feedback:'Feedback',stats_fb_sub:'sessies',stats_recent:'Recente feedback',
+    no_data:'Geen data',
+    race_add:'Voeg race toe +',race_name:'Race naam',race_date:'Datum',race_dist:'Afstand',race_type:'Type race',race_main:'Hoofddoel',race_save:'Race opslaan',race_delete:'Verwijderen',race_edit:'Bewerken',
+    race_saved:'✓ Race opgeslagen',race_deleted:'Race verwijderd',race_required:'Naam en datum zijn verplicht',
+    main_goal:'Hoofddoel',
+    cal_add_race:'Voeg race toe +',races_this_month:'Races deze maand',no_races_month:'Geen races deze maand.',
+    saved:'✓ Opgeslagen',
+    update_available:'🔄 Update beschikbaar',update_apply:'Nu updaten',
+    account_title:'Inloggen',account_hint:'Log in om je gegevens te synchroniseren (binnenkort beschikbaar).',
+    email_placeholder:'naam@voorbeeld.nl',login_btn:'Inloggen',logout_btn:'Uitloggen',
+    logged_in_as:'Ingelogd als',not_logged_in:'Niet ingelogd',
+    edit_day:'Dag bewerken',field_titel:'Titel',field_type:'Type',field_km:'Km',field_detail:'Detail',field_emoji:'Emoji',save_changes:'Wijzigingen opslaan',
+    pr_placeholder:'bijv. 37:56',
+    connect_sheet:'Schema koppelen',connect_active:'Gekoppeld',connect_disconnect:'Ontkoppelen',connect_url_placeholder:'https://script.google.com/macros/s/…/exec',
+    connect_hint:'Plak de URL van je gepubliceerde Google Apps Script.',connect_disconnected:'Niet gekoppeld',
+    week_label:'Week',next_fase:'Volgende fase',
+    add_training:'Training toevoegen',type_label:'Type',
+    race_to_sheet:'Race opgeslagen in schema',race_to_sheet_err:'Race lokaal opgeslagen (geen schema)',
+  },
+  en:{
+    today:'Today',week:'Week',plan:'Training',calendar:'Calendar',stats:'Stats',settings:'Settings',
+    sg_account:'Account',sg_profile:'Profile',sg_notif:'Notifications',sg_connect:'Connection',sg_app:'App',
+    your_name:'Your name',
+    pr_title:'Personal records',pr_add:'Add distance',pr_none:'No records added yet.',
+    lang_title:'Language',
+    notif_telegram_title:'Telegram',notif_telegram:'Username',notif_hint:'Connect your Telegram account to receive daily schedules, weekly overviews and feedback reminders.',
+    tg_not_linked:'Not linked',tg_linked:'Linked',tg_verify:'Start linking',tg_verifying:'Starting verification…',tg_verify_hint:'Send /start to @RunningXBot in Telegram to confirm the link.',
+    schema_title:'Connect your training schedule',schema_hint:'Paste the URL of your published Google Apps Script Web App.',
+    sheet_name_label:'Sheet tab name (optional)',sheet_name_hint:'Leave empty to auto-detect the first tab.',
+    api_save:'Save & connect',not_connected:'Not connected',
+    connected:'Connected ✓',conn_err:'Error',
+    enter_url:'Enter a URL',connecting:'Testing connection…',
+    goal_dist:'Distance',goal_time:'Target time',goal_race:'Race name',goal_date:'Race date',
+    rest_day:'Rest day',rest_msg:'Today you recover. Tomorrow you push.',
+    mob_reminder:'Mobility',mob_text:'Daily routine',
+    tomorrow:'Tomorrow',setup_title:'Connect your training schedule',setup_body:'Go to Settings → Connection.',
+    no_schema:'Connect your training schedule',
+    feedback_q:'How did it go?',feedback_save:'Save feedback',notes_q:'Notes',notes_save:'Save',
+    feedback_logged:'✓ Logged',feedback_edit:'Edit',feedback_update:'Update',feedback_cancel:'Cancel',
+    select_score:'Select a score first',
+    week_km:'km planned',week_sessions:'sessions',week_werk:'work days',
+    week_progress:'Week progress',week_done:'done',week_feedback:'feedback',week_todo:'Still to do',
+    type_run:'Running',type_kracht:'Strength',type_mob:'Mobility',type_race:'Race',type_werk:'Work',type_rust:'Rest',type_herstel:'Recovery',
+    days_ago:'past',days_today:'Today!',days_label:'days',weeks_label:'weeks',months_label:'months',
+    hm:'Half marathon',marathon:'Marathon',other_dist:'Custom',
+    stats_total:'Total km',stats_done:'km in plan',stats_days:'Days to race',
+    stats_runs:'Runs logged',stats_sessions:'sessions done',stats_week:'This week',stats_week_sub:'km so far',
+    stats_feel:'Avg feeling',stats_feedback:'Feedback',stats_fb_sub:'sessions',stats_recent:'Recent feedback',
+    no_data:'No data',
+    race_add:'Add race +',race_name:'Race name',race_date:'Date',race_dist:'Distance',race_type:'Race type',race_main:'Main goal',race_save:'Save race',race_delete:'Delete',race_edit:'Edit',
+    race_saved:'✓ Race saved',race_deleted:'Race deleted',race_required:'Name and date are required',
+    main_goal:'Main goal',
+    cal_add_race:'Add race +',races_this_month:'Races this month',no_races_month:'No races this month.',
+    saved:'✓ Saved',
+    update_available:'🔄 Update available',update_apply:'Update now',
+    account_title:'Sign in',account_hint:'Sign in to sync your data (coming soon).',
+    email_placeholder:'name@example.com',login_btn:'Sign in',logout_btn:'Sign out',
+    logged_in_as:'Signed in as',not_logged_in:'Not signed in',
+    edit_day:'Edit day',field_titel:'Title',field_type:'Type',field_km:'Km',field_detail:'Detail',field_emoji:'Emoji',save_changes:'Save changes',
+    pr_placeholder:'e.g. 37:56',
+    connect_sheet:'Connect schedule',connect_active:'Connected',connect_disconnect:'Disconnect',connect_url_placeholder:'https://script.google.com/macros/s/…/exec',
+    connect_hint:'Paste the URL of your published Google Apps Script.',connect_disconnected:'Not connected',
+    week_label:'Week',next_fase:'Next phase',
+    add_training:'Add training',type_label:'Type',
+    race_to_sheet:'Race saved to schedule',race_to_sheet_err:'Race saved locally (no schedule)',
+  }
+};
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+const state={
+  scriptUrl: localStorage.getItem('scriptUrl')||'',
+  sheetId:    localStorage.getItem('sheetId')||'',
+  sheetName: localStorage.getItem('sheetName')||'',
+  lang:      localStorage.getItem('lang')||'nl',
+  data:      null,
+  currentTab:'today',
+  selectedRating:0,
+  editingFeedback:false,
+  calYear:   new Date().getFullYear(),
+  calMonth:  new Date().getMonth(),
+  calSelectedDate:null,
+  editingRaceId:null,
+  weekOffset:0,
+  dayOffset:0, // C53: vandaag swipe offset
+  editingRowIndex:null,
+  _prs:null,_races:null,
+  swReg:null,
+  pendingSW:null,
+  planWeekOffset:0,     // C27: week swipe offset (0 = current week)
+  currentFase:null,     // C29: active fase for floating label
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const T=k=>STRINGS[state.lang]?.[k]??STRINGS.nl[k]??k;
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const todayStr=()=>new Date().toISOString().split('T')[0];
+const parseDate=s=>new Date(s+'T00:00:00');
+// Mon-first day index: JS getDay() is 0=Sun..6=Sat; our arrays are 0=Ma..6=Zo
+const dayIdx=d=>(d.getDay()+6)%7;
+const daysUntil=s=>{const n=new Date();n.setHours(0,0,0,0);return Math.round((parseDate(s)-n)/86400000);};
+
+function fmtDate(s){
+  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  return `${days[dayIdx(d)]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+function fmtDateFull(s){
+  const d=parseDate(s),days=state.lang==='en'?DAYS_EN:DAYS_NL,mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  return `${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]} ${d.getFullYear()}`;
+}
+function getMondayStr(){
+  const n=new Date();n.setHours(12,0,0,0);
+  const dow=n.getDay();n.setDate(n.getDate()-(dow===0?6:dow-1));
+  const y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0'),d=String(n.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function getWeekDates(){
+  // C36: always Mon-Sun
+  return getWeekDatesOffset(0);
+}
+
+// C24: type resolution — comma-separated, first valid type wins for colour
+function typeOf(typeStr){
+  if(!typeStr)return TYPE_FALLBACK;
+  const norm=normalizeType(typeStr);
+  return TYPE_DISPLAY[norm]||TYPE_DISPLAY[typeStr.toLowerCase().trim()]||TYPE_FALLBACK;
+}
+// Type checks — work with both Dutch and English values
+const hasType=(typeStr,key)=>{
+  if(!typeStr)return false;
+  const norm=normalizeType(typeStr);
+  const dutch=Object.entries(TYPE_NL_MAP).find(([,v])=>v===key)?.[0];
+  return norm===key||typeStr.toLowerCase().trim()===key||(dutch&&typeStr.toLowerCase().trim()===dutch);
+};
+const isWork=t=>hasType(t,'work');
+const isRace=t=>hasType(t,'race');
+const isRust=t=>hasType(t,'rest');
+const isMob=t=>hasType(t,'mobility');
+
+function countdownDisplay(days){
+  if(days<0)return{val:'✓',unit:T('days_ago')};
+  if(days===0)return{val:'!',unit:T('days_today')};
+  if(days<=30)return{val:days,unit:T('days_label')};
+  if(days<=90)return{val:Math.round(days/7),unit:T('weeks_label')};
+  return{val:Math.round(days/30),unit:T('months_label')};
+}
+
+// C25: race emoji - language-agnostic
+function raceEmoji(race){
+  const d=(race.dist||'').toLowerCase(),tp=(race.raceType||'').toLowerCase();
+  if(tp.includes('trail')||tp.includes('ultra'))return'🏔';
+  if(tp.includes('baan')||tp.includes('track'))return'🏟';
+  if(d.includes('marathon')&&!d.includes('half')&&!d.includes('halve'))return'🏅';
+  if(d.includes('halve')||d.includes('half')||d==='hm')return'🥈';
+  if(d==='5km'||d==='5 km')return'⚡';
+  if(d==='10km'||d==='10 km')return'🎯';
+  return'🏁';
+}
+
+// Map raceType string → RXIcon type key
+function raceTypeIconKey(raceType, dist){
+  const tp=(raceType||'').toLowerCase(), d=(dist||'').toLowerCase();
+  if(tp.includes('trail')||tp.includes('ultra'))return'trail';
+  if(tp.includes('baan')||tp.includes('track'))return'target';
+  if(d.includes('marathon')&&!d.includes('half')&&!d.includes('halve'))return'run';
+  return'race';
+}
+
+// ── LOCALSTORAGE ─────────────────────────────────────────────────────────────
+function loadPRs(){if(!state._prs){try{state._prs=JSON.parse(localStorage.getItem('prs')||'{}')}catch{state._prs={}}}return state._prs;}
+function loadRaces(){if(!state._races){try{state._races=JSON.parse(localStorage.getItem('userRaces')||'[]')}catch{state._races=[]}}return state._races;}
+function persistPRs(p){state._prs=p;localStorage.setItem('prs',JSON.stringify(p));}
+function persistRaces(r){state._races=r;localStorage.setItem('userRaces',JSON.stringify(r));}
+
+// ── SERVICE WORKER ───────────────────────────────────────────────────────────
+function initServiceWorker(){
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.register('./sw.js').then(reg=>{
+    state.swReg=reg;
+    // Check for waiting SW immediately
+    if(reg.waiting)onSWWaiting(reg.waiting);
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller)
+          onSWWaiting(nw);
+      });
+    });
+  }).catch(()=>{});
+  // Listen for message from SW that it has claimed clients after skipWaiting
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    window.location.reload();
+  });
+}
+
+function onSWWaiting(sw){
+  state.pendingSW=sw;
+  const banner=document.getElementById('updateBanner');
+  if(banner){
+    document.getElementById('updateBannerText').textContent=T('update_available');
+    banner.querySelector('button').textContent=T('update_apply');
+    banner.style.display='flex';
+  }
+}
+
+function applyUpdate(){
+  if(state.pendingSW){
+    state.pendingSW.postMessage({type:'SKIP_WAITING'});
+  }
+}
+
+// ── DATA LAYER ────────────────────────────────────────────────────────────────
+// All sheet writes use rowIndex as the stable identifier.
+// state.data rows include rowIndex from the API.
+
+function apiParams(extra={}){
+  const p=new URLSearchParams({...extra});
+  if(state.sheetId)p.set('sheetId',state.sheetId);
+  if(state.sheetName)p.set('sheetName',state.sheetName);
+  return p;
+}
+
+async function apiCall(params){
+  if(!state.scriptUrl)throw new Error('Geen schema gekoppeld');
+  const res=await fetch(state.scriptUrl+'?'+params);
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const json=await res.json();
+  if(json.status!=='ok')throw new Error(json.message||'Onbekende fout');
+  return json;
+}
+
+// ── MAP ROW: sheet field names → internal model ──────────────────────────────
+// Sheet columns: datum, type, titel, detail, km, feedback, fase (+ rowIndex)
+// Internal model: date, type (normalized), title, details, distance, feedback, phase
+function mapRow(r){
+  return {
+    rowIndex:   r.rowIndex,
+    // system fields
+    id:         r.id||null,
+    updated_at: r.updated_at||null,
+    created_at: r.created_at||null,
+    // canonical names
+    date:     r.datum||r.date||'',
+    type:     normalizeType(r.type||r.activity||''),
+    title:    r.titel||r.title||'',
+    details:  r.detail||r.details||'',
+    distance: r.km||r.distance||'',
+    feedback: r.feedback||'',
+    phase:    r.fase||r.phase||'',
+    // originals for sheet writes
+    datum:    r.datum||r.date||'',
+    titel:    r.titel||r.title||'',
+    detail:   r.detail||r.details||'',
+    km:       r.km||r.distance||'',
+    fase:     r.fase||r.phase||'',
+    race_type:r.race_type||'',
+  };
+}
+
+async function fetchData(){
+  // OAuth mode — use Sheets API v4 directly
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){
+    return fetchDataOAuth();
+  }
+  if(!state.scriptUrl){hideLoading();renderActiveView();renderHeader();return;}
+  try{
+    const json=await apiCall(apiParams({action:'getAll'}));
+    state.data=json.rows.map(mapRow);
+    updateConnectionStatus(true);
+  }catch(e){updateConnectionStatus(false,e.message);}
+  hideLoading();renderActiveView();renderHeader();
+}
+
+async function sheetAddRow(fields){
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){return oauthAddRowDirect(fields);}
+  await apiCall(apiParams({action:'addRow',...fields}));
+  await fetchData();
+}
+
+async function sheetUpdateRow(rowIndex,fields){
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){return oauthUpdateRow(rowIndex,fields);}
+  await apiCall(apiParams({action:'updateRow',rowIndex:String(rowIndex),...fields}));
+  await fetchData();
+}
+
+async function sheetDeleteRow(rowIndex){
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){return oauthDeleteRow(rowIndex);}
+  await apiCall(apiParams({action:'deleteRow',rowIndex:String(rowIndex)}));
+  if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
+  if(state.data)state.data.forEach(r=>{if(r.rowIndex>rowIndex)r.rowIndex--;});
+}
+
+async function submitFeedback(datum,rating,tekst){
+  try{
+    if(typeof isOAuthMode==='function'&&isOAuthMode()){
+      await oauthSetFeedback(datum,rating,tekst);
+      showToast(T('feedback_logged'));return true;
+    }
+    if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return false;}
+    const row=state.data?.find(r=>r.datum===datum&&r.type!=='work'&&r.type!=='rest');
+    const extra=row?.rowIndex?{rowIndex:String(row.rowIndex)}:{};
+    await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
+    if(row){const e=['😵','😓','😐','💪','🔥'];row.feedback=`${rating}/5 ${e[rating-1]}${tekst?' – '+tekst:''}`;}
+    showToast(T('feedback_logged'));return true;
+  }catch(e){showToast('❌ '+e.message);return false;}
+}
+
+// ── RENDER DISPATCH ───────────────────────────────────────────────────────────
+function renderActiveView(){
+  switch(state.currentTab){
+    case 'today':    renderToday();break;
+    case 'week':     renderWeek();break;
+    case 'plan':     renderPlan();break;
+    case 'calendar': renderCalendar();break;
+    case 'settings': renderSettingsFields();break;
+  }
+}
+
+// DEV: force clear cache and reload
+async function devForceRefresh(){
+  if('serviceWorker' in navigator){
+    const regs=await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r=>r.unregister()));
+  }
+  const keys=await caches.keys();
+  await Promise.all(keys.map(k=>caches.delete(k)));
+  location.reload(true);
+}
+
+
+function applyTheme(){
+  document.documentElement.dataset.theme=state.theme;
+  const btn=document.getElementById('themeToggleBtn');
+  if(btn)btn.textContent=state.theme==='dark'?'🌙':'☀️';
+}
+function setTheme(t){
+  state.theme=t;localStorage.setItem('theme',t);
+  applyTheme();
+}
+function toggleTheme(){
+  setTheme(state.theme==='dark'?'light':'dark');
+}
+
+// ── HEADER ────────────────────────────────────────────────────────────────────
+// Week + button: pick date then open add modal
+function openWeekAddActivity(){
+  // Show a compact date picker modal
+  const content=document.getElementById('dayModalContent');
+  const dates=getWeekDatesOffset(state.weekOffset||0);
+  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const t=todayStr();
+  content.innerHTML=`<div class="modal-title">Dag kiezen</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      ${dates.map(d=>{
+        const pd=parseDate(d);
+        const isT=d===t;
+        return `<button onclick="closeDayModal();openAddActivity('${d}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:${isT?'rgba(198,242,78,0.08)':'var(--surface)'};border:1px solid ${isT?'var(--accent)':'var(--border)'};cursor:pointer;font-family:var(--font-d);font-weight:700;font-size:15px;color:${isT?'var(--accent)':'var(--text)'};text-align:left;-webkit-tap-highlight-color:transparent">
+          <span>${days[dayIdx(pd)]} ${pd.getDate()}</span>
+          ${isT?'<span style="font-family:var(--font-m);font-size:9px;color:var(--accent);letter-spacing:1px">VANDAAG</span>':''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  state.editingRowIndex=null;
+  document.getElementById('dayModal').classList.add('open');
+}
+
+function openDayFromRacesBar(datum){
+  openDayModal(datum);
+}
+
+function renderSidebarPlanInfo(){
+  const faseEl=document.getElementById('sbFaseLabel');
+  const weekEl=document.getElementById('sbWeekLabel');
+  const fillEl=document.getElementById('sbProgressFill');
+  if(!faseEl&&!weekEl)return;
+  if(!state.data){return;}
+  const t=todayStr();
+  const todayRow=state.data.find(r=>r.datum===t);
+  const fase=todayRow?.fase||state.currentFase||'';
+  if(faseEl)faseEl.textContent=fase||'—';
+  const mondayStr=getMondayStr();
+  const endOfWeek=mondayStr.slice(0,8)+String(parseInt(mondayStr.slice(8))+6).padStart(2,'0');
+  const weekDone=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const weekTotal=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=endOfWeek).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  if(weekEl)weekEl.textContent=weekTotal>0?`${weekDone.toFixed(0)} / ${weekTotal.toFixed(0)} km`:'';
+  const pct=weekTotal>0?Math.min(100,Math.round(weekDone/weekTotal*100)):0;
+  if(fillEl)fillEl.style.width=pct+'%';
+}
+
+function renderHeader(){
+  const name=localStorage.getItem('userName')||'';
+  const tn=document.getElementById('topbarName');if(tn)tn.textContent=name;
+  renderRacesBar();
+  renderSidebarPlanInfo();
+  renderTopbarAuth();
+}
+
+function renderTopbarAuth(){
+  const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  const email=loggedIn&&typeof authEmail==='function'?authEmail():'';
+  const initials=email?email[0].toUpperCase():'?';
+  // Settings gear icon (shown when NOT logged in, instellingen via gear)
+  const gearSvg=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+  const btnHtml=loggedIn
+    ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#000;border:none;font-family:var(--font-d);font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
+    :`<button onclick="switchTab('settings')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center">${gearSvg}</button>
+      <button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:7px 14px;font-family:var(--font-m);font-size:10px;font-weight:700;letter-spacing:0.5px;border-radius:6px;cursor:pointer">Inloggen</button>`;
+  const el=document.getElementById('topbarAuth');
+  const el2=document.getElementById('topbarAuthDesktop');
+  if(el)el.innerHTML=btnHtml;
+  if(el2)el2.innerHTML=btnHtml;
+  // Global dropdown appended to body — avoids overflow clipping
+  let menu=document.getElementById('avatarDropdown');
+  if(loggedIn){
+    if(!menu){menu=document.createElement('div');menu.id='avatarDropdown';document.body.appendChild(menu);}
+    menu.style.cssText='display:none;position:fixed;z-index:9000;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.5);overflow:hidden';
+    menu.innerHTML=`
+      <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
+        <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(email)}</div>
       </div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_date"></label>
-        <input type="date" class="settings-input" id="obDate">
-      </div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_dist"></label>
-        <select class="settings-input" id="obDist">
-          <option value="">---</option>
-          <option value="5km">5 km</option>
-          <option value="10km" selected>10 km</option>
-          <option value="10mile">10 mile</option>
-          <option value="HM" data-i18n-opt="hm"></option>
-          <option value="M" data-i18n-opt="marathon"></option>
-          <option value="other" data-i18n-opt="other_dist"></option>
-        </select>
-      </div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_time"></label>
-        <input type="text" class="settings-input" id="obTime" placeholder="37:30">
-      </div>
-      <button class="btn-primary" onclick="onboardingNext()">Volgende</button>
-    </div>
-    <div id="onboardingStep2" style="display:none">
-      <div class="ob-step">Stap 2 van 2</div>
-      <div class="ob-title" data-i18n="pr_title"></div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="pr_add"></label>
-        <select class="settings-input" id="obPrDist" onchange="addObPrField()">
-          <option value="">---</option>
-          <option value="5km">5 km</option>
-          <option value="10km">10 km</option>
-          <option value="10mile">10 mile</option>
-          <option value="HM" data-i18n-opt="hm"></option>
-          <option value="M" data-i18n-opt="marathon"></option>
-        </select>
-      </div>
-      <div id="obPrFields"></div>
-      <button class="btn-primary" style="margin-top:8px" onclick="onboardingFinish()">Aan de slag</button>
-      <button class="btn-secondary" onclick="onboardingFinish()">Overslaan</button>
-    </div>
-  </div>
-</div>
-
-<div class="bottom-nav" id="bottomNav">
-  <!-- Desktop sidebar logo -->
-  <div class="sb-logo">
-    <div class="sb-logo-dot"></div>
-    <div class="sb-logo-text"><span class="sl-running">RUNNING</span><span class="sl-x">X</span></div>
-  </div>
-  <div class="bn-pill">
-    <span class="sb-section-label">SCHEMA</span>
-    <button class="bn-item active" data-tab="today">
-      <span class="bn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.1 2.6 10.4a1 1 0 0 0 .6 1.8H5v8a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8h1.8a1 1 0 0 0 .6-1.8L12 3.1z"/></svg></span>
-      <span class="bn-label"></span>
-    </button>
-    <button class="bn-item" data-tab="week">
-      <span class="bn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7zm-2 8h14v10H5V10z"/><rect x="7" y="13" width="4" height="4" fill="currentColor" opacity="0.5"/></svg></span>
-      <span class="bn-label"></span>
-    </button>
-    <button class="bn-item" data-tab="plan">
-      <span class="bn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="16.5" cy="3.8" r="2"/><path d="M13.5 7.5c-1.2.2-2.2.9-3 1.9l-2.1 2.6a1 1 0 0 0 .2 1.4l2.2 1.6-1.8 4.3a1 1 0 0 0 1.8.8l2.3-4.6a1.2 1.2 0 0 0-.3-1.4l-1.1-.9 1.4-1.7.8 1.9c.3.6.9 1 1.5 1.1l2.7.5a1 1 0 0 0 .3-2l-2.3-.4-1.6-3.5a2 2 0 0 0-2-1.6z"/><path d="M7 14l-3 4a1 1 0 0 0 1.6 1.2l2.9-3.7L7 14z"/></svg></span>
-      <span class="bn-label"></span>
-    </button>
-    <button class="bn-item" data-tab="calendar">
-      <span class="bn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7zm-2 8h14v10H5V10z"/></svg></span>
-      <span class="bn-label"></span>
-    </button>
-  </div>
-  <div id="sidebarPlanInfo" style="display:none">
-    <div style="font-family:var(--font-m);font-size:9px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">PLAN</div>
-    <div id="sbFaseLabel" style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text2);margin-bottom:2px">—</div>
-    <div id="sbWeekLabel" style="font-family:var(--font-m);font-size:9px;color:var(--muted)">—</div>
-    <div style="height:2px;background:var(--border);margin-top:10px;border-radius:1px;overflow:hidden">
-      <div id="sbProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.4s ease"></div>
-    </div>
-  </div>
-</div>
-
-<div class="app">
-
-  <div class="topbar">
-    <div class="topbar-logo"><span class="logo-running">RUNNING</span><span class="logo-x">X</span></div>
-    <div style="flex:1"></div>
-    <div id="topbarAuth" style="display:flex;align-items:center;gap:8px"></div>
-    <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-      </svg>
-    </button>
-  </div>
-
-  <div class="desktop-topbar" id="desktopTopbar" style="display:none">
-    <div class="dt-breadcrumb">
-      <span>RUNNINGX</span>
-      <span class="dt-sep">/</span>
-      <span>SCHEMA</span>
-      <span class="dt-sep">/</span>
-      <strong id="dtCurrentTab">VANDAAG</strong>
-    </div>
-    <div class="dt-actions">
-
-      <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <button onclick="_closeAvatarMenu();openStats()" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="4" width="4" height="17" rx="1"/></svg> Stats
       </button>
-      <div id="topbarAuthDesktop" style="display:flex;align-items:center;gap:8px"></div>
+      <button onclick="_closeAvatarMenu();openStats();setTimeout(openPrEditor,300)" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 14.5h-2v-2h2v2zm0-4h-2V7h2v5.5z" opacity=".3"/><path d="M11 7h2v5.5h-2zm0 7.5h2v2h-2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg> Mijn PR's
+      </button>
+      <button onclick="_closeAvatarMenu();switchTab('settings')" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Instellingen
+      </button>
+      <button onclick="_closeAvatarMenu();authSignOut()" style="width:100%;background:none;border:none;border-top:1px solid var(--border);padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--race-text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(244,67,54,0.06)'" onmouseout="this.style.background='none'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Uitloggen
+      </button>`;
+  }else if(menu){
+    menu.remove();
+  }
+}
+
+function _closeAvatarMenu(){
+  const m=document.getElementById('avatarDropdown');
+  if(m)m.style.display='none';
+}
+
+function toggleAvatarMenu(btn){
+  const m=document.getElementById('avatarDropdown');if(!m)return;
+  if(m.style.display==='block'){m.style.display='none';return;}
+  if(btn){
+    const r=btn.getBoundingClientRect();
+    m.style.top=(r.bottom+6)+'px';
+    m.style.right=(window.innerWidth-r.right)+'px';
+  }
+  m.style.display='block';
+  setTimeout(()=>document.addEventListener('click',function h(e){
+    const m2=document.getElementById('avatarDropdown');
+    if(m2&&!m2.contains(e.target)){m2.style.display='none';}
+    document.removeEventListener('click',h);
+  },true),10);
+}
+
+
+function renderRacesBar(){
+  const bar=document.getElementById('racesBar');if(!bar)return;
+  // C38: sheet primary, localStorage fallback
+  let sheetRaces=(state.data||[])
+    .filter(r=>r.type==='race'&&r.datum)
+    .sort((a,b)=>a.datum.localeCompare(b.datum))
+    .filter(r=>daysUntil(r.datum)>=-1)
+    .slice(0,4);
+  if(!sheetRaces.length&&!state.scriptUrl){
+    // No sheet — use localStorage races
+    sheetRaces=loadRaces()
+      .filter(r=>daysUntil(r.date)>=-1)
+      .sort((a,b)=>a.date.localeCompare(b.date))
+      .slice(0,4)
+      .map(r=>({datum:r.date,titel:r.name,km:r.dist}));
+  }
+  if(!sheetRaces.length){
+    bar.innerHTML='';
+    return;
+  }
+
+  let h='';
+  const localRaces=loadRaces();
+  if(!sheetRaces.length){
+    // No races yet — show + only
+    h=`<div class="rb-add" onclick="openRaceModal()" style="border-left:none;padding-left:0">+</div>`;
+    bar.innerHTML=h;return;
+  }
+  sheetRaces.forEach(r=>{
+    const cd=countdownDisplay(daysUntil(r.datum));
+    const goalMatch=(r.detail||'').match(/\(Doel:\s*(\d+:\d{2}(?::\d{2})?)\)/);
+    const goalStr=goalMatch?goalMatch[1]:'';
+    // Smart unit: >100 = km, <=100 = meters (no one runs 5 km as "5")
+    // Actually: if raw value looks like meters (>=100 or has 'm'), use m
+    const kmRaw=(r.km||'').toString().trim().replace(/\s*km$/i,'');
+    const kmVal=parseFloat(kmRaw);
+    const distStr=kmRaw?(kmVal>100?`${kmRaw} m`:`${kmRaw} km`):'';
+    // raceType + mainGoal from localStorage (keyed by date)
+    const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
+    const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
+    const isMain=!!lr?.mainGoal;
+    // Title font: larger for short names
+    const titleLen=(r.titel||'').length;
+    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
+    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
+      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
+      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
+        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
+        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
+      </div>
+      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
+      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
+      <div style="flex:1"></div>
+      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
+    </div>`;
+  });
+  // C50: always show + to add race
+  h+=`<div class="rb-add" onclick="openRaceModal()" style="flex-shrink:0">+</div>`;
+  bar.innerHTML=h;
+}
+
+// ── TODAY ─────────────────────────────────────────────────────────────────────
+function renderToday(){
+  const el=document.getElementById('todayContent');
+  const today=todayStr();
+  const off=state.dayOffset||0;
+  const tDate=new Date();tDate.setDate(tDate.getDate()+off);tDate.setHours(12,0,0,0);
+  const ty=tDate.getFullYear(),tm=String(tDate.getMonth()+1).padStart(2,'0'),td=String(tDate.getDate()).padStart(2,'0');
+  const t=`${ty}-${tm}-${td}`;
+  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  const d=parseDate(t);
+
+  // fase from data
+  let faseKicker='';
+  if(state.data){const tr=state.data.find(r=>r.datum===t);if(tr?.fase)faseKicker=tr.fase;}
+  // C34: if today is a race day, reflect that
+  const todayIsRace=state.data?.some(r=>r.datum===t&&r.type==='race');
+
+  const kicker=`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}${faseKicker?' · '+faseKicker:''}`;
+  let h=`<div class="page-title" id="todayPageTitle" style="touch-action:pan-y">
+    <div>
+      <div class="pt-kicker">${kicker}</div>
+      <div class="pt-h">${off===0?'Vandaag':days[dayIdx(d)]+' '+d.getDate()+' '+mf[d.getMonth()]}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button onclick="state.dayOffset=(state.dayOffset||0)-1;renderToday()" class="day-nav-btn">‹</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Vandaag</button>`:''}
+        <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
+      </div>
+      <button onclick="state.dayOffset=(state.dayOffset||0)+1;renderToday()" class="day-nav-btn">›</button>
+    </div>
+  </div>`;
+
+  if(!state.data){
+    h+=`<div style="padding:0 16px">`;
+    h+=noSchemaHint();
+    h+=`<div class="mob-reminder"><div class="mob-title">${T('mob_reminder')}</div><div class="mob-text">${T('mob_text')}</div></div></div>`;
+    el.innerHTML=h;return;
+  }
+
+  const todayRows=state.data.filter(r=>r.datum===t);
+  const row=todayRows[0]||null;
+  h+=`<div style="padding:0 16px">`;
+
+  if(!row||row.type==='rest'){
+    h+=`<div class="card">
+      <div class="rest-card-inner">
+        <div class="rest-emoji">😴</div>
+        <div><div class="rest-title">${T('rest_day')}</div><div class="rest-sub">${T('rest_msg')}</div></div>
+      </div>
+    </div>`;
+  }else{
+    // Render ALL today rows
+    const activeRows=todayRows.filter(r=>r.type!=='rest');
+    activeRows.forEach(row=>{
+      const ti=typeOf(row.type);
+      const isRun=hasType(row.type,'run');
+      const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
+      const detail=row.detail||'';
+      const paceMatch=detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/);
+      const hrMatch=detail.match(/<?\s*(\d+)\s*bpm/i)||detail.match(/HR\s*<?(\d+)/i);
+      h+=`<div class="card ${border}" onclick="openDayModalRow(${row.rowIndex},'${t}')" style="padding:16px 16px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="font-family:var(--font-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:${ti.text}">${T(ti.i18n)}${row.titel?' · '+esc(row.titel):''}</div>
+          <div style="width:28px;height:28px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${RXIcon(row.type?.split(',')[0].trim()||'run',16,'var(--text)','var(--accent)')}</div>
+        </div>`;
+      if(row.km&&isRun){
+        h+=`<div style="font-family:var(--font-d);font-weight:800;font-size:44px;letter-spacing:-1px;line-height:1;margin-top:10px">${esc(row.km)} KM<span style="color:var(--accent)">.</span></div>`;
+        if(paceMatch||hrMatch){
+          h+=`<div class="run-metric-row">`;
+          if(paceMatch)h+=`<div><div class="run-metric-label">PACE</div><div class="run-metric-val">${esc(paceMatch[0].replace('/km',''))}<span class="run-metric-unit">/km</span></div></div>`;
+          if(hrMatch)h+=`<div><div class="run-metric-label">HR</div><div class="run-metric-val">&lt;${esc(hrMatch[1])}<span class="run-metric-unit">bpm</span></div></div>`;
+          h+=`</div>`;
+        }
+      }else if(row.km){
+        h+=`<div style="font-family:var(--font-d);font-weight:800;font-size:36px;line-height:1;margin-top:8px">${esc(row.km)} KM</div>`;
+      }
+      if(detail){h+=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5;padding-top:12px;border-top:1px solid var(--border)">${esc(detail)}</div>`;}
+      if(isRun){
+        if(!row.feedback){h+=`<button class="btn-cta" onclick="event.stopPropagation();toggleTodayFeedback()">Beoordeel run →</button>`;}
+        else{h+=`<button class="btn-cta" style="background:var(--surface);border:1px solid var(--border);color:var(--muted)" onclick="event.stopPropagation();toggleTodayFeedback()">Beoordeel run →</button>`;}
+      }
+      h+=`</div>`;
+    });
+    // Feedback hidden by default; opened via Beoordeel run button
+    const fbRow=activeRows.find(r=>r.type!=='work');
+    if(fbRow){const fbHtml=feedbackHtml(fbRow.datum,fbRow.feedback);const hidden=!fbRow.feedback&&!state.editingFeedback;h+=`<div id="todayFeedback" style="display:${hidden?'none':'block'}">${fbHtml}</div>`;}
+  }
+
+  // Tomorrow — only show when on today
+  if(off!==0){h+=`</div>`;el.innerHTML=h;attachStarListeners();
+  const scrollEl2=document.getElementById('scrollArea');
+  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
+  return;}
+  const tmrDate=new Date();tmrDate.setDate(tmrDate.getDate()+1);
+  const tmr=state.data.find(r=>r.datum===tmrDate.toISOString().split('T')[0]);
+  if(tmr){
+    h+=`<div class="card" style="padding:14px 16px">
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:6px">${T('tomorrow')} · ${days[dayIdx(tmrDate)]} ${tmrDate.getDate()}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:28px;height:28px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${RXIcon(tmr.type?.split(',')[0].trim()||'rust',14,'var(--muted)','var(--accent)')}</div>
+        <div style="font-family:var(--font-d);font-weight:700;font-size:16px;flex:1">${esc(tmr.titel||'')}</div>
+        ${tmr.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(tmr.km)} km</div>`:''}
+      </div>
+    </div>`;
+  }
+
+  if(!row||row?.type==='mobility'){
+    h+=`<div class="mob-reminder"><div class="mob-title">${T('mob_reminder')}</div><div class="mob-text">${T('mob_text')}</div></div>`;
+  }
+
+  h+=`</div>`;
+  el.innerHTML=h;
+  attachStarListeners();
+  // C53: swipe left/right to change day
+  const scrollEl=document.getElementById('scrollArea');
+  if(scrollEl&&!scrollEl._daySwipe){
+    scrollEl._daySwipe=true;
+    let sx=0,sy=0;
+    scrollEl.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+    scrollEl.addEventListener('touchend',e=>{
+      if(state.currentTab!=='today')return;
+      const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
+        state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);
+        renderToday();
+      }
+    },{passive:true});
+  }
+}
+
+function noSchemaHint(){
+  const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  if(loggedIn){
+    return `<div class="no-connection-hint" onclick="switchTab('settings')">
+      <div class="nch-icon">📋</div>
+      <div><div class="nch-text">${T('setup_title')}</div><div class="nch-link">${T('setup_body')}</div></div>
+    </div>`;
+  }
+  return `<div style="text-align:center;padding:40px 20px 32px">
+    <div style="font-size:32px;margin-bottom:12px;opacity:0.4">🏃</div>
+    <div style="font-family:var(--font-d);font-weight:800;font-size:22px;margin-bottom:8px">Login om te starten</div>
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.6">Log in met je Google-account om je trainingsschema te koppelen.</div>
+    <button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:12px 24px;font-family:var(--font-m);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:6px;cursor:pointer">Inloggen met Google</button>
+  </div>`;
+}
+
+// ── FEEDBACK ──────────────────────────────────────────────────────────────────
+function feedbackHtml(datum,existing){
+  const isEdit=!!existing;let rating=0,text='';
+  if(isEdit){const m=existing.match(/^(\d)/);if(m)rating=parseInt(m[1]);const mt=existing.match(/–\s*(.+)$/);if(mt)text=mt[1];}
+  if(isEdit&&!state.editingFeedback){
+    return `<div class="prev-feedback">
+      <div class="prev-feedback-header">
+        <span class="prev-feedback-label">${T('feedback_logged')}</span>
+        <button class="edit-link" onclick="state.editingFeedback=true;renderToday()">${T('feedback_edit')}</button>
+      </div>
+      <div class="prev-feedback-text">${esc(existing)}</div>
+    </div>`;
+  }
+  const stars=['😵','😓','😐','💪','🔥'].map((e,i)=>
+    `<button class="star-btn${rating>0&&(i+1)<=rating?' active':''}" data-val="${i+1}">${e}</button>`
+  ).join('');
+  return `<div class="feedback-section">
+    <div class="feedback-title">${T('feedback_q')}</div>
+    <div class="feedback-stars">${stars}</div>
+    <textarea class="feedback-textarea" id="feedbackText">${esc(text)}</textarea>
+    <button class="btn-primary" id="submitBtn" onclick="handleFeedbackSubmit('${esc(datum)}')">${isEdit?T('feedback_update'):T('feedback_save')}</button>
+    ${isEdit?`<button class="btn-secondary" onclick="state.editingFeedback=false;renderToday()">${T('feedback_cancel')}</button>`:''}
+  </div>`;
+}
+
+function toggleTodayFeedback(){
+  const el=document.getElementById('todayFeedback');if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+  if(el.style.display==='block'){attachStarListeners();}
+}
+
+function attachStarListeners(scope){
+  const sel=scope?`#${scope} .star-btn`:'.star-btn';
+  document.querySelectorAll(sel).forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      state.selectedRating=parseInt(btn.dataset.val);
+      document.querySelectorAll(sel).forEach(b=>b.classList.toggle('active',parseInt(b.dataset.val)<=state.selectedRating));
+    });
+  });
+}
+
+async function handleFeedbackSubmit(datum){
+  if(!state.selectedRating){showToast(T('select_score'));return;}
+  const btn=document.getElementById('submitBtn');
+  const tekst=document.getElementById('feedbackText')?.value||'';
+  btn.disabled=true;btn.textContent='…';
+  const ok=await submitFeedback(datum,state.selectedRating,tekst);
+  if(ok){state.editingFeedback=false;state.selectedRating=0;setTimeout(renderToday,800);}
+  else{btn.disabled=false;btn.textContent=T('feedback_save');}
+}
+
+// ── WEEK ──────────────────────────────────────────────────────────────────────
+function renderWeek(){
+  const el=document.getElementById('weekContent');
+  const offset=state.weekOffset||0;
+  const dates=getWeekDatesOffset(offset);
+  const t=todayStr();
+  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const wd=dates.map(d=>({date:d,rows:(state.data||[]).filter(r=>r.datum===d),row:(state.data||[]).find(r=>r.datum===d)??null}));
+  const d0=parseDate(dates[0]),d6=parseDate(dates[6]);
+  const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  // Week number (ISO)
+  const jan4=new Date(d0.getFullYear(),0,4);
+  const weekNum=Math.ceil(((d0-jan4)/86400000+jan4.getDay()+1)/7);
+  const weekLabel=`${d0.getDate()}–${d6.getDate()} ${months[d0.getMonth()]}`;
+  const plannedKm=wd.reduce((s,{rows})=>s+rows.reduce((a,r)=>a+(parseFloat(r.km)||0),0),0);
+  const doneKm=wd.filter(({date})=>date<=t).reduce((s,{rows})=>s+rows.reduce((a,r)=>a+(parseFloat(r.km)||0),0),0);
+  const workDays=wd.filter(({rows})=>rows.some(r=>r.type==='work')).length;
+  const fbDone=wd.filter(({rows})=>rows.some(r=>r.feedback)).length;
+  const pct=plannedKm>0?Math.min(100,Math.round(doneKm/plannedKm*100)):0;
+
+  let h=`<div class="page-title" style="padding:14px 20px 4px">
+    <div><div class="pt-kicker">Week ${weekNum}</div><div class="pt-h">${weekLabel}</div></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div style="text-align:right">
+        <div style="font-family:var(--font-d);font-weight:800;font-size:26px;color:var(--accent);line-height:1">${plannedKm.toFixed(0)}<span style="color:var(--muted);font-size:12px">km</span></div>
+        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px">GEPLAND</div>
+      </div>
+      <button onclick="openWeekAddActivity()" style="width:28px;height:28px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:18px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent">+</button>
     </div>
   </div>
-  <div class="races-bar" id="racesBar"></div>
-
-  <div class="update-banner" id="updateBanner" style="display:none" onclick="applyUpdate()">
-    <span id="updateBannerText">Update beschikbaar</span>
-    <button onclick="applyUpdate();event.stopPropagation()">Nu updaten</button>
+  <div style="display:flex;gap:4px;padding:0 20px 8px;align-items:center">
+    <button onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">‹</button>
+    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">Nu</button>`:''}
+    <div style="flex:1"></div>
+    <button onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">›</button>
   </div>
-
-  <div class="scroll-area" id="scrollArea">
-
-    <div class="view active" id="view-today"><div id="todayContent"></div></div>
-    <div class="view" id="view-week"><div id="weekContent"></div></div>
-
-    <div class="view" id="view-plan" style="padding:0">
-      <div id="planPageTitle"></div>
-      <div class="phase-strip" id="phaseTabs" style="padding:0 16px;margin-top:10px"></div>
-      <div id="planContent" style="padding:0 16px 16px"></div>
+  <div id="weekSwipeWrap" style="padding:0 20px">
+  <div style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <span style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">${T('week_progress')}</span>
+      <span style="font-family:var(--font-m);font-size:10px;color:var(--text)">${doneKm.toFixed(1)} / ${plannedKm.toFixed(0)} km</span>
     </div>
+    <div style="height:6px;background:var(--surface);border:1px solid var(--border);position:relative">
+      <div style="position:absolute;inset:0;width:${pct}%;background:var(--accent)"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px">
+      <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
+      <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
+        const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run'||r.type==='race')).length;
+        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runs===1?'run':'runs'}`:'');
+      })()}</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px">`;
 
-    <div class="view" id="view-calendar"><div id="calContent"></div></div>
-
-    <div class="view" id="view-settings">
-
-      <button onclick="toggleTheme()" id="themeToggleBtn" style="position:absolute;top:12px;right:16px;background:none;border:none;cursor:pointer;font-size:22px;padding:4px;line-height:1;z-index:10">🌙</button>
-
-      <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_account"></div>
-        <div class="settings-section" id="accountSection"></div>
+  wd.forEach(({date,row})=>{
+    const isT=date===t,isPast=date<t,d=parseDate(date);
+    const ti=row?typeOf(row.type):null;
+    const isWorkDay=isWork(row?.type);
+    let status='';
+    if(row?.feedback)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--accent)">✓${row.km?' '+parseFloat(row.km).toFixed(0)+'k':''}</div>`;
+    // C44: werk shows label, no dot
+    else if(isWorkDay)status=`<div style="font-family:var(--font-m);font-size:8px;color:var(--work-text);letter-spacing:0.5px">werk</div>`;
+    else if(row?.km)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${parseFloat(row.km).toFixed(0)}k</div>`;
+    const dot=ti&&!status&&!isWorkDay?`<div style="width:5px;height:5px;border-radius:50%;background:${isPast?'var(--faint)':ti.text};margin-top:4px"></div>`:'';
+    // C44: no accent border for work days
+    // C45: past days are faded; C46: click highlights day row below
+    h+=`<div data-week-tile="${date}" onclick="weekTileClick('${date}')" style="background:${isT?'var(--bg)':'var(--surface)'};border:1px solid ${isT?'var(--accent)':'var(--border)'};padding:8px 2px 10px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;opacity:${isPast&&!isT?0.45:1};cursor:pointer;transition:border-color 0.15s">
+      <div>
+        <div style="font-family:var(--font-m);font-size:8px;color:var(--muted);letter-spacing:0.5px">${days[dayIdx(d)]}</div>
+        <div style="font-family:var(--font-d);font-weight:800;font-size:16px;color:${isT?'var(--accent)':'var(--text)'};margin-top:2px">${d.getDate()}</div>
       </div>
+      ${status||dot}
+    </div>`;
+  });
+  h+=`</div>`;
 
-      <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_profile"></div>
-        <div class="settings-section">
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="your_name"></label>
-            <input type="text" class="settings-input" id="settingsName" oninput="saveSettingsName()">
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title">Trainingsschema</div>
-        <div class="settings-section" id="connectSection"></div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_notif"></div>
-        <div class="settings-section">
-          <div class="settings-title" data-i18n="notif_telegram_title"></div>
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="notif_telegram"></label>
-            <input type="text" class="settings-input" id="telegramUser" placeholder="@gebruikersnaam" oninput="saveTelegram()">
-            <div class="settings-hint" data-i18n="notif_hint"></div>
-          </div>
-          <div class="telegram-status" id="telegramStatus">
-            <div class="tg-dot" id="tgDot"></div>
-            <span id="tgStatusText" data-i18n="tg_not_linked"></span>
-          </div>
-          <button class="btn-save" style="margin-top:10px" onclick="verifyTelegram()" id="tgVerifyBtn" data-i18n="tg_verify"></button>
-          <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
-            <div class="settings-title" style="margin-bottom:10px">Meldingen</div>
-            <label style="display:flex;align-items:center;gap:10px;margin-bottom:4px;cursor:pointer">
-              <input type="checkbox" id="notifDaily" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
-              <span><span style="display:block;font-size:12px;color:var(--text)">Dagelijks schema</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--muted)">Dagelijks bericht met je trainingsplan</span></span>
-            </label>
-            <div id="notifDailyTimes" style="display:none;padding-left:26px;margin-bottom:12px"></div>
-            <label style="display:flex;align-items:center;gap:10px;margin-bottom:4px;cursor:pointer">
-              <input type="checkbox" id="notifFeedback" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
-              <span><span style="display:block;font-size:12px;color:var(--text)">Feedback verzoeken</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--muted)">Bericht na actieve training om te beoordelen</span></span>
-            </label>
-            <div id="notifFeedbackTimes" style="display:none;padding-left:26px"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-group">
-        <div class="settings-group-title">App</div>
-        <div class="settings-section">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <span style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Taal</span>
-            <div style="display:flex;gap:4px">
-              <button class="lang-btn" id="langBtnNl" onclick="setLang('nl')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇳🇱</button>
-              <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
+  if(!state.data){h+=noSchemaHint();}
+  else{
+    // Week: show active days (exclude rust/werk), include past days greyed
+    // All active rows grouped by date
+    const activeDays=wd.map(({date,rows})=>({date,activeRows:rows.filter(r=>r.type&&r.type!=='work'&&r.type!=='rest')})).filter(({activeRows})=>activeRows.length);
+    if(activeDays.length){
+      h+=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('week_todo')}</div>`;
+      activeDays.forEach(({date,activeRows})=>{
+        const isTdy=date===t,isPastDay=date<t,d=parseDate(date);
+        h+=`<div data-upcoming-date="${date}" style="background:var(--surface);border:1px solid ${isTdy?'var(--accent)':'var(--border)'};padding:12px;margin-bottom:6px;opacity:${isPastDay&&!isTdy?0.45:1};transition:border-color 0.2s">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:${activeRows.length>1?'10':'0'}px">
+            <div style="text-align:center;min-width:36px;padding-right:10px;border-right:1px solid var(--border);flex-shrink:0">
+              <div style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${days[dayIdx(d)]}</div>
+              <div style="font-family:var(--font-d);font-weight:800;font-size:18px;color:${isTdy?'var(--accent)':'var(--text)'}">${d.getDate()}</div>
+            </div>
+            <div style="flex:1;min-width:0">
+              ${activeRows.map((row,i)=>{const ti=typeOf(row.type);return`<div onclick="openDayModalRow(${row.rowIndex},'${date}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:${i>0?'8px 0 0':0};${i>0?'border-top:1px solid var(--border);margin-top:8px':''}">
+                <div style="width:18px;height:18px;flex-shrink:0">${RXIcon(normalizeType(row.type||'rest'),16,'var(--muted)','var(--accent)')}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:var(--font-m);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${ti.text}">${T(ti.i18n)}</div>
+                  <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'')}</div>
+                </div>
+                ${row.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--accent);flex-shrink:0">${esc(row.km)}km</div>`:''}
+              </div>`;}).join('')}
             </div>
           </div>
-          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">RunningX v3.10.0</div>
-        </div>
+        </div>`;
+      });
+    }
+  }
+  h+=`</div>`;
+  el.innerHTML=h;
+  requestAnimationFrame(()=>initWeekSwipe());
+}
+
+// ── PLAN ──────────────────────────────────────────────────────────────────────
+function renderPlan(){
+  const el=document.getElementById('planContent');
+  const titleEl=document.getElementById('planPageTitle');
+  const t=todayStr();
+
+  // PageTitle — C34: sheet races
+  if(titleEl){
+    const sheetRaceRows=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+    const nextRace=sheetRaceRows.find(r=>daysUntil(r.datum)>=0);
+    const _cd=nextRace?countdownDisplay(daysUntil(nextRace.datum)):null;
+    const kicker=nextRace?`Next race: ${esc(nextRace.titel||nextRace.datum)} · ${_cd.val} ${_cd.unit}`:'Training';
+    titleEl.innerHTML=`<div class="page-title"><div><div class="pt-kicker">${kicker}</div><div class="pt-h">Training</div></div></div>`;
+  }
+
+  if(!state.data){renderPlanWithoutData(t);return;}
+
+  const allRows=state.data.filter(r=>r.datum);
+  if(!allRows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;document.getElementById('phaseTabs').innerHTML='';return;}
+
+  const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
+  const phaseTabs=document.getElementById('phaseTabs');
+
+  // C49: type filter state
+  if(!state.planTypeFilter)state.planTypeFilter='all';
+
+  if(faseValues.length>0){
+    // Determine active fase
+    let activeFase=state.currentFase||phaseTabs.querySelector('.phase-tile.active')?.dataset.fase||faseValues[0];
+    if(!faseValues.includes(activeFase))activeFase=faseValues[0];
+    state.currentFase=activeFase;
+
+    // Phase strip v4: 4 equal tiles
+    phaseTabs.innerHTML=faseValues.map((f,i)=>{
+      const shortName=f.replace(/^Fase\s*\d+\s*[·–-]\s*/i,'').trim()||f;
+      const faseNum=f.match(/\d+/)?.[0]||String(i+1);
+      return `<div class="phase-tile${f===activeFase?' active':''}" onclick="selectFase(this,'${esc(f)}')" data-fase="${esc(f)}">
+        <div class="phase-tile-name">F${faseNum}</div>
+        <div class="phase-tile-sub">${esc(shortName)}</div>
+      </div>`;
+    }).join('');
+
+    // Floating fase badge (top-right sticky)
+    const faseBadge=`<div class="fase-badge" id="faseBadge">${esc(activeFase)}</div>`;
+
+    const filteredRows=state.planTypeFilter&&state.planTypeFilter!=='all'
+      ?allRows.filter(r=>r.fase===activeFase&&hasType(r.type,state.planTypeFilter))
+      :allRows.filter(r=>r.fase===activeFase);
+    renderPlanRows(filteredRows,t,faseBadge);
+  }else{
+    phaseTabs.innerHTML='';
+    renderPlanRows(allRows,t,'');
+  }
+}
+
+function buildPhaseTabs(values){
+  document.getElementById('phaseTabs').innerHTML=values.map((f,i)=>
+    `<button class="phase-tab${i===0?' active':''}" data-fase="${esc(f)}">${esc(f)}</button>`
+  ).join('');
+}
+
+function renderPlanWithoutData(t){
+  // C22: show current week structure, editable, without schema
+  const dates=getWeekDates();
+  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
+  document.getElementById('phaseTabs').innerHTML='';
+  let h=`<div style="margin-bottom:10px">${noSchemaHint()}</div><div class="plan-table">`;
+  dates.forEach(date=>{
+    const isPast=date<t,isTdy=date===t,d=parseDate(date);
+    const rowId='pr-empty-'+date;
+    h+=`<div>
+      <div class="plan-row${isTdy?' is-today':''}${isPast?' is-past':''}" onclick="openDayModal('${date}')">
+        <div class="plan-row-date"><strong>${days[dayIdx(d)]} ${d.getDate()}</strong>${MONTHS_NL[d.getMonth()]}</div>
+        <div class="plan-row-emoji">·</div>
+        <div class="plan-row-body"><div class="plan-row-title" style="color:var(--faint)">—</div></div>
+        <div class="plan-row-km"></div>
       </div>
+    </div>`;
+  });
+  h+='</div>';
+  document.getElementById('planContent').innerHTML=h;
+}
 
+function selectFase(btn,fase){
+  state.currentFase=fase;
+  document.querySelectorAll('#phaseTabs .phase-tile').forEach(b=>b.classList.toggle('active',b.dataset.fase===fase));
+  const badge=fase?`<div class="fase-badge">${esc(fase)}</div>`:'';
+  renderPlanRows((state.data||[]).filter(r=>(r.fase||'')===(fase||'')),todayStr(),badge);
+}
+
+function renderPlanRows(rows,t,faseBadge=''){
+  const el=document.getElementById('planContent');
+  if(!rows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;return;}
+
+  // C49: filter behind icon, deselectable
+  const activeTypes=[...new Set(rows.map(r=>r.type).filter(Boolean))];
+  const filterOpen=state.planFilterOpen||false;
+  let filterH=`<div style="display:flex;justify-content:flex-end;margin-bottom:${filterOpen?'8':'0'}px">
+    <button onclick="state.planFilterOpen=!state.planFilterOpen;renderPlan()" style="background:${state.planTypeFilter&&state.planTypeFilter!=='all'?'var(--accent)':'none'};border:1px solid ${state.planTypeFilter&&state.planTypeFilter!=='all'?'var(--accent)':'var(--border)'};padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;color:${state.planTypeFilter&&state.planTypeFilter!=='all'?'#000':'var(--muted)'};-webkit-tap-highlight-color:transparent">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="3,4 21,4 14,12 14,20 10,18 10,12"/></svg>
+      ${state.planTypeFilter&&state.planTypeFilter!=='all'?T(TYPES[state.planTypeFilter]?.i18n||state.planTypeFilter):''}
+    </button>
+  </div>`;
+  if(filterOpen&&activeTypes.length>1){
+    filterH+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
+    activeTypes.forEach(tp=>{
+      const active=state.planTypeFilter===tp;
+      const label=T(TYPES[tp]?.i18n||tp);
+      // Clicking active filter deselects it
+      const onclick=active?`state.planTypeFilter='all';renderPlan()`:`state.planTypeFilter='${tp}';renderPlan()`;
+      filterH+=`<button onclick="${onclick}" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:${active?'var(--accent)':'var(--surface)'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'#000':'var(--muted)'};font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent">${RXIcon(tp,14,active?'#000':'var(--muted)',active?'#000':'var(--accent)')}${label}</button>`;
+    });
+    filterH+='</div>';
+  }
+
+  let h=(faseBadge||'')+filterH;
+  let lastFase=null;
+
+  // swipe + scroll container
+  h+='<div class="plan-swipe-wrapper" id="planSwipeWrapper"><div class="plan-swipe-inner" id="planSwipeInner">';
+  h+='<div class="plan-table">';
+
+  // C57: group by date, show all activities per day
+  const byDate=[];
+  rows.forEach(row=>{
+    const last=byDate[byDate.length-1];
+    if(last&&last.datum===row.datum)last.rows.push(row);
+    else byDate.push({datum:row.datum,rows:[row]});
+  });
+
+  byDate.forEach(({datum:rowDatum,rows:dayRows})=>{
+    const isPast=rowDatum<t,isTdy=rowDatum===t;
+    const parts=fmtDate(rowDatum).split(' ');
+    const rowId='pr-'+rowDatum;
+    const row=dayRows[0];
+    const work=dayRows.every(r=>r.type==='work');
+    const ti=typeOf(row.type);
+
+    // C29: fase float label when fase changes
+    if(row.fase&&row.fase!==lastFase){
+      h+=`</div><div class="fase-float">${esc(row.fase)}</div><div class="plan-table" style="border-top:none;border-radius:0 0 6px 6px">`;
+      lastFase=row.fase;
+    }
+
+    // (fase-float is now handled at top of byDate.forEach above)
+
+    h+=`<div>
+      <div class="plan-row${isPast?' is-past':''}${isTdy?' is-today':''}${work?' is-work':''}" onclick="togglePlanRow('${rowId}')">
+        <div class="plan-row-date"><strong>${parts[0]} ${parts[1]}</strong>${parts[2]}</div>
+        <div class="plan-row-emoji">${RXIcon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
+        <div class="plan-row-body"><div class="plan-row-title">${dayRows.map(r=>esc(r.title||r.titel||'—')).join(' · ')}</div></div>
+        <div class="plan-row-km">${dayRows.map(r=>r.km||r.distance).filter(Boolean).map(k=>k+'km').join('+')}</div>
+        ${dayRows.some(r=>r.feedback)?'<div class="plan-row-feedback"></div>':''}
+      </div>
+      <div class="plan-row-detail" id="${rowId}">
+        ${dayRows.map(r=>{const rti=typeOf(r.type);return`
+          <div style="padding:8px 0;${dayRows.length>1?'border-bottom:1px solid var(--border)':''}">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              ${RXIcon(r.type,14,'var(--muted)','var(--accent)')}
+              <span class="badge" style="background:${rti.bg};color:${rti.text}">${T(rti.i18n)}</span>
+              ${r.km||r.distance?`<span style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(r.km||r.distance)}km</span>`:''}
+            </div>
+            <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
+            ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
+            ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
+            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
+          </div>`;}).join('')}
+      </div>
+    </div>`;
+  });
+
+  h+='</div>';
+
+  // C29: next-fase nudge at bottom
+  const faseValues=state.data?[...new Set(state.data.map(r=>r.fase||'').filter(Boolean))]:[];
+  const activeFase=document.getElementById('phaseTabs')?.querySelector('.phase-tile.active')?.dataset.fase;
+  if(activeFase&&faseValues.length>1){
+    const idx=faseValues.indexOf(activeFase);
+    if(idx<faseValues.length-1){
+      const nextFase=faseValues[idx+1];
+      h+=`<div class="fase-next-nudge" onclick="selectFaseByName('${esc(nextFase)}')">
+        <span style="color:var(--faint);margin-right:4px">${esc(T('next_fase'))}:</span> ${esc(nextFase)}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>`;
+    }
+  }
+
+  h+='</div></div>'; // close swipe-inner + swipe-wrapper
+  el.innerHTML=h;
+  requestAnimationFrame(()=>{
+    el.querySelector('.is-today')?.scrollIntoView({behavior:'smooth',block:'center'});
+    initPlanSwipe();
+  });
+}
+
+function togglePlanRow(id){
+  const detail=document.getElementById(id);if(!detail)return;
+  const isOpen=detail.classList.contains('open');
+  document.querySelectorAll('.plan-row-detail.open').forEach(d=>d.classList.remove('open'));
+  if(!isOpen)detail.classList.add('open');
+}
+
+// navigate to fase by name
+function selectFaseByName(fase){
+  const tile=document.querySelector(`#phaseTabs .phase-tile[data-fase="${CSS.escape(fase)}"]`);
+  if(tile)selectFase(tile,fase);
+}
+
+// C27: swipe gesture for Training tab
+function initPlanSwipe(){
+  const wrapper=document.getElementById('planSwipeWrapper');
+  if(!wrapper)return;
+  let startX=0,startY=0,dragging=false;
+  wrapper.addEventListener('touchstart',e=>{
+    startX=e.touches[0].clientX;startY=e.touches[0].clientY;dragging=true;
+  },{passive:true});
+  wrapper.addEventListener('touchend',e=>{
+    if(!dragging)return;dragging=false;
+    const dx=e.changedTouches[0].clientX-startX;
+    const dy=e.changedTouches[0].clientY-startY;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+      swipePlanFase(dx<0?1:-1);
+    }
+  },{passive:true});
+}
+
+function swipePlanFase(dir){
+  if(!state.data)return;
+  const faseValues=[...new Set(state.data.map(r=>r.fase||'').filter(Boolean))];
+  if(faseValues.length<=1)return;
+  const phaseTabs=document.getElementById('phaseTabs');
+  const active=phaseTabs?.querySelector('.phase-tile.active');
+  if(!active)return;
+  const idx=faseValues.indexOf(active.dataset.fase);
+  const next=faseValues[idx+dir];
+  if(next===undefined)return;
+  const btn=phaseTabs.querySelector(`[data-fase="${CSS.escape(next)}"]`);
+  if(btn)selectFase(btn,next);
+}
+
+// ── DAY MODAL (C22 + C28) ─────────────────────────────────────────────────────
+function openDayModal(dateStr,targetRowIndex){
+  // C34: support multiple rows per date
+  const rows=state.data?.filter(r=>r.datum===dateStr)||[];
+  // If targetRowIndex given, show that specific row; else show all
+  // Priority: state.editingRowIndex > targetRowIndex > first row
+  const resolvedIdx=state.editingRowIndex||targetRowIndex||null;
+  const row=resolvedIdx
+    ?rows.find(r=>r.rowIndex===resolvedIdx)||rows[0]||null
+    :rows[0]||null;
+  const t=todayStr(),isPast=dateStr<=t;
+  const ti=row?typeOf(row.type):null;
+  const content=document.getElementById('dayModalContent');
+  state.editingFeedback=false;state.selectedRating=0;
+
+  // C37: date kicker + title layout
+  const d=parseDate(dateStr);
+  const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  let h=`<div style="margin-bottom:16px">
+    <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">${dayNames[dayIdx(d)]} · ${mNames[d.getMonth()]} ${d.getFullYear()}</div>
+    <div style="font-family:var(--font-d);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
+  </div>`;
+
+  if(!row){
+    // C28: empty day — type picker at top, then training details, notes at bottom (smaller)
+    const typeOptions=ACTIVITY_OPTIONS.map(o=>
+      `<option value="${o.value}"${o.value==='rest'?' selected':''}>${o.nl}</option>`
+    ).join('');
+    h+=`<div class="feedback-section" style="margin-bottom:10px">
+      <div class="feedback-title">${'Activiteit toevoegen'}</div>
+      <div style="margin-bottom:8px">
+        <label class="settings-label">${T('type_label')}</label>
+        <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px">
+          ${typeOptions}
+        </select>
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="settings-label">${T('field_titel')}</label>
+        <input class="plan-edit-field" id="edit-titel" value="" placeholder="${T('field_titel')}">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div style="flex:1">
+          <label class="settings-label">${'Afstand'}</label>
+          <input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">
+        </div>
+  
+      </div>
+      <div style="margin-bottom:8px">
+        <label class="settings-label">${T('field_detail')}</label>
+        <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none"></textarea>
+      </div>
+      <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
     </div>
+    <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:0;padding:10px 14px;margin-bottom:10px">
+      <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:6px">${T('notes_q')}</div>
+      <textarea class="feedback-textarea" id="modalNoteText" style="height:56px;margin-bottom:8px"></textarea>
+      <button class="btn-secondary" style="margin-top:0" onclick="saveModalNote('${dateStr}')">${T('notes_save')}</button>
+    </div>`;
+  }else{
+    const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
+    // C37: cleaner card, C34: show all rows if multiple
+    rows.forEach((r,idx)=>{
+      const rti=typeOf(r.type);
+      const rb=r.type==='work'?'work-border':r.type==='race'?'race-border':'';
+      const isRaceRow=r.type==='race';
+      // Parse raceType from detail (format: "dist · raceType · Doel: xx")
+      const detailParts=(r.detail||'').split('·').map(s=>s.trim()).filter(Boolean);
+      const parsedRaceType=isRaceRow&&detailParts.length>1?detailParts[1].replace(/Doel:.*/,'').trim():'';
+      const iconKey=isRaceRow?raceTypeIconKey(parsedRaceType,r.km):(r.type?.split(',')[0].trim()||'run');
+      const clickHandler=isRaceRow?`openRaceModalFromSheet(${r.rowIndex})`:`openDayModal(this.dataset.date)`;
+      h+=`<div class="card ${rb}" onclick="${clickHandler}" data-date="${dateStr}" style="padding:14px 16px;margin-bottom:${idx<rows.length-1?'8':'10'}px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${r.detail?'10':'0'}px">
+          <div style="width:32px;height:32px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${RXIcon(iconKey,18,isRaceRow?'var(--race-text)':'var(--text)',isRaceRow?'var(--race-text)':'var(--accent)')}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:${rti.text};margin-bottom:2px">${T(rti.i18n)}${parsedRaceType?' · '+esc(parsedRaceType):''}</div>
+            <div style="font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1">${esc(r.titel||'Training')}</div>
+          </div>
+          ${r.km?`<div style="font-family:var(--font-d);font-weight:800;font-size:22px;color:${isRaceRow?'var(--race-text)':'var(--accent)'};flex-shrink:0">${esc(r.km)}<span style="font-size:12px;color:var(--muted)">km</span></div>`:''}
+        </div>
+        ${r.detail?`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;padding-top:10px;border-top:1px solid var(--border)">${esc(r.detail)}</div>`:''}
+      </div>`;
+    });
 
+    // Feedback — dag level, one block, collapsed by default
+    const fbRow=rows.find(r=>r.type!=='work'&&r.type!=='rest')||null;
+    const existingFb=fbRow?.feedback||'';
+    if(fbRow){
+      if(isPast){
+        if(existingFb&&!state.editingFeedback){
+          // Show compact "given" state + edit link
+          h+=`<div class="prev-feedback" style="margin-bottom:10px">
+            <div class="prev-feedback-header">
+              <span class="prev-feedback-label">${T('feedback_logged')}</span>
+              <button class="edit-link" onclick="state.editingFeedback=true;openDayModal('${dateStr}',${row?.rowIndex||'null'})">${T('feedback_edit')}</button>
+            </div>
+            <div class="prev-feedback-text">${esc(existingFb)}</div>
+          </div>`;
+        }else{
+          // Collapsed — show "Geef feedback" link that expands inline
+          h+=`<div id="fbCollapse" style="margin-bottom:10px">
+            ${!existingFb?`<button onclick="expandFeedback('${dateStr}')" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase">› ${T('feedback_q')}</button>`:''}
+            ${existingFb?feedbackHtmlModal(dateStr,existingFb):''}
+          </div>`;
+          // expandFeedback() is called by the button onclick
+        }
+      }
+    }
+
+    // Edit section — collapsible
+    const typeOptions=ACTIVITY_OPTIONS.map(o=>
+      `<option value="${o.value}"${row.type===o.value?' selected':''}>${o.nl}</option>`
+    ).join('');
+    h+=`<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px">
+      <button onclick="document.getElementById('editFields').style.display=document.getElementById('editFields').style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase;width:100%;text-align:left;margin-bottom:6px">› Activiteit bewerken</button>
+      <div id="editFields" style="display:none">
+        <div style="margin-bottom:8px">
+          <label class="settings-label">${T('field_titel')}</label>
+          <input class="plan-edit-field" id="edit-titel" value="${esc(row?.titel||'')}" placeholder="${T('field_titel')}">
+        </div>
+        <div style="margin-bottom:8px">
+          <label class="settings-label">${T('type_label')}</label>
+          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="['raceGoalWrap','raceTypeWrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=this.value==='race'?'block':'none';}.bind(this))">
+            ${typeOptions}
+            <option value="${esc(row.type||'')}"${!TYPES[row.type]?' selected':''}>${esc(row.type||'')}</option>
+          </select>
+        </div>
+        <div id="raceTypeWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
+          <label class="settings-label">Type race</label>
+          <select class="plan-edit-field" id="edit-race-type" style="width:100%;padding:8px 10px">
+            <option value="">—</option>
+            <option value="baan"${(row?.race_type||'')==='baan'?' selected':''}>Baan</option>
+            <option value="weg"${(row?.race_type||'')==='weg'?' selected':''}>Weg</option>
+            <option value="trail"${(row?.race_type||'')==='trail'?' selected':''}>Trail</option>
+            <option value="ultra"${(row?.race_type||'')==='ultra'?' selected':''}>Ultra</option>
+            <option value="anders"${(row?.race_type||'')==='anders'?' selected':''}>Anders</option>
+          </select>
+        </div>
+        <div id="raceGoalWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
+          <label class="settings-label">Doeltijd (optioneel)</label>
+          <input class="plan-edit-field" id="edit-goal" placeholder="bijv. 37:30" value="${esc(row?.detail?.match(/doel[:\s]+([0-9:]+)/i)?.[1]||'')}">
+        </div>
+        <div style="margin-bottom:8px">
+          <label class="settings-label">${'Afstand'}</label>
+          <input class="plan-edit-field" id="edit-km" value="${esc(row?.km||'')}" placeholder="0" type="number" step="0.1">
+        </div>
+        <div style="margin-bottom:8px">
+          <label class="settings-label">${T('field_detail')}</label>
+          <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none">${esc(row?.detail||'')}</textarea>
+        </div>
+        <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
+        ${row?.rowIndex?`<button class="btn-secondary" style="margin-top:6px;color:var(--race-text);border-color:rgba(244,67,54,0.4)" onclick="deleteActivity(${row.rowIndex})">Verwijderen</button>`:''}
+      </div>
+    </div>`;
+  }
+
+  content.innerHTML=h;
+  attachStarListeners('dayModalContent');
+  // Store rowIndex for saveDayEdit to use
+  state.editingRowIndex=row?.rowIndex||null;
+  document.getElementById('dayModal').classList.add('open');
+}
+
+function feedbackHtmlModal(datum,existing){
+  const isEdit=!!existing;let rating=0,text='';
+  if(isEdit){const m=existing.match(/^(\d)/);if(m)rating=parseInt(m[1]);const mt=existing.match(/–\s*(.+)$/);if(mt)text=mt[1];}
+  if(isEdit&&!state.editingFeedback){
+    return `<div class="prev-feedback">
+      <div class="prev-feedback-header">
+        <span class="prev-feedback-label">${T('feedback_logged')}</span>
+        <button class="edit-link" onclick="state.editingFeedback=true;openDayModal('${datum}')">${T('feedback_edit')}</button>
+      </div>
+      <div class="prev-feedback-text">${esc(existing)}</div>
+    </div>`;
+  }
+  const stars=['😵','😓','😐','💪','🔥'].map((e,i)=>
+    `<button class="star-btn${rating>0&&(i+1)<=rating?' active':''}" data-val="${i+1}">${e}</button>`
+  ).join('');
+  return `<div class="feedback-section">
+    <div class="feedback-title">${T('feedback_q')}</div>
+    <div class="feedback-stars">${stars}</div>
+    <textarea class="feedback-textarea" id="modalFbText">${esc(text)}</textarea>
+    <button class="btn-primary" id="modalSubmitBtn" onclick="handleModalFeedback('${esc(datum)}')">${isEdit?T('feedback_update'):T('feedback_save')}</button>
+    ${isEdit?`<button class="btn-secondary" onclick="state.editingFeedback=false;openDayModal('${datum}')">${T('feedback_cancel')}</button>`:''}
+  </div>`;
+}
+
+function expandFeedback(datum){
+  const el=document.getElementById('fbCollapse');if(!el)return;
+  const stars=['😵','😓','😐','💪','🔥'].map((e,i)=>
+    `<button class="star-btn" data-val="${i+1}">${e}</button>`).join('');
+  el.innerHTML=`<div class="feedback-section">
+    <div class="feedback-title">${T('feedback_q')}</div>
+    <div class="feedback-stars">${stars}</div>
+    <textarea class="feedback-textarea" id="modalFbText"></textarea>
+    <button class="btn-primary" id="modalSubmitBtn" onclick="handleModalFeedback('${esc(datum)}')">${T('feedback_save')}</button>
+  </div>`;
+  attachStarListeners('fbCollapse');
+}
+
+async function handleModalFeedback(datum){
+  if(!state.selectedRating){showToast(T('select_score'));return;}
+  const btn=document.getElementById('modalSubmitBtn');
+  const tekst=document.getElementById('modalFbText')?.value||'';
+  btn.disabled=true;btn.textContent='…';
+  const ok=await submitFeedback(datum,state.selectedRating,tekst);
+  if(ok){state.editingFeedback=false;state.selectedRating=0;closeDayModal();renderActiveView();}
+  else{btn.disabled=false;btn.textContent=T('feedback_save');}
+}
+
+async function saveModalNote(datum){
+  const tekst=document.getElementById('modalNoteText')?.value||'';
+  if(!state.scriptUrl){showToast('❌ '+T('enter_url'));return;}
+  try{
+    const params=new URLSearchParams({action:'setFeedback',datum,rating:0,tekst});
+    if(state.sheetName)params.set('sheetName',state.sheetName);
+    const json=await(await fetch(state.scriptUrl+'?'+params)).json();
+    if(json.status!=='ok')throw new Error(json.message);
+    if(state.data){const row=state.data.find(r=>r.datum===datum);if(row)row.feedback=tekst;}
+    showToast('✓ '+T('notes_save'));closeDayModal();
+  }catch(e){showToast('❌ '+e.message);}
+}
+
+async function saveDayEdit(datum){
+  const titel=document.getElementById('edit-titel')?.value.trim()||'';
+  const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
+  const type=toSheetType(typeRaw)||typeRaw;
+  const km=document.getElementById('edit-km')?.value.trim()||'';
+  const detail=document.getElementById('edit-detail')?.value.trim()||'';
+  const race_type=document.getElementById('edit-race-type')?.value||'';
+  const fase=getFaseForDate(datum);
+  const fields={datum,titel,type,km,detail,fase,...(race_type?{race_type}:{})};
+
+  // Use only the explicitly set editingRowIndex — never infer from datum
+  const editingRowIndex=state.editingRowIndex||null;
+
+  if(state.scriptUrl){
+    try{
+      if(editingRowIndex){
+        await updateActivity(editingRowIndex,fields);
+      }else{
+        await createActivity(fields);
+      }
+    }catch(e){
+      // Fallback: update local cache only
+      if(state.data){
+        let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
+        if(row)Object.assign(row,fields);
+        else state.data.push({...fields,feedback:'',rowIndex:null});
+      }
+      showToast('⚠ Lokaal opgeslagen: '+e.message);
+      closeDayModal();renderActiveView();return;
+    }
+  }else{
+    // No sheet — local only
+    if(state.data){
+      let row=state.data.find(r=>r.rowIndex===editingRowIndex||r.datum===datum);
+      if(row)Object.assign(row,fields);
+      else state.data.push({...fields,feedback:'',rowIndex:null});
+    }
+  }
+
+  state.editingRowIndex=null;
+  showToast(T('saved'));
+  closeDayModal();
+  renderActiveView();
+}
+
+async function deleteActivity(rowIndex){
+  if(!rowIndex)return;
+  // Show inline confirmation instead of blocking confirm()
+  const btn=document.querySelector(`[onclick="deleteActivity(${rowIndex})"]`);
+  if(btn&&!btn.dataset.confirming){
+    btn.dataset.confirming='1';
+    btn.textContent='Zeker weten? Klik opnieuw';
+    btn.style.color='var(--race-text)';
+    setTimeout(()=>{if(btn){btn.textContent='Verwijderen';btn.style.color='';delete btn.dataset.confirming;}},3000);
+    return;
+  }
+  // Buffer first, close modal immediately — don't wait for sheet
+  const row=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(row){
+    clearTimeout(state._undoBuffer?.timeout);
+    state._undoBuffer={row, timeout:setTimeout(()=>{state._undoBuffer=null;},10000)};
+    // Optimistic: remove from local cache immediately
+    if(state.data)state.data=state.data.filter(r=>r.rowIndex!==rowIndex);
+  }
+  state.editingRowIndex=null;
+  closeDayModal();
+  renderActiveView();renderHeader();
+  showToast('Verwijderd',true);
+  // Delete from sheet in background
+  if(state.scriptUrl){
+    try{await sheetDeleteRow(rowIndex);}
+    catch(e){
+      // Rollback: re-add to local cache
+      if(row&&state.data)state.data.push(row);
+      showToast('❌ Verwijderen mislukt');
+      renderActiveView();
+    }
+  }
+}
+
+// C44: open ADD mode (new activity), independent of existing row
+// Open day modal for a specific row by rowIndex (multi-activity days)
+function openDayModalRow(rowIndex,dateStr){
+  // Pre-set the editingRowIndex so openDayModal uses the right row
+  state.editingRowIndex=rowIndex;
+  // Find the specific row and pass it as context
+  const row=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(row)openDayModal(dateStr,rowIndex);
+  else openDayModal(dateStr);
+}
+
+function openAddActivity(dateStr){
+  const content=document.getElementById('dayModalContent');
+  state.editingFeedback=false;state.selectedRating=0;
+
+  const d=parseDate(dateStr);
+  const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  const typeOptions=Object.entries(TYPES).map(([k,v])=>
+    `<option value="${k}"${k==='run'?' selected':''}>${T(v.i18n)}</option>`
+  ).join('');
+
+  content.innerHTML=`<div style="margin-bottom:16px">
+    <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">${dayNames[dayIdx(d)]} · ${mNames[d.getMonth()]} ${d.getFullYear()}</div>
+    <div style="font-family:var(--font-d);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
   </div>
+  <div class="feedback-section">
+    <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">${'Activiteit toevoegen'}</div>
+    <div style="margin-bottom:8px">
+      <label class="settings-label">${T('type_label')}</label>
+      <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px">${typeOptions}</select>
+    </div>
+    <div style="margin-bottom:8px">
+      <label class="settings-label">${T('field_titel')}</label>
+      <input class="plan-edit-field" id="edit-titel" value="" placeholder="${T('field_titel')}">
+    </div>
+    <div style="margin-bottom:8px">
+      <label class="settings-label">${'Afstand'}</label>
+      <input class="plan-edit-field" id="edit-km" value="" placeholder="0" type="number" step="0.1">
+    </div>
+    <div style="margin-bottom:8px">
+      <label class="settings-label">${T('field_detail')}</label>
+      <textarea class="plan-edit-field" id="edit-detail" style="height:56px;resize:none"></textarea>
+    </div>
+    <button class="btn-primary" onclick="saveDayEdit('${dateStr}')">${T('save_changes')}</button>
+  </div>`;
+  state.editingRowIndex=null;
+  document.getElementById('dayModal').classList.add('open');
+}
 
+function closeDayModal(e){
+  if(e&&e.target!==document.getElementById('dayModal'))return;
+  document.getElementById('dayModal').classList.remove('open');
+  state.editingFeedback=false;state.selectedRating=0;
+  state.editingRowIndex=null;
+}
 
+// ── STATS OVERLAY ─────────────────────────────────────────────────────────────
+function openStats(){
+  const el=document.getElementById('statsOverlay');
+  const content=document.getElementById('statsContent');
+  if(!el||!content)return;
+  const t=todayStr();
+  const past=state.data?state.data.filter(r=>r.datum<=t):[];
+  const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const runCount=past.filter(r=>hasType(r.type,'run')).length;
+  const fbRows=past.filter(r=>r.feedback);
+  const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
+  const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
+  const sheetRaceRows3=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const nextRace3=sheetRaceRows3.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows3[0];
+  const daysLeft=nextRace3?daysUntil(nextRace3.datum):0;
+  const mondayStr=getMondayStr();
+  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
 
-</div>
+  const tiles=[
+    {label:T('stats_total'),val:totalKm.toFixed(0),unit:T('stats_done'),hi:true},
+    {label:T('stats_days'),val:daysLeft,unit:nextRace3?.titel||nextRace3?.datum||'—',hi:true},
+    {label:T('stats_runs'),val:runCount,unit:T('stats_sessions'),hi:false},
+    {label:T('stats_week'),val:weekKm.toFixed(0),unit:T('stats_week_sub'),hi:true},
+    avgRating>0?{label:T('stats_feel'),val:avgRating.toFixed(1),unit:`/5 · ${ratingRows.length} ${T('stats_fb_sub')}`,hi:false}:null,
+    {label:T('stats_feedback'),val:fbRows.length,unit:T('stats_fb_sub'),hi:false},
+  ].filter(Boolean);
 
-<div class="stats-overlay" id="statsOverlay" style="display:none" onclick="closeStats(event)">
-  <div class="stats-sheet" onclick="event.stopPropagation()">
-    <div class="stats-grabber"></div>
-    <div id="statsContent"></div>
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div>
+      <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">Stats · all-time</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:22px;text-transform:uppercase;margin-top:2px">Jouw run</div>
+    </div>
+    <button onclick="closeStats()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sluit ✕</button>
   </div>
-</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">`;
+  tiles.forEach(t=>{
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px">
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${esc(t.label)}</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:32px;line-height:1;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:4px">${esc(t.unit)}</div>
+    </div>`;
+  });
+  h+='</div>';
+  if(fbRows.length){
+    h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('stats_recent')}</div>`;
+    fbRows.slice(-3).reverse().forEach(row=>{
+      const d=parseDate(row.datum);
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between">
+          <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'Training')}</div>
+          <span style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
+        </div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--text);margin-top:4px;line-height:1.5">${esc(row.feedback)}</div>
+      </div>`;
+    });
+  }
+  content.innerHTML=h;
+  el.style.display='flex';
+}
 
-<script src="rx-icons.js"></script>
-<script src="auth.js?v=3.4"></script>
-<script src="app.js?v=3.4"></script>
-</body>
-</html>
+function closeStats(e){
+  if(e&&e.target!==document.getElementById('statsOverlay'))return;
+  document.getElementById('statsOverlay').style.display='none';
+}
+
+// ── WEEK SWIPE ────────────────────────────────────────────────────────────────
+function initWeekSwipe(){
+  const wrap=document.getElementById('weekSwipeWrap');
+  if(!wrap||wrap._swipeInit)return;
+  wrap._swipeInit=true;
+  let sx=0,sy=0;
+  wrap.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  wrap.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+      state.weekOffset=(state.weekOffset||0)+(dx<0?1:-1);
+      renderWeek();
+    }
+  },{passive:true});
+}
+
+// helper: get week dates for a given offset
+// C51: week tile click — only border highlight, never opens modal
+function weekTileClick(date){
+  const t=todayStr();
+  // Remove selected class from all, add to clicked
+  document.querySelectorAll('[data-week-tile]').forEach(el=>{
+    if(el.dataset.weekTile===date){
+      el.classList.add('wt-selected');
+    } else {
+      el.classList.remove('wt-selected');
+    }
+  });
+  // Scroll upcoming row
+  document.querySelectorAll('[data-upcoming-date]').forEach(el=>el.classList.remove('wt-selected'));
+  const row=document.querySelector(`[data-upcoming-date="${date}"]`);
+  if(row){
+    row.scrollIntoView({behavior:'smooth',block:'nearest'});
+    row.classList.add('wt-selected');
+    setTimeout(()=>row.classList.remove('wt-selected'),1500);
+  }
+}
+
+function getWeekDatesOffset(offset){
+  const n=new Date();n.setHours(12,0,0,0); // noon avoids DST edge cases
+  n.setDate(n.getDate()+(offset||0)*7);
+  const dow=n.getDay();
+  n.setDate(n.getDate()-(dow===0?6:dow-1)); // rewind to Monday
+  return Array.from({length:7},(_,i)=>{
+    const d=new Date(n);d.setDate(n.getDate()+i);
+    // local date parts — never UTC
+    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  });
+}
+
+// ── CALENDAR ──────────────────────────────────────────────────────────────────
+function renderCalendar(){
+  const el=document.getElementById('calContent');
+  const races=loadRaces();
+  const y=state.calYear,m=state.calMonth;
+  const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
+  const dowOrder=[1,2,3,4,5,6,0];
+  const firstDay=new Date(y,m,1);
+  const lastDay=new Date(y,m+1,0);
+  const startPad=(firstDay.getDay()+6)%7;
+  const t=todayStr();
+  const cells=[];
+  for(let i=0;i<startPad;i++){const d=new Date(y,m,1-startPad+i);cells.push({date:d,other:true});}
+  for(let i=1;i<=lastDay.getDate();i++)cells.push({date:new Date(y,m,i),other:false});
+  while(cells.length%7!==0){const p=cells[cells.length-1].date;const nd=new Date(p);nd.setDate(p.getDate()+1);cells.push({date:nd,other:true});}
+
+  // C34: all races come from sheet; no localStorage races
+  const sheetRaces=(state.data||[]).filter(r=>r.type==='race'&&r.datum);
+  // Build training day marks from data
+  const trainingDates=new Set();
+  const doneDates=new Set();
+  const workDates=new Set();
+  const raceDates=new Set(sheetRaces.map(r=>r.datum));
+  if(state.data){
+    state.data.forEach(r=>{
+      if(!r.datum)return;
+      // C43: skip werk and rust from calendar dots
+      if(r.type==='work'||r.type==='rest')return;
+      if(!r.type==='race'){
+        trainingDates.add(r.datum);
+        if(r.feedback)doneDates.add(r.datum);
+      }
+    });
+  }
+
+  const mf_months=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
+  const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+  let h=`<div class="page-title" style="padding:14px 20px 4px">
+    <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
+    <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
+  </div>
+  <div style="padding:8px 20px 0">
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+    <button onclick="calPrev()" style="background:transparent;border:1px solid var(--border);padding:6px 10px;color:var(--text);cursor:pointer;font-family:var(--font-d);font-size:14px;-webkit-tap-highlight-color:transparent">‹</button>
+    <div style="flex:1"></div>
+    <button onclick="calNext()" style="background:transparent;border:1px solid var(--border);padding:6px 10px;color:var(--text);cursor:pointer;font-family:var(--font-d);font-size:14px;-webkit-tap-highlight-color:transparent">›</button>
+  </div>
+  <div class="cal-grid" style="margin-bottom:6px">
+    ${dowOrder.map(i=>`<div class="cal-dow">${days[i]}</div>`).join('')}`;
+
+  cells.forEach(({date,other})=>{
+    const y2=date.getFullYear(),m2=String(date.getMonth()+1).padStart(2,'0'),d2=String(date.getDate()).padStart(2,'0');
+    const ds=`${y2}-${m2}-${d2}`;
+    const isToday=ds===t,isRaceDay=raceDates.has(ds),isSel=state.calSelectedDate===ds;
+    // Dot marks (C35: race = red circle)
+    let dot='';
+    if(doneDates.has(ds))dot=`<div style="width:5px;height:5px;border-radius:50%;background:var(--accent);margin:3px auto 0"></div>`;
+
+    else if(trainingDates.has(ds)&&!other)dot=`<div style="width:5px;height:5px;border-radius:50%;border:1px solid var(--accent);margin:3px auto 0"></div>`;
+
+    // C35: race day = red circle around number
+    const isRaceDayThis=isRaceDay&&!other;
+    if(other){h+=`<div style="padding:8px 0 10px;text-align:center"></div>`;return;}
+    const textColor=isToday?'#000':isRaceDayThis?'#fff':'var(--text)';
+    const circleBg=isToday?'var(--accent)':isRaceDayThis?'var(--race-text)':(isSel?'rgba(198,242,78,0.22)':'transparent');
+    const onclick=other?'':`selectCalDate('${ds}')`;
+    h+=`<div onclick="${onclick}" style="padding:8px 0 10px;text-align:center;cursor:${other?'default':'pointer'};position:relative">
+      <div style="width:30px;height:30px;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;background:${circleBg}${isRaceDayThis?';border:2px solid var(--race-text)':''}">
+        <span style="font-family:var(--font-d);font-weight:700;font-size:16px;color:${textColor}">${date.getDate()}</span>
+      </div>
+      ${dot}
+    </div>`;
+  });
+  h+='</div>';
+
+  // Dot legend
+  h+=`<div class="cal-dot-legend" style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:4px"></span>Gedaan</span>
+    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;border:1px solid var(--accent);margin-right:4px"></span>Gepland</span>
+
+    <span><span style="display:inline-block;width:14px;height:3px;background:var(--accent);margin-right:4px;vertical-align:middle"></span>Race</span>
+  </div>`;
+
+  if(state.calSelectedDate){
+    // C34: show all sheet rows for this date
+    const selRows=(state.data||[]).filter(r=>r.datum===state.calSelectedDate);
+    const selRaceRows=selRows.filter(r=>r.type==='race');
+    if(selRows.length){
+      selRows.forEach(r=>{
+        const ti=typeOf(r.type);
+        h+=`<div style="background:${r.type==='race'?'rgba(244,67,54,0.06)':'rgba(255,255,255,0.02)'};border:1px solid ${r.type==='race'?'rgba(244,67,54,0.3)':'var(--border)'};padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="openDayModal('${state.calSelectedDate}')">
+          <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${RXIcon(r.type?.split(',')[0].trim()||'run',18,'var(--text)','var(--accent)')}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-m);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${ti.text};margin-bottom:2px">${T(ti.i18n)}</div>
+            <div style="font-family:var(--font-d);font-weight:700;font-size:15px">${esc(r.titel||'')}</div>
+            ${r.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--accent);margin-top:2px">${esc(r.km)} km</div>`:''}
+          </div>
+        </div>`;
+      });
+    }else{
+      h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0 12px">${fmtDateFull(state.calSelectedDate)}</div>`;
+    }
+  }
+
+  // C34: month races from sheet
+  const monthRaces=sheetRaces.filter(r=>{const rd=parseDate(r.datum);return rd.getFullYear()===y&&rd.getMonth()===m;}).sort((a,b)=>a.datum.localeCompare(b.datum));
+  h+=`<div><div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('races_this_month')}</div>`;
+  if(!monthRaces.length){
+    h+=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);padding:8px 2px">${T('no_races_month')}</div>`;
+  }else{
+    monthRaces.forEach(r=>{
+      const cd=countdownDisplay(daysUntil(r.datum));
+      h+=`<div class="cal-race-row" onclick="openDayModal('${r.datum}')">
+        <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${RXIcon('race',20,'var(--race-text)','var(--race-text)')}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--font-m);font-size:9px;color:var(--race-text);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:2px">Race</div>
+          <div style="font-size:13px;font-weight:600">${esc(r.titel||r.datum)}</div>
+          ${r.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${esc(r.km)} km</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:var(--font-d);font-size:18px;color:var(--accent)">${cd.val}</div>
+          <div style="font-family:var(--font-m);font-size:8px;color:var(--faint)">${cd.unit}</div>
+        </div>
+      </div>`;
+    });
+  }
+  h+='</div>';
+  h+='</div>'; // close padding wrapper
+  el.innerHTML=h;
+  // C58: calendar swipe
+  if(!el._calSwipe){
+    el._calSwipe=true;
+    let sx=0;
+    el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});
+    el.addEventListener('touchend',e=>{
+      const dx=e.changedTouches[0].clientX-sx;
+      if(Math.abs(dx)>50){dx<0?calNext():calPrev();}
+    },{passive:true});
+  }
+}
+
+function selectCalDate(ds){state.calSelectedDate=state.calSelectedDate===ds?null:ds;renderCalendar();}
+function calPrev(){state.calMonth--;if(state.calMonth<0){state.calMonth=11;state.calYear--;}state.calSelectedDate=null;renderCalendar();}
+function calNext(){state.calMonth++;if(state.calMonth>11){state.calMonth=0;state.calYear++;}state.calSelectedDate=null;renderCalendar();}
+
+// ── RACE MODAL ────────────────────────────────────────────────────────────────
+// Open race edit modal from a sheet row (C34: sheet is source of truth)
+function openRaceModalFromSheet(rowIndex){
+  const r=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(!r)return;
+  // raceType comes from localStorage only (not sheet detail)
+  const localRaces=loadRaces();
+  const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===(r.titel||'').replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{2BFF}\s]+/u,'').trim());
+  const raceType=lr?.raceType||'';
+  const rawDetail=(r.detail||'').replace(/\s*\(Doel:[^)]*\)/,'').trim();
+  const notes=lr?.notes||rawDetail||'';
+  const goalMatch=(r.detail||'').match(/\(Doel:\s*(\d+:\d{2}(?::\d{2})?)\)/);
+  const goal=goalMatch?goalMatch[1]:'';
+  const emojiRx=/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{2BFF}\s]+/u;
+  const cleanTitle=(r.titel||'').replace(emojiRx,'').trim();
+  const syntheticRace={id:'sheet_'+rowIndex,name:cleanTitle||r.titel||'',date:r.datum,dist:r.km||'',raceType,mainGoal:lr?.mainGoal||false,goal,notes:notes,detail:rawDetail,_rowIndex:rowIndex};
+  state._raceFromSheet=syntheticRace;
+  closeDayModal();
+  openRaceModal('sheet_'+rowIndex);
+}
+
+function openRaceModal(raceId,prefillDate){
+  const races=loadRaces();
+  let race=raceId?races.find(r=>r.id===raceId)||races.find(r=>r.date===raceId):null;
+  if(!race&&raceId?.startsWith('sheet_'))race=state._raceFromSheet||null;
+  state.editingRaceId=race?.id||null;
+  document.getElementById('raceModal').classList.remove('open');
+  const content=document.getElementById('raceModalContent');
+
+  const DIST=['5 km','10 km','10 mile','Halve marathon','Marathon'];
+  const TYPE=['Weg','Baan','Trail','Ultra','Virtueel'];
+
+  const rawDist=(race?.dist||'').toString().trim();
+  const normDist=rawDist.replace(/^(\d+)\s*km?$/i,'$1 km');
+  const matchedDist=DIST.find(o=>o===normDist||o===rawDist)||'';
+  const customDist=matchedDist?'':rawDist;
+
+  const matchedType=TYPE.find(o=>o===(race?.raceType||''))||'';
+  const customType=matchedType?'':(race?.raceType||'');
+
+  content.innerHTML=`
+    <div class="modal-title">${raceId?'Race bewerken':'Race toevoegen'}</div>
+    <div class="settings-field">
+      <label class="settings-label">Race naam</label>
+      <input type="text" class="settings-input" id="raceNameInput" value="${esc(race?.name||'')}" placeholder="Big10 Rotterdam">
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">Datum</label>
+      <input type="date" class="settings-input" id="raceDateInput" value="${esc(race?.date||prefillDate||'')}">
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">Afstand</label>
+      <select class="settings-input" id="raceDistSelect" onchange="document.getElementById('raceDistCustom').style.display=this.value==='__custom'?'block':'none'">
+        <option value="">—</option>
+        ${DIST.map(d=>`<option value="${d}"${matchedDist===d?' selected':''}>${d}</option>`).join('')}
+        <option value="__custom"${customDist?' selected':''}>Anders…</option>
+      </select>
+      <input type="text" class="settings-input" id="raceDistCustom" placeholder="bijv. 800 m" style="margin-top:6px;display:${customDist?'block':'none'}" value="${esc(customDist)}">
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">Type race</label>
+      <select class="settings-input" id="raceTypeSelect" onchange="document.getElementById('raceTypeCustom').style.display=this.value==='__custom'?'block':'none'">
+        <option value="">—</option>
+        ${TYPE.map(t=>`<option value="${t}"${matchedType===t?' selected':''}>${t}</option>`).join('')}
+        <option value="__custom"${customType?' selected':''}>Anders…</option>
+      </select>
+      <input type="text" class="settings-input" id="raceTypeCustom" placeholder="bijv. Veldloop" style="margin-top:6px;display:${customType?'block':'none'}" value="${esc(customType)}">
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">Doeltijd (optioneel)</label>
+      <input type="text" class="settings-input" id="raceGoalInput" value="${esc(race?.goal||'')}" placeholder="bijv. 37:30">
+    </div>
+    <div class="settings-field">
+      <label class="settings-label">Notities / detail</label>
+      <textarea class="settings-input" id="raceDetailInput" rows="3" style="resize:none">${esc(race?.notes||race?.detail||'')}</textarea>
+    </div>
+    <div class="settings-field" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="raceMainInput" ${race?.mainGoal?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
+      <label for="raceMainInput" class="settings-label" style="margin:0">Hoofddoel</label>
+    </div>
+    <button class="btn-primary" style="margin-top:8px" onclick="saveRace()">Race opslaan</button>
+    ${race?`<button class="btn-secondary" onclick="deleteRace('${race.id}')">🗑 Verwijderen</button>`:''}`;
+
+  document.getElementById('raceModal').classList.add('open');
+}
+
+async function saveRace(){
+  const name=document.getElementById('raceNameInput')?.value.trim();
+  const date=document.getElementById('raceDateInput')?.value;
+  if(!name||!date){showToast('Race naam en datum zijn verplicht');return;}
+  const distSel=document.getElementById('raceDistSelect')?.value;
+  const dist=distSel==='__custom'?document.getElementById('raceDistCustom')?.value.trim():(distSel||'');
+  const typeSel=document.getElementById('raceTypeSelect')?.value;
+  const raceType=typeSel==='__custom'?document.getElementById('raceTypeCustom')?.value.trim():(typeSel||'');
+  const mainGoal=!!document.getElementById('raceMainInput')?.checked;
+  const goal=document.getElementById('raceGoalInput')?.value.trim()||'';
+  const notes=document.getElementById('raceDetailInput')?.value.trim()||'';
+
+  // Persist raceType + mainGoal + goal in localStorage (keyed by date for sheet races)
+  const races=loadRaces();
+  const isSheetRace=!state.editingRaceId||state.editingRaceId.startsWith('sheet_');
+  if(isSheetRace){
+    const idx=races.findIndex(r=>r.date===date);
+    const entry={id:date,name,date,dist,raceType,mainGoal,goal,notes};
+    if(idx>=0)races[idx]=entry;else races.push(entry);
+    state.editingRaceId=date;
+  }else{
+    const idx=races.findIndex(r=>r.id===state.editingRaceId);
+    if(idx>=0)races[idx]={...races[idx],name,date,dist,raceType,mainGoal,goal,notes};
+    else races.push({id:Date.now().toString(),name,date,dist,raceType,mainGoal,goal});
+  }
+  persistRaces(races);
+
+  const [sy,sm]=date.split('-').map(Number);
+  state.calYear=sy;state.calMonth=sm-1;state.calSelectedDate=date;
+  closeRaceModal();renderHeader();
+  if(state.currentTab==='calendar')renderCalendar();else switchTab('calendar');
+
+  // Sheet: write titel + km + (Doel: xx:xx) appended to detail
+  const existingDetail=(state.data?.find(r=>r.datum===date&&r.type==='race')?.detail||'')
+    .replace(/\s*\(Doel:[^)]*\)/,'').trim();
+  const raceDetail=goal?`${existingDetail?existingDetail+' ':''}(Doel: ${goal})`:existingDetail;
+  const baseDetail=notes||'';
+  const raceFields={datum:date,titel:name,type:'race',detail:baseDetail+(goal?` (Doel: ${goal})`:''),km:dist||'',race_type:raceType||''};
+
+  if(state.scriptUrl){
+    try{
+      const sheetRowIndex=state._raceFromSheet?._rowIndex||null;
+      const existingRow=state.data?.find(r=>r.datum===date&&r.type==='race');
+      const targetRowIndex=sheetRowIndex||existingRow?.rowIndex||null;
+      if(targetRowIndex)await sheetUpdateRow(targetRowIndex,raceFields);
+      else await sheetAddRow(raceFields);
+      state._raceFromSheet=null;
+      showToast('Race opgeslagen in schema');
+      await fetchData();
+    }catch(e){showToast('❌ '+e.message);}
+  }else{
+    if(state.data){
+      const ex=state.data.find(r=>r.datum===date&&r.type==='race');
+      if(ex)Object.assign(ex,raceFields);
+      else state.data.push({...raceFields,feedback:'',rowIndex:null});
+    }
+    showToast('Race opgeslagen');
+  }
+}
+
+function deleteRace(id){
+  persistRaces(loadRaces().filter(r=>r.id!==id));
+  closeRaceModal();renderHeader();
+  if(state.currentTab==='calendar')renderCalendar();
+  showToast(T('race_deleted'));
+}
+
+function closeRaceModal(e){
+  if(e&&e.target!==document.getElementById('raceModal'))return;
+  document.getElementById('raceModal').classList.remove('open');
+  state.editingRaceId=null;
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function renderStats(){
+  const el=document.getElementById('statsContent');
+  const t=todayStr();
+  const past=state.data?state.data.filter(r=>r.datum<=t):[];
+  const totalKm=past.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  // C24: count by type 'run'
+  const runCount=past.filter(r=>hasType(r.type,'run')).length;
+  const fbRows=past.filter(r=>r.feedback);
+  const ratingRows=fbRows.filter(r=>/^\d/.test(r.feedback));
+  const avgRating=ratingRows.length?ratingRows.reduce((s,r)=>s+parseInt(r.feedback[0]),0)/ratingRows.length:0;
+  // C34: races from sheet
+  const sheetRaceRows2=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+  const nextRace2=sheetRaceRows2.find(r=>daysUntil(r.datum)>=0)||sheetRaceRows2[0];
+  const daysLeft=nextRace2?daysUntil(nextRace2.datum):0;
+  const raceName=nextRace2?.titel||nextRace2?.datum||'—';
+  const mondayStr=getMondayStr();
+  const weekKm=(state.data||[]).filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
+
+  let h=`<div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">${T('stats_total')}</div><div class="stat-val">${totalKm.toFixed(0)}</div><div class="stat-sub">${T('stats_done')}</div></div>
+    <div class="stat-card"><div class="stat-label">${T('stats_days')}</div><div class="stat-val">${daysLeft}</div><div class="stat-sub">${esc(raceName)}</div></div>
+    <div class="stat-card"><div class="stat-label">${T('stats_runs')}</div><div class="stat-val">${runCount}</div><div class="stat-sub">${T('stats_sessions')}</div></div>
+    <div class="stat-card"><div class="stat-label">${T('stats_week')}</div><div class="stat-val">${weekKm.toFixed(0)}</div><div class="stat-sub">${T('stats_week_sub')}</div></div>
+    ${avgRating>0?`<div class="stat-card"><div class="stat-label">${T('stats_feel')}</div><div class="stat-val" style="font-size:28px">${['😵','😓','😐','💪','🔥'][Math.round(avgRating)-1]}</div><div class="stat-sub">${avgRating.toFixed(1)}/5 · ${ratingRows.length} ${T('stats_fb_sub')}</div></div>`:''}
+    <div class="stat-card"><div class="stat-label">${T('stats_feedback')}</div><div class="stat-val">${fbRows.length}</div><div class="stat-sub">${T('stats_fb_sub')}</div></div>
+  </div>`;
+
+  if(!state.data)h+=noSchemaHint();
+
+  // PR tiles
+  const prs=loadPRs();
+  const activePrs=PR_ORDER.filter(d=>d in prs&&prs[d]);
+  h+=`<div style="margin:4px 0 6px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">PERSOONLIJKE RECORDS</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;margin-bottom:14px">
+    ${activePrs.map(d=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">
+      <div style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:0.5px;margin-bottom:4px">${d}</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1;color:var(--accent)">${esc(prs[d])}</div>
+    </div>`).join('')}
+    <button onclick="openPrEditor()" style="background:var(--surface);border:1px dashed var(--border);border-radius:var(--r);padding:10px;cursor:pointer;color:var(--muted);font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;min-height:60px">+</button>
+  </div>`;
+
+  const recent=fbRows.slice(-8).reverse();
+  if(recent.length){
+    h+=`<div style="margin-bottom:8px;font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase">${T('stats_recent')}</div><div class="feedback-history">`;
+    recent.forEach(row=>{
+      const d=parseDate(row.datum);
+      h+=`<div class="fh-row">
+        <div class="fh-date">${d.getDate()} ${months[d.getMonth()]}</div>
+        <div class="fh-body"><div class="fh-title">${esc(row.titel||row.type||'Training')}</div><div class="fh-text">${esc(row.feedback)}</div></div>
+        ${row.km?`<div class="fh-km">${esc(row.km)}km</div>`:''}
+      </div>`;
+    });
+    h+='</div>';
+  }
+  el.innerHTML=h;
+}
+
+function openPrEditor(){
+  const prs=loadPRs();
+  const existing=PR_ORDER.filter(d=>d in prs);
+  const remaining=PR_ORDER.filter(d=>!(d in prs));
+  const el=document.getElementById('statsContent');if(!el)return;
+  if(document.getElementById('prEditorSection')){document.getElementById('prEditorSection').remove();return;}
+  const sec=document.createElement('div');
+  sec.id='prEditorSection';
+  sec.style.cssText='margin-top:16px;padding-top:16px;border-top:1px solid var(--border)';
+  sec.innerHTML=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">PR BEWERKEN</div>
+    ${existing.map(d=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <label style="font-family:var(--font-m);font-size:10px;color:var(--muted);min-width:52px">${d}</label>
+      <input type="text" class="settings-input" style="flex:1" placeholder="bijv. 37:56" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
+      <button onclick="removePrField('${d}');renderStats();setTimeout(openPrEditor,50)" style="background:none;border:none;color:var(--faint);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button>
+    </div>`).join('')}
+    ${remaining.length?`<select class="settings-input" style="margin-top:6px" onchange="if(this.value){const p=loadPRs();p[this.value]='';persistPRs(p);this.value='';renderStats();setTimeout(openPrEditor,50);}">
+      <option value="">+ Afstand toevoegen…</option>
+      ${remaining.map(d=>`<option value="${d}">${d}</option>`).join('')}
+    </select>`:''}`;
+  el.appendChild(sec);
+  sec.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+function renderAccountSection(){
+  const el=document.getElementById('accountSection');if(!el)return;
+  const oauthEmail=typeof authEmail==='function'?authEmail():'';
+  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  if(oauthActive&&oauthEmail){
+    el.innerHTML=`<div class="account-row">
+      <div class="account-avatar" style="font-size:22px">🏃</div>
+      <div class="account-info">
+        <div class="account-email">${esc(oauthEmail)}</div>
+        <div class="account-status">Google · ${T('logged_in_as')}</div>
+      </div>
+      <button class="account-logout" onclick="authSignOut()">${T('logout_btn')}</button>
+    </div>`;
+  }else{
+    el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Log in met Google om je schema te koppelen en data te synchroniseren.
+    </div>
+    <button class="btn-primary" onclick="oauthConnectFlow()">Inloggen met Google</button>`;
+  }
+}
+
+function logoutAccount(){
+  if(typeof authSignOut==='function'){authSignOut();return;}
+  localStorage.removeItem('userEmail');
+  renderAccountSection();
+}
+
+
+// ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
+function renderConnectSection(){
+  const el=document.getElementById('connectSection');if(!el)return;
+  const oauthActive=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
+  const connected=oauthActive&&!!sheetId;
+
+  if(connected){
+    const sheetUrl=`https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+    el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0">Laden…</div>`;
+    (async()=>{
+      // driveFileName_ is always the Drive file name (not tab name)
+      let fileName=localStorage.getItem('driveFileName_'+sheetId)||'';
+      const _emD=typeof authEmail==='function'?authEmail():'';
+      if(!fileName&&_emD)fileName=localStorage.getItem('sheetFileName_'+_emD)||'';
+      if(!fileName){
+        // Try Drive API
+        try{
+          if(typeof _getDriveFileName==='function')fileName=await _getDriveFileName(sheetId)||'';
+        }catch{}
+      }
+      if(!fileName){
+        // Last resort: Drive recent list
+        try{
+          const sheets=await listRecentSheets();
+          fileName=sheets.find(s=>s.id===sheetId)?.name||'';
+        }catch{}
+      }
+      if(!fileName)fileName='Schema';
+      // Cache for future
+      if(fileName!=='Schema'){
+        localStorage.setItem('driveFileName_'+sheetId,fileName);
+        if(_emD)localStorage.setItem('sheetFileName_'+_emD,fileName);
+      }
+      localStorage.setItem('driveFileName_'+sheetId,fileName);
+      state.sheetName=fileName;
+      localStorage.setItem('sheetName',fileName);
+      const _em=typeof authEmail==='function'?authEmail():'';
+      if(_em)localStorage.setItem('sheetName_'+_em,fileName);
+      _saveSchemaHistory(sheetId,fileName,sheetUrl);
+      el.innerHTML=`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(fileName)}</div>
+            <a href="${esc(sheetUrl)}" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Schema openen in Google Sheets ↗</a>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
+          <button class="btn-save" onclick="toggleConnectPanel('new')">Nieuw schema koppelen</button>
+        </div>
+        <div id="connectPanel" style="margin-top:12px"></div>
+        ${_devBlock()}`;
+    })();
+    return;
+  }
+
+  if(oauthActive&&!sheetId){
+    el.innerHTML=`
+      <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:12px">Ingelogd als <strong>${esc(authEmail())}</strong></div>
+      <button class="btn-primary" style="margin-bottom:8px" onclick="oauthPickExisting()">Bestaand schema koppelen</button>
+      <button class="btn-secondary" onclick="oauthCreateNew()">Nieuw leeg schema aanmaken</button>
+      ${_devBlock()}`;
+    return;
+  }
+
+  el.innerHTML=`
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Koppel je Google Sheets trainingsschema.</div>
+    <button class="btn-primary" id="oauthConnectBtn" onclick="oauthConnectFlow()" style="width:100%;margin-bottom:8px">Koppel met Google</button>
+    ${_devBlock()}`;
+}
+
+// ── ACCOUNT SETTINGS SYNC (B12) ───────────────────────────────────────────────
+function _syncSettingsToAccount(){
+  const email=typeof authEmail==='function'?authEmail():'';
+  if(!email)return;
+  const snap={
+    schemaHistory:localStorage.getItem('schemaHistory')||'[]',
+    schemaDeleted:localStorage.getItem('schemaDeleted')||'[]',
+    prs:localStorage.getItem('prs')||'{}',
+    lang:localStorage.getItem('lang')||'nl',
+    theme:localStorage.getItem('theme')||'dark',
+    telegramUser:localStorage.getItem('telegramUser')||'',
+    notifPrefs:localStorage.getItem('notifPrefs')||'{}',
+    sheetName:localStorage.getItem('sheetName')||'',
+  };
+  localStorage.setItem('accountSnap_'+email,JSON.stringify(snap));
+}
+function _restoreSettingsFromAccount(email){
+  if(!email)return;
+  try{
+    const snap=JSON.parse(localStorage.getItem('accountSnap_'+email)||'null');
+    if(!snap)return;
+    const keys=['schemaHistory','schemaDeleted','prs','telegramUser','notifPrefs','sheetName'];
+    keys.forEach(k=>{if(snap[k])localStorage.setItem(k,snap[k]);});
+    if(snap.lang){localStorage.setItem('lang',snap.lang);if(typeof state!=='undefined')state.lang=snap.lang;}
+    if(snap.theme){localStorage.setItem('theme',snap.theme);if(typeof state!=='undefined')state.theme=snap.theme;}
+    state._prs=null;
+    if(typeof applyTheme==='function')applyTheme();
+    if(typeof applyI18n==='function')applyI18n();
+  }catch(e){}
+}
+
+// ── SCHEMA HISTORY (B13) ──────────────────────────────────────────────────────
+function _saveSchemaHistory(sheetId,name,url){
+  if(!sheetId)return;
+  try{
+    const hist=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
+    const deleted=JSON.parse(localStorage.getItem('schemaDeleted')||'[]');
+    if(deleted.includes(sheetId))return; // don't re-add deleted schemas
+    const idx=hist.findIndex(h=>h.id===sheetId);
+    const entry={id:sheetId,name:name||sheetId,url:url||'https://docs.google.com/spreadsheets/d/'+sheetId+'/edit',ts:Date.now()};
+    if(idx>=0)hist[idx]=entry;else hist.unshift(entry);
+    localStorage.setItem('schemaHistory',JSON.stringify(hist.slice(0,20)));
+    _syncSettingsToAccount();
+  }catch(e){}
+}
+function _loadSchemaHistory(){
+  try{return JSON.parse(localStorage.getItem('schemaHistory')||'[]');}catch{return[];}
+}
+function _confirmDeleteSchema(sheetId){
+  const btns=document.querySelectorAll(`[data-trash="${sheetId}"]`);
+  const btn=btns[0];
+  if(btn&&!btn.dataset.confirming){
+    btn.dataset.confirming='1';
+    btn.textContent='✓?';
+    btn.style.color='var(--race-text)';
+    btn.style.borderColor='var(--race-text)';
+    setTimeout(()=>{if(btn){btn.textContent='🗑';btn.style.color='';btn.style.borderColor='';delete btn.dataset.confirming;}},3000);
+    return;
+  }
+  _deleteSchemaHistory(sheetId);
+}
+function _deleteSchemaHistory(sheetId){
+  try{
+    const hist=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
+    const deleted=JSON.parse(localStorage.getItem('schemaDeleted')||'[]');
+    if(!deleted.includes(sheetId))deleted.push(sheetId);
+    localStorage.setItem('schemaHistory',JSON.stringify(hist.filter(h=>h.id!==sheetId)));
+    localStorage.setItem('schemaDeleted',JSON.stringify(deleted));
+    _syncSettingsToAccount();
+    loadSheetPickerInline();
+  }catch(e){}
+}
+
+function toggleConnectPanel(panel){
+  const el=document.getElementById('connectPanel');if(!el)return;
+  if(el.dataset.panel===panel){el.innerHTML='';delete el.dataset.panel;return;}
+  el.dataset.panel=panel;
+  if(panel==='history'){
+    el.innerHTML='<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>';
+    loadSheetPickerInline();
+  }else{
+    el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <button onclick="oauthCreateNew()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">📄</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Nieuw leeg trainingsschema aanmaken</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:2px">Maakt een nieuw Google Sheets bestand aan in je Drive</span></span>
+      </button>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">URL van bestaand Google Sheets bestand</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Plak de URL van een sheet met de juiste kolommen</span></span>
+          <span style="font-family:var(--font-m);font-size:8px;color:var(--faint);border:1px solid var(--border);padding:2px 5px;border-radius:4px;flex-shrink:0;white-space:nowrap">Drive picker binnenkort</span>
+        </div>
+        <div style="display:flex;gap:6px"><input type="url" class="settings-input" id="inlineSheetUrl" placeholder="https://docs.google.com/spreadsheets/…" style="flex:1"><button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button></div>
+      </div>
+      <button onclick="openImportModal('excel')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">📊</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Excel bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">AI analyseert en importeert je trainingsschema</span></span>
+        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+      </button>
+      <button onclick="openImportModal('pdf')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">📑</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">PDF bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">AI leest je trainingsschema uit een PDF</span></span>
+        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+      </button>
+      <button onclick="openImportModal('image')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
+        <span style="font-size:22px;flex-shrink:0">🖼</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Afbeelding importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Foto van een schema? AI zet het om naar digitaal</span></span>
+        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+      </button>
+    </div>`;
+  }
+}
+
+function oauthSelectFromUrl(){
+  const u=document.getElementById('inlineSheetUrl')?.value.trim();
+  if(!u){showToast('Voer een URL in');return;}
+  const m=u.match(/spreadsheets.d.([a-zA-Z0-9_-]+)/);
+  if(!m){showToast('Ongeldige sheet URL');return;}
+  _saveSchemaHistory(m[1],'',u);
+  oauthSelectSheet(m[1],u);
+}
+
+async function loadSheetPickerInline(){
+  const el=document.getElementById('sheetPickerInline')||document.getElementById('connectPanel');
+  if(!el)return;
+  el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
+  const currentId=typeof authSheetId==='function'?authSheetId():'';
+  // Restore history + deleted from accountSnap for cross-device sync
+  const _em2=typeof authEmail==='function'?authEmail():'';
+  if(_em2){
+    try{
+      const snap=JSON.parse(localStorage.getItem('accountSnap_'+_em2)||'null');
+      if(snap?.schemaDeleted)localStorage.setItem('schemaDeleted',snap.schemaDeleted);
+      // Merge remote history into local (cross-device)
+      if(snap?.schemaHistory){
+        const local=JSON.parse(localStorage.getItem('schemaHistory')||'[]');
+        const remote=JSON.parse(snap.schemaHistory||'[]');
+        const merged=[...local];
+        const seen=new Set(local.map(h=>h.id));
+        remote.forEach(h=>{if(!seen.has(h.id)){merged.push(h);seen.add(h.id);}});
+        localStorage.setItem('schemaHistory',JSON.stringify(merged));
+      }
+    }catch{}
+  }
+  const hist=_loadSchemaHistory();
+  // Always fetch Drive fresh — Drive is source of truth for names and cross-device
+  try{
+    const driveSheets=await listRecentSheets();
+    driveSheets.forEach(s=>{
+      // Prefer cached driveFileName (set by _getDriveFileName), else use Drive API name
+      const fn=localStorage.getItem('driveFileName_'+s.id)||s.name;
+      localStorage.setItem('driveFileName_'+s.id,fn);
+      _saveSchemaHistory(s.id,fn,`https://docs.google.com/spreadsheets/d/${s.id}/edit`);
+      const existing=hist.find(h=>h.id===s.id);
+      if(existing)existing.name=fn;
+      else hist.unshift({id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:s.modifiedTime||0});
+    });
+  }catch{}
+  const deleted=[];try{deleted.push(...JSON.parse(localStorage.getItem('schemaDeleted')||'[]'));}catch{}
+  const filtered=hist.filter(s=>!deleted.includes(s.id)).slice(0,10);
+  const rows=filtered.map(s=>{
+    const isActive=s.id===currentId;
+    return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+      <button onclick="_saveSchemaHistory('${s.id}','${esc(s.name)}','${esc(s.url||'')}');oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid ${isActive?'var(--run-text)':'var(--border)'};border-radius:4px;cursor:pointer;text-align:left;flex:1;min-width:0">
+        <div style="width:7px;height:7px;border-radius:50%;background:${isActive?'var(--run-text)':'var(--faint)'};flex-shrink:0"></div>
+        <span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(s.name||s.id)}</span>
+      </button>
+      <button data-trash="${s.id}" onclick="_confirmDeleteSchema('${s.id}')" style="background:none;border:1px solid var(--border);color:var(--faint);cursor:pointer;padding:5px 9px;border-radius:4px;flex-shrink:0;font-size:13px;line-height:1" title="Verwijderen">🗑</button>
+    </div>`;
+  }).join('');
+  const target=document.getElementById('connectPanel')||el;
+  target.innerHTML=`<div style="margin-bottom:4px">${rows||'<div style="font-family:var(--font-m);font-size:10px;color:var(--faint);padding:4px 0">Geen schema\'s gevonden.</div>'}</div>`;
+}
+
+
+function _devBlock(){
+  return `<details style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+    <summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;cursor:pointer">Dev — Apps Script</summary>
+    <div class="settings-field" style="margin-top:8px">
+      <label class="settings-label">Apps Script URL</label>
+      <div class="settings-hint" style="margin-bottom:6px">${T('connect_hint')}</div>
+      <input type="url" class="settings-input" id="scriptUrl" placeholder="${T('connect_url_placeholder')}"
+        value="${esc(state.scriptUrl)}">
+    </div>
+    <button class="btn-save" style="margin-top:4px" onclick="saveSettings()">Opslaan</button>
+  </details>`;
+}
+
+function openImportModal(type){showToast('AI import — binnenkort beschikbaar 🚀');}
+
+function oauthDisconnect(){
+  if(typeof authClear==='function')authClear();
+  localStorage.removeItem('oauth_sheetId');
+  if(typeof state!=='undefined'){state.data=null;state.sheetId='';state.sheetName='';}
+  if(typeof renderAccountSection==='function')renderAccountSection();
+  if(typeof renderConnectSection==='function')renderConnectSection();
+  if(typeof renderHeader==='function')renderHeader();
+  if(typeof renderActiveView==='function')renderActiveView();
+  showToast('Uitgelogd');
+}
+function disconnectSheet(){
+  // C26: disconnect but keep data
+  state.scriptUrl='';state.sheetName='';
+  localStorage.removeItem('scriptUrl');localStorage.removeItem('sheetName');
+  // keep state.data in memory so existing views still work until reload
+  renderConnectSection();
+  renderHeader();
+  showToast(T('saved'));
+}
+
+// Telegram verify
+function verifyTelegram(){
+  const user=document.getElementById('telegramUser')?.value.trim();
+  if(!user){showToast(T('notif_telegram'));return;}
+  showToast(T('tg_verifying'));
+  // Show hint to user
+  setTimeout(()=>showToast(T('tg_verify_hint')),2600);
+}
+
+function updateTelegramStatus(){
+  const dot=document.getElementById('tgDot'),txt=document.getElementById('tgStatusText');
+  const linked=!!localStorage.getItem('telegramLinked');
+  if(dot)dot.className='tg-dot'+(linked?' linked':'');
+  if(txt)txt.textContent=linked?T('tg_linked'):T('tg_not_linked');
+}
+
+function addPrField(){
+  const sel=document.getElementById('prDistSelect'),dist=sel.value;
+  if(!dist)return;sel.value='';
+  const prs=loadPRs();if(dist in prs)return;
+  prs[dist]='';persistPRs(prs);renderPrFields();
+}
+function removePrField(dist){const prs=loadPRs();delete prs[dist];persistPRs(prs);renderPrFields();}
+function updatePR(dist,val){const prs=loadPRs();prs[dist]=val;persistPRs(prs);}
+
+function renderPrFields(){
+  const c=document.getElementById('prFields');if(!c)return;
+  const prs=loadPRs(),active=PR_ORDER.filter(d=>d in prs);
+  if(!active.length){c.innerHTML=`<div style="font-size:11px;color:var(--faint);padding:4px 0">${T('pr_none')}</div>`;return;}
+  c.innerHTML=active.map(d=>`
+    <div class="pr-row">
+      <label class="pr-dist-lbl">${d}</label>
+      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
+      <button onclick="removePrField('${d}')" style="background:none;border:none;color:var(--faint);cursor:pointer;font-size:18px;padding:0 4px;line-height:1">×</button>
+    </div>`).join('');
+}
+
+function renderSettingsFields(){
+  // C26/C30: connect section is fully dynamic
+  renderConnectSection();
+  const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
+  const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
+  renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
+}
+
+function saveSettingsName(){
+  localStorage.setItem('userName',document.getElementById('settingsName')?.value||'');
+  renderHeader();showToast(T('saved'));
+}
+
+function saveSettings(){
+  // Apps Script URL from dev section (optional)
+  const url=document.getElementById('scriptUrl')?.value.trim()||state.scriptUrl||'';
+  state.scriptUrl=url;if(url)localStorage.setItem('scriptUrl',url);
+  const sheetRaw=document.getElementById('sheetIdInput')?.value.trim()||'';
+  const sheetIdMatch=sheetRaw.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  const sid=sheetIdMatch?sheetIdMatch[1]:sheetRaw; // fallback: treat as raw ID
+  state.sheetId=sid;localStorage.setItem('sheetId',sid);
+  const sn=document.getElementById('sheetNameInput')?.value||'';
+  state.sheetName=sn;localStorage.setItem('sheetName',sn);
+  showToast(T('connecting'));
+  fetchData().then(()=>renderConnectSection());
+}
+
+function saveSheetName(){
+  state.sheetName=document.getElementById('sheetNameInput')?.value||'';
+  localStorage.setItem('sheetName',state.sheetName);
+}
+
+function saveNotifPrefs(){
+  const daily=!!document.getElementById('notifDaily')?.checked;
+  const feedback=!!document.getElementById('notifFeedback')?.checked;
+  const p=loadNotifPrefs();
+  p.daily=daily;p.feedback=feedback;
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+  // Re-render to show/hide time selectors
+  const dw=document.getElementById('notifDailyTimes');
+  const fw=document.getElementById('notifFeedbackTimes');
+  if(dw)dw.style.display=daily?'block':'none';
+  if(fw)fw.style.display=feedback?'block':'none';
+  showToast(T('saved'));
+}
+function _addNotifTime(key){
+  const p=loadNotifPrefs();
+  if(!p[key+'Times'])p[key+'Times']=[];
+  p[key+'Times'].push('07:00');
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+  _renderNotifTimes(key);
+}
+function _removeNotifTime(key,idx){
+  const p=loadNotifPrefs();
+  if(p[key+'Times'])p[key+'Times'].splice(idx,1);
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+  _renderNotifTimes(key);
+}
+function _updateNotifTime(key,idx,val){
+  const p=loadNotifPrefs();
+  if(!p[key+'Times'])p[key+'Times']=[];
+  p[key+'Times'][idx]=val;
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+}
+function _renderNotifTimes(key){
+  const el=document.getElementById('notif'+key.charAt(0).toUpperCase()+key.slice(1)+'Times');
+  if(!el)return;
+  const p=loadNotifPrefs();
+  const times=p[key+'Times']||['07:00'];
+  el.innerHTML=times.map((t,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+    <input type="time" value="${t}" onchange="_updateNotifTime('${key}',${i},this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:var(--font-m);font-size:12px;border-radius:4px;flex:1">
+    ${times.length>1?`<button onclick="_removeNotifTime('${key}',${i})" style="background:none;border:none;color:var(--faint);cursor:pointer;font-size:16px;padding:0 4px;line-height:1">×</button>`:''}
+    <button onclick="_addNotifTime('${key}')" style="background:none;border:1px solid var(--accent);color:var(--accent);cursor:pointer;font-size:14px;padding:2px 8px;border-radius:4px;line-height:1.4">+</button>
+  </div>`).join('');
+}
+function loadNotifPrefs(){try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}catch{return{};}}
+function applyNotifPrefs(){
+  const p=loadNotifPrefs();
+  const d=document.getElementById('notifDaily');if(d)d.checked=!!p.daily;
+  const f=document.getElementById('notifFeedback');if(f)f.checked=!!p.feedback;
+  const dw=document.getElementById('notifDailyTimes');
+  const fw=document.getElementById('notifFeedbackTimes');
+  if(dw){dw.style.display=p.daily?'block':'none';_renderNotifTimes('daily');}
+  if(fw){fw.style.display=p.feedback?'block':'none';_renderNotifTimes('feedback');}
+}
+
+function saveTelegram(){
+  localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
+  updateTelegramStatus();showToast(T('saved'));
+}
+
+// ── I18N ──────────────────────────────────────────────────────────────────────
+function applyI18n(){
+  const tabKeys=['today','week','plan','calendar'];
+  document.querySelectorAll('#bottomNav .bn-label').forEach((el,i)=>{el.textContent=T(tabKeys[i]);});
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=T(el.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-opt]').forEach(el=>{el.textContent=T(el.dataset.i18nOpt);});
+  const nlBtn=document.getElementById('langBtnNl'),enBtn=document.getElementById('langBtnEn');
+  if(nlBtn){nlBtn.style.opacity=state.lang==='nl'?'1':'0.35';nlBtn.style.transform=state.lang==='nl'?'scale(1.15)':'scale(1)';}
+  if(enBtn){enBtn.style.opacity=state.lang==='en'?'1':'0.35';enBtn.style.transform=state.lang==='en'?'scale(1.15)':'scale(1)';}
+  document.documentElement.lang=state.lang;
+  // Update banner text if visible
+  const b=document.getElementById('updateBanner');
+  if(b&&b.style.display!=='none'){
+    document.getElementById('updateBannerText').textContent=T('update_available');
+    b.querySelector('button').textContent=T('update_apply');
+  }
+}
+
+function setLang(lang){
+  state.lang=lang;localStorage.setItem('lang',lang);
+  applyI18n();applyTheme();renderHeader();renderActiveView();
+  showToast(T('saved')); // X14: toast after lang switch, already in new language
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+function switchTab(tab){
+  state.currentTab=tab;state.selectedRating=0;
+  document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
+  document.getElementById('scrollArea').scrollTop=0;
+  const tabNames={today:'VANDAAG',week:'WEEK',plan:'TRAINING',calendar:'KALENDER',settings:'INSTELLINGEN'};
+  const dtEl=document.getElementById('dtCurrentTab');
+  if(dtEl)dtEl.textContent=tabNames[tab]||tab.toUpperCase();
+  renderActiveView();
+}
+
+function hideLoading(){
+  const el=document.getElementById('loadingOverlay');
+  el.classList.add('hidden');setTimeout(()=>el.style.display='none',350);
+}
+
+function showToast(msg, undoable=false){
+  const el=document.getElementById('toast');
+  if(undoable&&state._undoBuffer){
+    el.innerHTML=`${msg} <button onclick="undoDelete()" style="background:none;border:none;color:var(--accent);font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-left:8px;padding:0">Ongedaan maken</button>`;
+  }else{
+    el.textContent=msg;
+  }
+  el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.classList.remove('show');el.innerHTML='';},4000);
+}
+
+async function undoDelete(){
+  if(!state._undoBuffer)return;
+  clearTimeout(state._undoBuffer.timeout);
+  const row=state._undoBuffer.row;
+  state._undoBuffer=null;
+  document.getElementById('toast').classList.remove('show');
+  try{
+    await createActivity({
+      datum:row.datum, type:row.type, titel:row.titel,
+      detail:row.detail, km:row.km, fase:row.fase, feedback:row.feedback,
+    });
+    showToast('↩ Hersteld');
+  }catch(e){showToast('❌ '+e.message);}
+}
+
+function updateConnectionStatus(ok,err){
+  // Update status dot/text if they exist in DOM (connect section when disconnected)
+  const dot=document.getElementById('statusDot'),txt=document.getElementById('statusText');
+  if(dot)dot.className='status-dot '+(ok?'ok':'err');
+  if(txt)txt.textContent=ok?T('connected'):`${T('conn_err')}: ${err||'?'}`;
+  // If connected, re-render the connect section to show connected state
+  if(ok&&state.currentTab==='settings')renderConnectSection();
+}
+
+// ── ONBOARDING ────────────────────────────────────────────────────────────────
+// U1: click outside sheet dismisses (wegklikbaar)
+function onboardingOverlayClick(e){
+  if(e.target===document.getElementById('onboarding'))onboardingFinish();
+}
+
+function shouldShowOnboarding(){
+  return loadRaces().length===0&&!localStorage.getItem('userName');
+}
+
+function onboardingNext(){
+  // B7: name removed from onboarding
+  const raceName=document.getElementById('obRace')?.value.trim();
+  const raceDate=document.getElementById('obDate')?.value;
+  const dist=document.getElementById('obDist')?.value;
+  const time=document.getElementById('obTime')?.value.trim();
+  if(raceName&&raceDate){
+    const races=loadRaces();
+    races.push({id:Date.now().toString(),name:raceName,date:raceDate,dist:dist||'',mainGoal:true});
+    persistRaces(races);
+  }
+  // X12: removed legacy goal object write
+  document.getElementById('onboardingStep1').style.display='none';
+  document.getElementById('onboardingStep2').style.display='block';
+}
+
+function addObPrField(){
+  const sel=document.getElementById('obPrDist'),dist=sel.value;
+  if(!dist)return;sel.value='';
+  const prs=loadPRs();if(dist in prs)return;
+  prs[dist]='';persistPRs(prs);
+  const c=document.getElementById('obPrFields');
+  c.innerHTML=PR_ORDER.filter(d=>d in prs).map(d=>`
+    <div class="pr-row" style="margin-bottom:8px">
+      <label class="pr-dist-lbl">${d}</label>
+      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
+    </div>`).join('');
+}
+
+function onboardingFinish(){
+  document.getElementById('onboarding').style.display='none';
+  renderHeader();renderActiveView();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  initServiceWorker();
+
+  document.getElementById('bottomNav').addEventListener('click',e=>{
+    const tab=e.target.closest('.bn-item')?.dataset.tab;if(tab)switchTab(tab);
+  });
+
+  // Check URL params for sheet config (X2/X3)
+  const urlParams=new URLSearchParams(window.location.search);
+  if(urlParams.get('sheet'))state.scriptUrl=urlParams.get('sheet');
+  if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
+
+  applyI18n();renderHeader();
+
+  // Desktop: show topbar based on screen width
+  (function applyDesktopState(){
+    const wide=window.innerWidth>=768;
+    const dt=document.getElementById('desktopTopbar');
+    if(dt)dt.style.display=wide?'flex':'none';
+    renderSidebarPlanInfo();
+    renderTopbarAuth();
+  })();
+  window.addEventListener('resize',function(){
+    const wide=window.innerWidth>=768;
+    const dt=document.getElementById('desktopTopbar');
+    if(dt)dt.style.display=wide?'flex':'none';
+    renderTopbarAuth();
+  });
+
+  // E7: check if returning from OAuth redirect (code in URL)
+  const oauthCode=new URLSearchParams(window.location.search).get('code');
+  if(oauthCode){
+    history.replaceState({},'',window.location.pathname);
+    (async()=>{
+      try{
+        await _exchangeCode(oauthCode);
+        hideLoading();
+        renderHeader();renderAccountSection();renderConnectSection();
+        switchTab('settings');
+        // Small delay so DOM is ready, then show sheet picker
+        setTimeout(()=>showOAuthConnectSheet(),300);
+      }catch(e){
+        showToast('❌ OAuth fout: '+e.message);
+        hideLoading();renderActiveView();renderHeader();
+      }
+    })();
+    return;
+  }
+
+  // E7: if OAuth token + sheet already stored, fetch directly
+  if(typeof isOAuthMode==='function'&&isOAuthMode()){
+    fetchData();
+    return;
+  }
+
+  if(shouldShowOnboarding()){
+    hideLoading();document.getElementById('onboarding').style.display='flex';
+  }else if(state.scriptUrl){
+    fetchData();
+  }else{
+    setTimeout(()=>{hideLoading();renderActiveView();},600);
+  }
+});
