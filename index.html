@@ -143,7 +143,6 @@
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
       </svg>
     </button>
-    <button onclick="toggleTheme()" id="themeToggleBtn" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px 8px;line-height:1">🌙</button>
   </div>
 
   <div class="desktop-topbar" id="desktopTopbar" style="display:none">
@@ -183,6 +182,8 @@
     <div class="view" id="view-calendar"><div id="calContent"></div></div>
 
     <div class="view" id="view-settings">
+
+      <button onclick="toggleTheme()" id="themeToggleBtn" style="position:absolute;top:12px;right:16px;background:none;border:none;cursor:pointer;font-size:22px;padding:4px;line-height:1;z-index:10">🌙</button>
 
       <div class="settings-group">
         <div class="settings-group-title" data-i18n="sg_account"></div>
