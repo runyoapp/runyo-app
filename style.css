@@ -128,7 +128,7 @@ a{color:inherit;text-decoration:none}
   flex:1;overflow-y:auto;overscroll-behavior:contain;
   padding-bottom:calc(var(--sb) + 100px);-webkit-overflow-scrolling:touch;
 }
-.view{display:none;padding:16px;animation:fadeIn 0.18s ease}
+.view{display:none;padding:16px;animation:fadeIn 0.18s ease;position:relative}
 .view.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
