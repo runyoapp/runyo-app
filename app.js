@@ -1371,9 +1371,20 @@ function openDayModal(dateStr,targetRowIndex){
         </div>
         <div style="margin-bottom:8px">
           <label class="settings-label">${T('type_label')}</label>
-          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="document.getElementById('raceGoalWrap')&&(document.getElementById('raceGoalWrap').style.display=this.value==='race'?'block':'none')">
+          <select class="plan-edit-field" id="edit-type" style="width:100%;padding:8px 10px" onchange="['raceGoalWrap','raceTypeWrap'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display=this.value==='race'?'block':'none';}.bind(this))">
             ${typeOptions}
             <option value="${esc(row.type||'')}"${!TYPES[row.type]?' selected':''}>${esc(row.type||'')}</option>
+          </select>
+        </div>
+        <div id="raceTypeWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
+          <label class="settings-label">Type race</label>
+          <select class="plan-edit-field" id="edit-race-type" style="width:100%;padding:8px 10px">
+            <option value="">—</option>
+            <option value="baan"${(row?.race_type||'')==='baan'?' selected':''}>Baan</option>
+            <option value="weg"${(row?.race_type||'')==='weg'?' selected':''}>Weg</option>
+            <option value="trail"${(row?.race_type||'')==='trail'?' selected':''}>Trail</option>
+            <option value="ultra"${(row?.race_type||'')==='ultra'?' selected':''}>Ultra</option>
+            <option value="anders"${(row?.race_type||'')==='anders'?' selected':''}>Anders</option>
           </select>
         </div>
         <div id="raceGoalWrap" style="margin-bottom:8px;display:${row.type==='race'?'block':'none'}">
@@ -1467,8 +1478,9 @@ async function saveDayEdit(datum){
   const type=toSheetType(typeRaw)||typeRaw;
   const km=document.getElementById('edit-km')?.value.trim()||'';
   const detail=document.getElementById('edit-detail')?.value.trim()||'';
+  const race_type=document.getElementById('edit-race-type')?.value||'';
   const fase=getFaseForDate(datum);
-  const fields={datum,titel,type,km,detail,fase};
+  const fields={datum,titel,type,km,detail,fase,...(race_type?{race_type}:{})};
 
   // Use only the explicitly set editingRowIndex — never infer from datum
   const editingRowIndex=state.editingRowIndex||null;
@@ -2141,6 +2153,7 @@ function renderConnectSection(){
   if(connected){
     const _em=typeof authEmail==='function'?authEmail():'';
     const displayName=(_em&&localStorage.getItem('sheetName_'+_em))||state.sheetName||'Schema';
+    if(sheetId)_saveSchemaHistory(sheetId,displayName,'');
     el.innerHTML=`
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
@@ -2181,23 +2194,26 @@ function oauthSelectFromUrl(){
 async function loadSheetPickerInline(){
   const el=document.getElementById('sheetPickerInline');if(!el)return;
   el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
+  const currentId=typeof authSheetId==='function'?authSheetId():'';
+  const hist=_loadSchemaHistory();
+  // Try Drive API too
   try{
-    const sheets=await listRecentSheets();
-    const mo=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
-    el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:4px">
-      ${sheets.slice(0,5).map(s=>{
-        const d=new Date(s.modifiedTime);
-        return `<button onclick="oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;cursor:pointer;text-align:left;width:100%">
-          <span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
-          <span style="font-family:var(--font-m);font-size:9px;color:var(--faint);flex-shrink:0;margin-left:8px">${d.getDate()} ${mo[d.getMonth()]}</span>
-        </button>`;
-      }).join('')}
-      <div style="display:flex;gap:6px;margin-top:4px">
-        <input type="url" class="settings-input" id="inlineSheetUrl" placeholder="Of plak sheet URL…" style="flex:1">
-        <button class="btn-save" onclick="oauthSelectFromUrl()">OK</button>
-      </div>
+    const driveSheets=await listRecentSheets();
+    const seen=new Set(hist.map(h=>h.id));
+    driveSheets.forEach(s=>{if(!seen.has(s.id))hist.push({id:s.id,name:s.name,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:0});});
+  }catch{}
+  const rows=hist.slice(0,8).map(s=>{
+    const isActive=s.id===currentId;
+    return `<button onclick="_saveSchemaHistory('${s.id}','${esc(s.name)}','${esc(s.url||'')}');oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid ${isActive?'var(--run-text)':'var(--border)'};border-radius:4px;cursor:pointer;text-align:left;width:100%;margin-bottom:4px">
+      <div style="width:7px;height:7px;border-radius:50%;background:${isActive?'var(--run-text)':'var(--faint)'};flex-shrink:0"></div>
+      <span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(s.name||s.id)}</span>
+    </button>`;
+  }).join('');
+  el.innerHTML=`<div style="margin-bottom:4px">${rows||'<div style="font-family:var(--font-m);font-size:10px;color:var(--faint);padding:4px 0">Nog geen schema\'s gevonden.</div>'}</div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <input type="url" class="settings-input" id="inlineSheetUrl" placeholder="Plak nieuwe sheet URL…" style="flex:1">
+      <button class="btn-save" onclick="oauthSelectFromUrl()">OK</button>
     </div>`;
-  }catch(e){el.innerHTML=`<div style="color:var(--race-text);font-size:11px">${esc(e.message)}</div>`;}
 }
 
 
@@ -2306,14 +2322,55 @@ function saveSheetName(){
 function saveNotifPrefs(){
   const daily=!!document.getElementById('notifDaily')?.checked;
   const feedback=!!document.getElementById('notifFeedback')?.checked;
-  localStorage.setItem('notifPrefs',JSON.stringify({daily,feedback}));
+  const p=loadNotifPrefs();
+  p.daily=daily;p.feedback=feedback;
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+  // Re-render to show/hide time selectors
+  const dw=document.getElementById('notifDailyTimes');
+  const fw=document.getElementById('notifFeedbackTimes');
+  if(dw)dw.style.display=daily?'block':'none';
+  if(fw)fw.style.display=feedback?'block':'none';
   showToast(T('saved'));
+}
+function _addNotifTime(key){
+  const p=loadNotifPrefs();
+  if(!p[key+'Times'])p[key+'Times']=[];
+  p[key+'Times'].push('07:00');
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+  _renderNotifTimes(key);
+}
+function _removeNotifTime(key,idx){
+  const p=loadNotifPrefs();
+  if(p[key+'Times'])p[key+'Times'].splice(idx,1);
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+  _renderNotifTimes(key);
+}
+function _updateNotifTime(key,idx,val){
+  const p=loadNotifPrefs();
+  if(!p[key+'Times'])p[key+'Times']=[];
+  p[key+'Times'][idx]=val;
+  localStorage.setItem('notifPrefs',JSON.stringify(p));
+}
+function _renderNotifTimes(key){
+  const el=document.getElementById('notif'+key.charAt(0).toUpperCase()+key.slice(1)+'Times');
+  if(!el)return;
+  const p=loadNotifPrefs();
+  const times=p[key+'Times']||['07:00'];
+  el.innerHTML=times.map((t,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+    <input type="time" value="${t}" onchange="_updateNotifTime('${key}',${i},this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:var(--font-m);font-size:12px;border-radius:4px;flex:1">
+    ${times.length>1?`<button onclick="_removeNotifTime('${key}',${i})" style="background:none;border:none;color:var(--faint);cursor:pointer;font-size:16px;padding:0 4px;line-height:1">×</button>`:''}
+    <button onclick="_addNotifTime('${key}')" style="background:none;border:1px solid var(--accent);color:var(--accent);cursor:pointer;font-size:14px;padding:2px 8px;border-radius:4px;line-height:1.4">+</button>
+  </div>`).join('');
 }
 function loadNotifPrefs(){try{return JSON.parse(localStorage.getItem('notifPrefs')||'{}');}catch{return{};}}
 function applyNotifPrefs(){
   const p=loadNotifPrefs();
   const d=document.getElementById('notifDaily');if(d)d.checked=!!p.daily;
   const f=document.getElementById('notifFeedback');if(f)f.checked=!!p.feedback;
+  const dw=document.getElementById('notifDailyTimes');
+  const fw=document.getElementById('notifFeedbackTimes');
+  if(dw){dw.style.display=p.daily?'block':'none';_renderNotifTimes('daily');}
+  if(fw){fw.style.display=p.feedback?'block':'none';_renderNotifTimes('feedback');}
 }
 
 function saveTelegram(){
