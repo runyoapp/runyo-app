@@ -2708,7 +2708,7 @@ Regels (strikt):
 7. km: gebruik expliciete afstanden. Ranges zonder afstand → null. Miles × 1.609, afronden op 1 decimaal.
 8. Output: chronologisch, één entry per dag, geen dubbele datums.
 
-Schrijf eerst een IMPORTRAPPORTAGE van maximaal 3 zinnen in gewone taal. Begin met "RAPPORT:". Noem: doel/afstand, aantal weken, volume (begin en piek km/week), taperweken indien aanwezig, kracht/mobiliteit indien aanwezig. Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
+Schrijf eerst een IMPORTRAPPORTAGE in gewone taal (minimaal 3, maximaal 30 zinnen — gebruik zoveel als nodig). Begin met "RAPPORT:". Beschrijf: doel/afstand, totaal aantal weken, loopsessies per week, hoe het weekvolume oploopt (begin en piek km/week), taperweken, kracht- of mobiliteitssessies indien aanwezig, hoe de voorkeursdagen verwerkt zijn. Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
       messages:[{role:'user',content:userContent}],
     }),
   });
