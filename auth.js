@@ -1,4 +1,4 @@
-// ── Runyo Auth & Google Sheets API v4 ─────────────────────────────────────
+// ── runyo Auth & Google Sheets API v4 ─────────────────────────────────────
 // PKCE OAuth 2.0 — no backend required
 // Token stored in localStorage; re-auth prompt when expired
 
@@ -260,7 +260,7 @@ async function createNewSheet(){
     method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
     body:JSON.stringify({
-      properties:{title:`Runyo — Trainingsschema ${today}`},
+      properties:{title:`runyo — Trainingsschema ${today}`},
       sheets:[{properties:{title:'Schema',index:0}}],
     }),
   });
@@ -283,7 +283,7 @@ async function createNewSheet(){
     {updateDimensionProperties:{range:{sheetId:tabId,dimension:'COLUMNS',startIndex:7,endIndex:11},properties:{hiddenByUser:true},fields:'hiddenByUser'}},
   ]});
   authSetSheetId(newId);
-  return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`Runyo — Trainingsschema ${today}`};
+  return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo — Trainingsschema ${today}`};
 }
 
 // ── Add missing columns to existing sheet ────────────────────────────────────
@@ -542,6 +542,9 @@ async function oauthPickExisting(){
 }
 
 async function oauthSelectSheet(sheetId,name){
+  // BUG7: clear stale data immediately so previous schema never bleeds into new one
+  if(typeof state!=='undefined')state.data=null;
+  if(typeof renderActiveView==='function')renderActiveView();
   const content=document.getElementById('dayModalContent');
   content.innerHTML=`<div class="modal-title">Verificatie…</div><div style="color:var(--muted);font-size:12px">Kolommen controleren…</div>`;
   try{
