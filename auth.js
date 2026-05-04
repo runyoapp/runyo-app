@@ -1,4 +1,4 @@
-// ── RunningX Auth & Google Sheets API v4 ─────────────────────────────────────
+// ── Runyo Auth & Google Sheets API v4 ─────────────────────────────────────
 // PKCE OAuth 2.0 — no backend required
 // Token stored in localStorage; re-auth prompt when expired
 
@@ -260,7 +260,7 @@ async function createNewSheet(){
     method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
     body:JSON.stringify({
-      properties:{title:`RunningX — Trainingsschema ${today}`},
+      properties:{title:`Runyo — Trainingsschema ${today}`},
       sheets:[{properties:{title:'Schema',index:0}}],
     }),
   });
@@ -283,7 +283,7 @@ async function createNewSheet(){
     {updateDimensionProperties:{range:{sheetId:tabId,dimension:'COLUMNS',startIndex:7,endIndex:11},properties:{hiddenByUser:true},fields:'hiddenByUser'}},
   ]});
   authSetSheetId(newId);
-  return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`RunningX — Trainingsschema ${today}`};
+  return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`Runyo — Trainingsschema ${today}`};
 }
 
 // ── Add missing columns to existing sheet ────────────────────────────────────
