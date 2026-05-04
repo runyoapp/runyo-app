@@ -310,7 +310,7 @@ async function oauthFetchData(){
   const getCol=(h,r)=>{const i=headers.indexOf(h);return i>=0?(r[i]||''):'';}
   return rows.slice(1).map((r,i)=>{
     const datum=getCol('datum',r);
-    if(!datum)return null;
+    if(!datum||!/^\d{4}-\d{2}-\d{2}$/.test(datum))return null; // skip garbage rows like 'xx'
     return mapRow({
       rowIndex: i+2, // 1-indexed, +1 for header
       datum, type:getCol('type',r), titel:getCol('titel',r),
