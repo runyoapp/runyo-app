@@ -2401,18 +2401,15 @@ function toggleConnectPanel(panel){
       </div>
       <button onclick="openImportModal('excel')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
         <span style="font-size:22px;flex-shrink:0">📊</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Excel bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">AI analyseert en importeert je trainingsschema</span></span>
-        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Excel bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Lees je schema uit en importeer het automatisch</span></span>
       </button>
       <button onclick="openImportModal('pdf')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
         <span style="font-size:22px;flex-shrink:0">📑</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">PDF bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">AI leest je trainingsschema uit een PDF</span></span>
-        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">PDF bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Lees je trainingsschema automatisch uit een PDF</span></span>
       </button>
       <button onclick="openImportModal('image')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
         <span style="font-size:22px;flex-shrink:0">🖼</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Afbeelding importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Foto van een schema? AI zet het om naar digitaal</span></span>
-        <span style="font-family:var(--font-m);font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 6px;border-radius:4px;flex-shrink:0">AI</span>
+        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Afbeelding importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Foto van een schema? Zet het automatisch om naar digitaal</span></span>
       </button>
     </div>`;
   }
@@ -2562,16 +2559,16 @@ function _renderImportModal(){
   }
 
   if(s===3){
-    if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">AI analyseert schema…</div>`;return;}
+    if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Schema verwerken…</div>`;return;}
     const _debugBlock=()=>{
       const raw=d.rawResponse||'';
       const reportBtn=`<button class="btn-secondary" style="margin-top:8px;width:100%" onclick="_importReportBug()">Fout melden (bestand + respons opsturen)</button>`;
-      return`<details style="margin-top:12px"><summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);cursor:pointer;letter-spacing:1px;text-transform:uppercase">Debug — AI respons</summary><pre style="font-family:var(--font-m);font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px;margin-top:6px;overflow:auto;max-height:160px;white-space:pre-wrap;word-break:break-all">${esc(raw||'(leeg)')}</pre>${reportBtn}</details>`;
+      return`<details style="margin-top:12px"><summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);cursor:pointer;letter-spacing:1px;text-transform:uppercase">Debug — analyse respons</summary><pre style="font-family:var(--font-m);font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px;margin-top:6px;overflow:auto;max-height:160px;white-space:pre-wrap;word-break:break-all">${esc(raw||'(leeg)')}</pre>${reportBtn}</details>`;
     };
     if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>${_debugBlock()}`;return;}
     if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div><div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw proberen</button></div>${_debugBlock()}`;return;}
 
-    const rapportHtml=d.rapport?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.6"><span style="color:var(--accent);font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:9px">AI rapport </span>${esc(d.rapport)}</div>`:'';
+    const rapportHtml=d.rapport?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.6"><span style="color:var(--accent);font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:9px">Importrapportage </span>${esc(d.rapport)}</div>`:'';
     const typeEmoji={run:'🏃',work:'💼',strength:'💪',mobility:'🧘',rest:'😴',race:'🏆',recovery:'🔄'};
     const rows=d.preview.slice(0,60).map(r=>{
       const t=normalizeType(r.type||'rest');
@@ -2616,7 +2613,7 @@ async function _importStep2Next(){
   try{await _runImportAI();}
   catch(e){
     const d=state.importData;
-    Object.assign(d,{error:e.message||'Fout bij AI-analyse',loading:false});
+    Object.assign(d,{error:e.message||'Verwerking mislukt',loading:false});
     _renderImportModal();
     _importSendLog({
       ts:new Date().toISOString(),success:false,
@@ -2624,7 +2621,7 @@ async function _importStep2Next(){
       settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
       rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
       tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
-      error:e.message||'Fout bij AI-analyse',client:_importClientInfo(),
+      error:e.message||'Verwerking mislukt',client:_importClientInfo(),
     });
   }
 }
@@ -2711,7 +2708,7 @@ Regels (strikt):
 7. km: gebruik expliciete afstanden. Ranges zonder afstand → null. Miles × 1.609, afronden op 1 decimaal.
 8. Output: chronologisch, één entry per dag, geen dubbele datums.
 
-Schrijf eerst een RAPPORT van max 5 regels: beschrijf hoe je het schema hebt geïnterpreteerd (gevonden weken, datum-mapping, bijzondere keuzes, eventuele duplicaten genegeerd). Begin de rapportregel met "RAPPORT:". Daarna direct de JSON array zonder verdere uitleg of markdown.`,
+Schrijf eerst een IMPORTRAPPORTAGE voor de eindgebruiker in vriendelijke, begrijpelijke taal (5-8 zinnen). Begin met "RAPPORT:". Beschrijf alsof je het uitlegt aan een hardloper: voor welk doel is het schema (marathon, 10K, etc.), hoeveel weken totaal, hoeveel looptrainingen per week, hoe het weekvolume oploopt (bijv. "start bij 25 km, piekt rond 75 km in week 10"), hoeveel taperweken, of er kracht- of mobiliteitssessies in zitten en hoe vaak. Vertel ook hoe de ingevoerde voorkeursdagen verwerkt zijn. Sluit af met: "Via de app kun je de trainingsindeling per dag altijd nog aanpassen." Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
       messages:[{role:'user',content:userContent}],
     }),
   });

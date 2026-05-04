@@ -41,7 +41,7 @@
 </head>
 <body>
 <h1>RunningX — Import Log</h1>
-<div class="sub">AI schema import history · <span id="lastUpdate">laden…</span> <button onclick="load()" style="background:none;border:none;color:#555;cursor:pointer;font-size:10px;font-family:inherit">↺ vernieuwen</button></div>
+<div class="sub">Schema import geschiedenis · <span id="lastUpdate">laden…</span> <button onclick="load()" style="background:none;border:none;color:#555;cursor:pointer;font-size:10px;font-family:inherit">↺ vernieuwen</button></div>
 
 <div class="toolbar">
   <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Alles</button>
@@ -102,7 +102,7 @@ function renderEntry(e, idx) {
     ${kv('Type', e.fileType || '—')}
     ${kv('Grootte', fmtSize(e.fileSize))}
     ${kv('Tijdstip', ts)}
-    ${kv('AI duur', dur, dur==='—'?'muted':'')}
+    ${kv('Verwerkingstijd', dur, dur==='—'?'muted':'')}
     ${kv('Resultaat', ok ? (e.parsedCount||0)+' activiteiten' : 'Mislukt', ok?'good':'bad')}
     ${kv('Begindatum', s.startDate || '—')}
     ${kv('Hardloopdagen', runDays)}
@@ -130,11 +130,11 @@ function renderEntry(e, idx) {
   const errorBlock = e.error ? `<div class="error-box">${esc(e.error)}</div>` : '';
 
   const rapportBlock = e.rapport ? `
-    <div class="section-title">AI rapport</div>
+    <div class="section-title">Importrapportage</div>
     <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;padding:10px 12px;font-size:11px;color:#aaa;line-height:1.7;margin-bottom:4px">${esc(e.rapport)}</div>` : '';
 
   const rawBlock = e.rawResponse ? `
-    <div class="section-title">AI respons (raw)</div>
+    <div class="section-title">Analyse respons (raw)</div>
     <pre>${esc(e.rawResponse)}</pre>` : '';
 
   const fileBlock = e.fileContent ? `
