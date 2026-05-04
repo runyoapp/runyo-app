@@ -457,6 +457,7 @@ function isOAuthMode(){
 const _origFetchData=null; // patched below after app.js loads
 
 let _fetchGen=0;
+let _pendingRacesToCopy=[];
 async function fetchDataOAuth(){
   const gen=++_fetchGen;
   // Clear immediately so no old data leaks into the new schema's view
@@ -549,6 +550,12 @@ async function oauthPickExisting(){
 }
 
 async function oauthSelectSheet(sheetId,name){
+  // C63: capture future races from current schema BEFORE clearing state
+  const _curSheetId=authSheetId();
+  if(_curSheetId&&_curSheetId!==sheetId&&typeof state!=='undefined'&&state.data){
+    const _today=new Date().toISOString().split('T')[0];
+    _pendingRacesToCopy=state.data.filter(r=>(r.type==='race'||r.type==='Race'||(typeof normalizeType==='function'&&normalizeType(r.type)==='race'))&&r.datum>=_today);
+  }else{_pendingRacesToCopy=[];}
   // BUG7: cancel any in-flight fetch from previous schema, clear its data
   _fetchGen++;
   if(typeof state!=='undefined')state.data=null;
@@ -685,6 +692,8 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   if(typeof renderConnectSection==='function')renderConnectSection();
   showToast('✓ Schema gekoppeld');
   await fetchData();
+  // C63: offer to copy races from previous schema
+  if(typeof _offerRacesCopy==='function')_offerRacesCopy(sheetId);
 }
 
 // ── Drive appDataFolder — cross-device settings sync ──────────────────────────

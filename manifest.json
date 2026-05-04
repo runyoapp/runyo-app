@@ -1,6 +1,6 @@
 {
-  "name": "Runyo",
-  "short_name": "Runyo",
+  "name": "runyo",
+  "short_name": "runyo",
   "description": "Train · Race · Repeat",
   "start_url": "/XApp/",
   "display": "standalone",

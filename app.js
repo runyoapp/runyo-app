@@ -2651,7 +2651,7 @@ async function _importStep2Next(){
       settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
       rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
       tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
-      error:e.message||'Verwerking mislukt',client:_importClientInfo(),
+      error:e.message||'Verwerking mislukt',fileBase64:d2.fileBase64||'',client:_importClientInfo(),
     });
   }
 }
@@ -2705,11 +2705,14 @@ async function _runImportAI(){
   if(name.endsWith('.xlsx')){
     await _loadSheetJS();
     const buf=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.onerror=reject;r.readAsArrayBuffer(d.file);});
+    // G16a: store raw base64 for download in log
+    try{const bytes=new Uint8Array(buf);let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));state.importData.fileBase64=btoa(bin).slice(0,2000000);}catch{}
     const wb=window.XLSX.read(buf,{type:'array'});
     const csv=window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
     userContent=`${userText}\n\n${csv}`;
   } else {
     const b64=await _readFileBase64(d.file);
+    state.importData.fileBase64=b64.slice(0,2000000); // G16a: store for download
     const mt=name.endsWith('.pdf')?'application/pdf':name.endsWith('.png')?'image/png':'image/jpeg';
     const block=name.endsWith('.pdf')
       ?{type:'document',source:{type:'base64',media_type:mt,data:b64}}
@@ -2779,9 +2782,57 @@ Schrijf eerst een TITEL: van maximaal 30 tekens — de naam van het schema zoals
   _renderImportModal();
 }
 
+function _getFutureRaces(data){
+  const today=todayStr();
+  return(data||[]).filter(r=>normalizeType(r.type)==='race'&&r.datum>=today);
+}
+
+function _offerRacesCopy(newSheetId,racesOverride){
+  const races=racesOverride||_pendingRacesToCopy||[];
+  _pendingRacesToCopy=[];
+  if(!races.length)return;
+  window._raceCopyPending={races,newSheetId};
+  const el=document.getElementById('dayModalContent');
+  document.getElementById('dayModal').classList.add('open');
+  el.innerHTML=`<div class="modal-title">Races meenemen?</div>
+    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Je vorige schema bevat ${races.length} toekomstige race${races.length>1?'s':''}. Wil je die toevoegen aan het nieuwe schema?</div>
+    <div style="margin-bottom:16px;max-height:140px;overflow:auto">${races.slice(0,8).map(r=>`<div style="font-family:var(--font-m);font-size:10px;color:var(--text);padding:5px 0;border-bottom:1px solid var(--border)">🏁 ${esc(r.datum)} — ${esc(r.titel||'Race')}</div>`).join('')}${races.length>8?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:5px 0">+${races.length-8} meer</div>`:''}</div>
+    <div style="display:flex;gap:8px"><button class="btn-secondary" style="flex:1" onclick="closeDayModal()">Nee</button><button class="btn-primary" style="flex:1" onclick="_doRacesCopy()">Ja, meenemen</button></div>`;
+}
+
+async function _doRacesCopy(){
+  const{races,newSheetId}=window._raceCopyPending||{};
+  closeDayModal();
+  if(!races?.length)return;
+  showToast('Races worden gekopieerd…');
+  try{
+    const sheetName=state.sheetName||'Schema';
+    const COLS=['datum','type','titel','detail','km','feedback','fase','id','updated_at','created_at','race_type'];
+    const values=races.map(r=>COLS.map(h=>{
+      if(h==='id')return _uuid();
+      if(h==='updated_at'||h==='created_at')return _nowISO();
+      if(h==='type')return toSheetType(normalizeType(r.type));
+      if(h==='km')return r.km!=null?String(r.km):'';
+      if(h==='feedback')return'';
+      if(h==='race_type')return r.race_type||'';
+      return String(r[h]??'');
+    }));
+    const token=await authEnsureToken();
+    const url=`${SHEETS_BASE}/${newSheetId}/values/${encodeURIComponent(sheetName+'!A:A')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+    const res=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({majorDimension:'ROWS',values})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'HTTP '+res.status);}
+    await oauthSortByDate(newSheetId,sheetName);
+    showToast(`✓ ${races.length} race${races.length>1?'s':''} gekopieerd`);
+    await fetchData();
+  }catch(e){showToast('❌ Kopiëren mislukt: '+e.message);}
+}
+
 async function _confirmImport(){
   const d=state.importData;
   const rows=d.preview;if(!rows?.length)return;
+  // C63: capture future races from current (old) schema before we switch
+  const _preImportRaces=_getFutureRaces(state.data);
+  const _hadActiveSchema=!!(typeof authSheetId==='function'&&authSheetId());
   const el=document.getElementById('dayModalContent');
   el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Nieuw schema aanmaken…</div>`;
   try{
@@ -2837,9 +2888,11 @@ async function _confirmImport(){
       settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
       rawResponse:d2.rawResponse||'',rapport:d2.rapport||'',parsedCount:rows.length,
       tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
-      error:'',client:_importClientInfo(),
+      error:'',fileBase64:d2.fileBase64||'',client:_importClientInfo(),
     });
     await fetchData();
+    // C63: offer to copy races from previous schema
+    if(_hadActiveSchema&&_preImportRaces.length>0)_offerRacesCopy(sheetId,_preImportRaces);
   }catch(e){
     const errMsg='Importeren mislukt: '+(e.message||e);
     const d2=state.importData;
@@ -2851,7 +2904,7 @@ async function _confirmImport(){
       settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
       rawResponse:d2.rawResponse||'',rapport:d2.rapport||'',parsedCount:d2.parsedCount||0,
       tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
-      error:errMsg,client:_importClientInfo(),
+      error:errMsg,fileBase64:d2.fileBase64||'',client:_importClientInfo(),
     });
   }
 }
@@ -2879,7 +2932,7 @@ async function _importReportBug(){
         settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
         rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
         tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
-        error:d.error||'',fileContent,client:_importClientInfo(),
+        error:d.error||'',fileContent,fileBase64:d.fileBase64||'',client:_importClientInfo(),
       }),
     });
     if(!resp.ok)throw new Error('HTTP '+resp.status);

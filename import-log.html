@@ -129,6 +129,10 @@ function renderEntry(e, idx) {
 
   const errorBlock = e.error ? `<div class="error-box">${esc(e.error)}</div>` : '';
 
+  const downloadBlock = e.fileBase64 ? `
+    <div class="section-title">Origineel bestand</div>
+    <button onclick="downloadLogFile(${idx})" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;color:#aaa;font-family:inherit;font-size:11px;cursor:pointer">&#x2B07; Download ${esc(e.fileName||'bestand')}</button>` : '';
+
   const rapportBlock = e.rapport ? `
     <div class="section-title">Importrapportage</div>
     <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:4px;padding:10px 12px;font-size:11px;color:#aaa;line-height:1.7;margin-bottom:4px">${esc(e.rapport)}</div>` : '';
@@ -152,6 +156,7 @@ function renderEntry(e, idx) {
       ${metaGrid}
       ${tokenBlock}
       ${clientInfo}
+      ${downloadBlock}
       ${rapportBlock}
       ${rawBlock}
       ${fileBlock}
@@ -193,6 +198,24 @@ async function load() {
 
 load();
 setInterval(load, 30000);
+
+function downloadLogFile(idx) {
+  const e = _data[idx];
+  if (!e?.fileBase64) return;
+  const ext = (e.fileName || '').split('.').pop().toLowerCase();
+  const mime = ext === 'pdf' ? 'application/pdf'
+    : ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    : ext === 'png' ? 'image/png' : 'image/jpeg';
+  try {
+    const bytes = Uint8Array.from(atob(e.fileBase64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = e.fileName || ('bestand.' + ext);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch(err) { alert('Download mislukt: ' + err.message); }
+}
 </script>
 </body>
 </html>
