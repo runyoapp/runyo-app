@@ -2209,7 +2209,7 @@ function renderConnectSection(){
         ${_driveMissing?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1">Log opnieuw in voor automatische synchronisatie naar andere apparaten.</span><button class="btn-save" onclick="authSignOut&&authSignOut();oauthConnectFlow&&oauthConnectFlow()" style="white-space:nowrap;flex-shrink:0">Opnieuw inloggen</button></div>`:''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
-          <button class="btn-save" onclick="toggleConnectPanel('new')">Nieuw schema koppelen</button>
+          <button class="btn-save" onclick="toggleConnectPanel('new')">+ Nieuw schema toevoegen</button>
         </div>
         <div id="connectPanel" style="margin-top:12px"></div>
         ${_devBlock()}`;
@@ -2284,6 +2284,7 @@ function _loadSchemaHistory(){
 async function _syncSettingsToAccount(){
   const email=typeof authEmail==='function'?authEmail():'';
   if(!email)return;
+  const _cid=typeof authSheetId==='function'?authSheetId():'';
   const snap={
     prs:localStorage.getItem('prs')||'{}',
     lang:localStorage.getItem('lang')||'nl',
@@ -2292,6 +2293,9 @@ async function _syncSettingsToAccount(){
     notifPrefs:localStorage.getItem('notifPrefs')||'{}',
     schemaList:localStorage.getItem('schemaList_'+email)||'[]',
     schemaDeleted:localStorage.getItem('schemaDeleted_'+email)||'[]',
+    connectedSheetId:_cid||'',
+    connectedSheetTab:_cid?localStorage.getItem('sheetName')||'':'',
+    connectedSheetName:_cid?localStorage.getItem('driveFileName_'+_cid)||localStorage.getItem('sheetFileName_'+email)||'':'',
   };
   localStorage.setItem('accountSnap_'+email,JSON.stringify(snap));
   if(typeof saveSettingsToAppData==='function'){
@@ -2332,6 +2336,18 @@ function _applySnapToLocal(snap,email){
       merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
       localStorage.setItem('schemaList_'+email,JSON.stringify(merged.slice(0,50)));
     }catch{}
+  }
+  // B15: restore connected schema on new device
+  if(snap.connectedSheetId){
+    const hasSheet=(typeof authSheetId==='function'&&authSheetId())||localStorage.getItem('oauth_sheetId')||'';
+    if(!hasSheet){
+      if(typeof authSetSheetId==='function')authSetSheetId(snap.connectedSheetId);
+      localStorage.setItem('sheetId',snap.connectedSheetId);
+      if(snap.connectedSheetTab)localStorage.setItem('sheetName',snap.connectedSheetTab);
+      if(snap.connectedSheetName)localStorage.setItem('driveFileName_'+snap.connectedSheetId,snap.connectedSheetName);
+      if(snap.connectedSheetName)localStorage.setItem('sheetFileName_'+email,snap.connectedSheetName);
+      if(typeof state!=='undefined'){state.sheetId=snap.connectedSheetId;state.sheetName=snap.connectedSheetTab||'';}
+    }
   }
   if(typeof state!=='undefined')state._prs=null;
   if(typeof applyTheme==='function')applyTheme();
@@ -2380,36 +2396,50 @@ function _confirmDeleteSchema(sheetId){
 
 function toggleConnectPanel(panel){
   const el=document.getElementById('connectPanel');if(!el)return;
-  if(el.dataset.panel===panel){el.innerHTML='';delete el.dataset.panel;return;}
+  if(el.dataset.panel===panel&&panel!=='url'){el.innerHTML='';delete el.dataset.panel;return;}
   el.dataset.panel=panel;
+  const _tileBase='display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:left;transition:border-color 0.15s;min-height:170px;';
+  const _iconWrap='width:44px;height:44px;border-radius:9px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;flex-shrink:0;';
+  const _arrow='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>';
+  const _foot=(meta)=>`<div style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase">${meta}</span><span style="width:22px;height:22px;border-radius:5px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;color:var(--muted)">${_arrow}</span></div>`;
   if(panel==='history'){
     el.innerHTML='<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>';
     loadSheetPickerInline();
+  }else if(panel==='url'){
+    el.dataset.panel='url';
+    el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Google Sheets URL koppelen</div>
+      <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:10px">Plak de URL van een bestaand schema met de juiste kolommen.</div>
+      <div style="display:flex;gap:6px"><input type="url" class="settings-input" id="inlineSheetUrl" placeholder="https://docs.google.com/spreadsheets/…" style="flex:1"><button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button></div>
+    </div>`;
+    setTimeout(()=>document.getElementById('inlineSheetUrl')?.focus(),50);
   }else{
-    el.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
-      <button onclick="oauthCreateNew()" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
-        <span style="font-size:22px;flex-shrink:0">📄</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Nieuw leeg trainingsschema aanmaken</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:2px">Maakt een nieuw Google Sheets bestand aan in je Drive</span></span>
+    // 3-tile grid
+    const _sheetsIcon='<svg viewBox="0 0 48 48" width="28" height="28"><path fill="#0F9D58" d="M37 4H17l-6 6v34a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path fill="#87CEAC" d="M17 4v4a2 2 0 0 1-2 2h-4z"/><path fill="#F1F1F1" d="M33 22H15v14h18V22zm-10 12h-6v-4h6zm0-6h-6v-4h6zm8 6h-6v-4h6zm0-6h-6v-4h6z"/></svg>';
+    const _excelChip='<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#21A366" d="M28 4H17l-6 6v32a2 2 0 0 0 2 2h25a2 2 0 0 0 2-2V18z"/><path fill="#107C41" d="M28 4v12a2 2 0 0 0 2 2h10z"/><rect fill="#fff" x="13" y="22" width="22" height="15" rx="1"/><path fill="#21A366" d="M19 25.5l2.1 3.4 2.2-3.4h2.4l-3.3 4.9 3.4 5.1H23.4l-2.2-3.5-2.2 3.5h-2.4l3.4-5.1-3.3-4.9z"/></svg>';
+    const _pdfChip='<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#E94235" d="M37 4H17l-6 6v34a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path fill="#F4B4AE" d="M17 4v4a2 2 0 0 1-2 2h-4z"/><text x="24" y="33" text-anchor="middle" font-family="Arial" font-weight="700" font-size="10" fill="#fff">PDF</text></svg>';
+    const _imgChip='<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#FF9E3D" d="M37 4H17l-6 6v34a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path fill="#FFD3A8" d="M17 4v4a2 2 0 0 1-2 2h-4z"/><circle cx="20" cy="22" r="2.2" fill="#fff"/><path fill="#fff" d="M15 36l5-7 4 4 5-6 6 9z"/></svg>';
+    const _chip=(svg)=>`<span style="width:26px;height:26px;border-radius:5px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center">${svg}</span>`;
+    el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:4px">
+      <button onclick="oauthCreateNew()" style="${_tileBase}">
+        <div style="${_iconWrap}color:var(--accent)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Maak nieuw schema</div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Begin met een lege Google Sheet — de juiste kolommen staan al klaar.</div>
+        ${_foot('Leeg')}
       </button>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
-          <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">URL van bestaand Google Sheets bestand</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Plak de URL van een sheet met de juiste kolommen</span></span>
-          <span style="font-family:var(--font-m);font-size:8px;color:var(--faint);border:1px solid var(--border);padding:2px 5px;border-radius:4px;flex-shrink:0;white-space:nowrap">Drive picker binnenkort</span>
-        </div>
-        <div style="display:flex;gap:6px"><input type="url" class="settings-input" id="inlineSheetUrl" placeholder="https://docs.google.com/spreadsheets/…" style="flex:1"><button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button></div>
-      </div>
-      <button onclick="openImportModal('excel')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
-        <span style="font-size:22px;flex-shrink:0">📊</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Excel bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Lees je schema uit en importeer het automatisch</span></span>
+      <button onclick="toggleConnectPanel('url')" style="${_tileBase}border-color:rgba(198,242,78,0.35);background:linear-gradient(180deg,rgba(198,242,78,0.05),var(--surface) 70%);position:relative">
+        <span style="position:absolute;top:-8px;right:12px;padding:2px 8px;border-radius:999px;background:var(--accent);color:#000;font-family:var(--font-m);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Aanbevolen</span>
+        <div style="${_iconWrap}padding:4px">${_sheetsIcon}</div>
+        <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Koppel Google Sheets URL</div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Plak een URL van een bestaande sheet. Wijzigingen verschijnen direct.</div>
+        ${_foot('Live sync')}
       </button>
-      <button onclick="openImportModal('pdf')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
-        <span style="font-size:22px;flex-shrink:0">📑</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">PDF bestand importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Lees je trainingsschema automatisch uit een PDF</span></span>
-      </button>
-      <button onclick="openImportModal('image')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:left;width:100%">
-        <span style="font-size:22px;flex-shrink:0">🖼</span>
-        <span style="flex:1;min-width:0"><span style="display:block;font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Afbeelding importeren</span><span style="display:block;font-family:var(--font-m);font-size:9px;color:var(--muted);margin-top:1px">Foto van een schema? Zet het automatisch om naar digitaal</span></span>
+      <button onclick="openImportModal('all')" style="${_tileBase}">
+        <div style="${_iconWrap}color:var(--accent)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M15 4l1.5 3 3 1.5-3 1.5L15 13l-1.5-3-3-1.5 3-1.5L15 4z"/><path d="M5 19l8-8"/><path d="M4.5 5.5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></div>
+        <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Importeer eigen schema</div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Upload een Excel, PDF of foto. We digitaliseren het automatisch.</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:auto;padding-top:6px">${_chip(_excelChip)}${_chip(_pdfChip)}${_chip(_imgChip)}<span style="font-family:var(--font-m);font-size:9px;color:var(--faint)">.xlsx · .pdf · .jpg</span></div>
+        ${_foot('Automatisch')}
       </button>
     </div>`;
   }
@@ -2522,7 +2552,7 @@ function _renderImportModal(){
   const back=(toStep)=>`<button class="btn-secondary" onclick="state.importStep=${toStep};_renderImportModal()">← Terug</button>`;
 
   if(s===1){
-    const accept=d.type==='excel'?'.xlsx':d.type==='pdf'?'.pdf':'.jpg,.jpeg,.png';
+    const accept=d.type==='excel'?'.xlsx':d.type==='pdf'?'.pdf':d.type==='image'?'.jpg,.jpeg,.png':'.xlsx,.pdf,.jpg,.jpeg,.png';
     const icon=d.type==='excel'?'📊':d.type==='pdf'?'📑':'🖼';
     el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">1/3</span></div>
       <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Upload je trainingsschema als ${d.type==='excel'?'Excel-bestand':d.type==='pdf'?'PDF':'afbeelding'}.</div>
@@ -2559,7 +2589,7 @@ function _renderImportModal(){
   }
 
   if(s===3){
-    if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Schema verwerken…</div>`;return;}
+    if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Schema verwerken… Dit kan een aantal minuten duren.</div>`;return;}
     const _debugBlock=()=>{
       const raw=d.rawResponse||'';
       const reportBtn=`<button class="btn-secondary" style="margin-top:8px;width:100%" onclick="_importReportBug()">Fout melden (bestand + respons opsturen)</button>`;
@@ -2708,7 +2738,7 @@ Regels (strikt):
 7. km: gebruik expliciete afstanden. Ranges zonder afstand → null. Miles × 1.609, afronden op 1 decimaal.
 8. Output: chronologisch, één entry per dag, geen dubbele datums.
 
-Schrijf eerst een IMPORTRAPPORTAGE in gewone taal (minimaal 3, maximaal 30 zinnen — gebruik zoveel als nodig). Begin met "RAPPORT:". Beschrijf: doel/afstand, totaal aantal weken, loopsessies per week, hoe het weekvolume oploopt (begin en piek km/week), taperweken, kracht- of mobiliteitssessies indien aanwezig, hoe de voorkeursdagen verwerkt zijn. Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
+Schrijf eerst een TITEL: van maximaal 30 tekens — de naam van het schema zoals in het bestand staat (bijv. "ASICS 18-weken marathon"). Dan een RAPPORT: van 3-30 zinnen in gewone taal. Beschrijf: doel/afstand, totaal aantal weken, loopsessies per week, hoe het weekvolume oploopt (begin en piek km/week), taperweken, kracht/mobiliteit indien aanwezig. Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
       messages:[{role:'user',content:userContent}],
     }),
   });
@@ -2719,8 +2749,10 @@ Schrijf eerst een IMPORTRAPPORTAGE in gewone taal (minimaal 3, maximaal 30 zinne
   state.importData.rawResponse=raw;
   state.importData.tokenUsage=json.usage||null;
   state.importData.aiDuration=Date.now()-(state.importData.aiStart||Date.now());
-  // Extract rapport (text before the JSON array)
-  const rapportMatch=raw.match(/RAPPORT\s*:\s*([^\[]*)/i);
+  // Extract TITEL: and RAPPORT:
+  const titelMatch=raw.match(/TITEL\s*:\s*([^\n\r]{1,30})/i);
+  state.importData.schemaTitle=titelMatch?titelMatch[1].trim():'';
+  const rapportMatch=raw.match(/RAPPORT\s*:\s*([\s\S]*?)(?=\[|$)/i);
   state.importData.rapport=rapportMatch?rapportMatch[1].trim():'';
   let parsed=null;
   // 1. Strip markdown fences if present (```json ... ``` or ``` ... ```)
@@ -2766,8 +2798,13 @@ async function _confirmImport(){
       localStorage.setItem('sheetTabName_'+_em,sheetName);
       localStorage.setItem('sheetFileName_'+_em,sheet.title);
     }
-    localStorage.setItem('driveFileName_'+sheetId,sheet.title);
-    _saveSchemaHistory(sheetId,sheet.title,sheet.url);
+    // C60: use AI-recognised title or filename (without extension) as display name
+    const _rawFile=d.file?.name||'';
+    const _fileBase=_rawFile.replace(/\.[^.]+$/,'').slice(0,30);
+    const _importDisplay=(d.schemaTitle&&d.schemaTitle.length>2?d.schemaTitle:_fileBase)||sheet.title;
+    localStorage.setItem('driveFileName_'+sheetId,_importDisplay);
+    if(_em)localStorage.setItem('sheetFileName_'+_em,_importDisplay);
+    _saveSchemaHistory(sheetId,_importDisplay,sheet.url);
     el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Rijen wegschrijven…</div>`;
     // Fixed column order — no header read needed
     const COLS=['datum','type','titel','detail','km','feedback','fase','id','updated_at','created_at','race_type'];
