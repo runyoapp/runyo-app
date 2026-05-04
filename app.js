@@ -2754,10 +2754,24 @@ async function _confirmImport(){
   const d=state.importData;
   const rows=d.preview;if(!rows?.length)return;
   const el=document.getElementById('dayModalContent');
-  el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Rijen wegschrijven naar schema…</div>`;
+  el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Nieuw schema aanmaken…</div>`;
   try{
-    const sheetId=typeof authSheetId==='function'?authSheetId():state.sheetId;
-    const sheetName=state.sheetName||'Schema';
+    // Always create a fresh sheet — never modify an existing connected sheet
+    const sheet=await createNewSheet();
+    const sheetId=sheet.id;
+    const sheetName='Schema';
+    authSetSheetId(sheetId);
+    state.sheetId=sheetId;state.sheetName=sheetName;
+    localStorage.setItem('sheetId',sheetId);localStorage.setItem('sheetName',sheetName);
+    const _em=typeof authEmail==='function'?authEmail():'';
+    if(_em){
+      localStorage.setItem('sheetId_'+_em,sheetId);
+      localStorage.setItem('sheetTabName_'+_em,sheetName);
+      localStorage.setItem('sheetFileName_'+_em,sheet.title);
+    }
+    localStorage.setItem('driveFileName_'+sheetId,sheet.title);
+    _saveSchemaHistory(sheetId,sheet.title,sheet.url);
+    el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Rijen wegschrijven…</div>`;
     // Fixed column order — no header read needed
     const COLS=['datum','type','titel','detail','km','feedback','fase','id','updated_at','created_at','race_type'];
     const values=rows.map(r=>COLS.map(h=>{
@@ -2776,8 +2790,11 @@ async function _confirmImport(){
     if(res.status===429){await new Promise(r=>setTimeout(r,2000));res=await doPost();}
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||'HTTP '+res.status);}
     await oauthSortByDate(sheetId,sheetName);
+    if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount().catch(()=>{});
     closeDayModal();
-    showToast(`✓ ${rows.length} activiteiten geïmporteerd`);
+    if(typeof renderHeader==='function')renderHeader();
+    if(typeof renderConnectSection==='function')renderConnectSection();
+    showToast(`✓ ${rows.length} activiteiten geïmporteerd in nieuw schema`);
     // Auto-log successful imports
     const d2=state.importData;
     _importSendLog({
