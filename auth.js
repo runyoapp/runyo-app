@@ -456,11 +456,18 @@ function isOAuthMode(){
 // Override fetchData to use OAuth when available
 const _origFetchData=null; // patched below after app.js loads
 
+let _fetchGen=0;
 async function fetchDataOAuth(){
+  const gen=++_fetchGen;
+  // Clear immediately so no old data leaks into the new schema's view
+  if(typeof state!=='undefined')state.data=null;
   try{
-    state.data=await oauthFetchData();
+    const rows=await oauthFetchData();
+    if(gen!==_fetchGen)return; // stale: a newer fetch already started, discard
+    state.data=rows;
     updateConnectionStatus(true);
   }catch(e){
+    if(gen!==_fetchGen)return;
     updateConnectionStatus(false,e.message);
     if(e.message.includes('verlopen'))return;
   }
@@ -542,7 +549,8 @@ async function oauthPickExisting(){
 }
 
 async function oauthSelectSheet(sheetId,name){
-  // BUG7: clear stale data immediately so previous schema never bleeds into new one
+  // BUG7: cancel any in-flight fetch from previous schema, clear its data
+  _fetchGen++;
   if(typeof state!=='undefined')state.data=null;
   if(typeof renderActiveView==='function')renderActiveView();
   const content=document.getElementById('dayModalContent');
