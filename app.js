@@ -157,7 +157,7 @@ const STRINGS={
     pr_title:'Persoonlijke records',pr_add:'Afstand toevoegen',pr_none:'Nog geen records toegevoegd.',
     lang_title:'Taal',
     notif_telegram_title:'Telegram',notif_telegram:'Gebruikersnaam',notif_hint:'Koppel je Telegram-account om dagelijkse schema\'s, weekoverzichten en feedback-verzoeken te ontvangen.',
-    tg_not_linked:'Niet gekoppeld',tg_linked:'Gekoppeld',tg_verify:'Koppeling starten',tg_verifying:'Verificatie starten…',tg_verify_hint:'Stuur /start naar @RunningXBot in Telegram om de koppeling te bevestigen.',
+    tg_not_linked:'Niet gekoppeld',tg_linked:'Gekoppeld',tg_verify:'Koppeling starten',tg_verifying:'Verificatie starten…',tg_verify_hint:'Stuur /start naar @RunyoBot in Telegram om de koppeling te bevestigen.',
     schema_title:'Koppel je trainingsschema',schema_hint:'Plak de URL van je gepubliceerde Google Apps Script Web App.',
     sheet_name_label:'Tabblad naam (optioneel)',sheet_name_hint:'Laat leeg om het eerste tabblad automatisch te gebruiken.',
     api_save:'Opslaan & verbinden',not_connected:'Niet verbonden',
@@ -204,7 +204,7 @@ const STRINGS={
     pr_title:'Personal records',pr_add:'Add distance',pr_none:'No records added yet.',
     lang_title:'Language',
     notif_telegram_title:'Telegram',notif_telegram:'Username',notif_hint:'Connect your Telegram account to receive daily schedules, weekly overviews and feedback reminders.',
-    tg_not_linked:'Not linked',tg_linked:'Linked',tg_verify:'Start linking',tg_verifying:'Starting verification…',tg_verify_hint:'Send /start to @RunningXBot in Telegram to confirm the link.',
+    tg_not_linked:'Not linked',tg_linked:'Linked',tg_verify:'Start linking',tg_verifying:'Starting verification…',tg_verify_hint:'Send /start to @RunyoBot in Telegram to confirm the link.',
     schema_title:'Connect your training schedule',schema_hint:'Paste the URL of your published Google Apps Script Web App.',
     sheet_name_label:'Sheet tab name (optional)',sheet_name_hint:'Leave empty to auto-detect the first tab.',
     api_save:'Save & connect',not_connected:'Not connected',
@@ -3040,6 +3040,8 @@ function saveNotifPrefs(){
   const fw=document.getElementById('notifFeedbackTimes');
   if(dw)dw.style.display=daily?'block':'none';
   if(fw)fw.style.display=feedback?'block':'none';
+  _syncSettingsToAccount();
+  _syncSettingsToBot().catch(()=>{});
   showToast(T('saved'));
 }
 function _addNotifTime(key){
@@ -3048,18 +3050,24 @@ function _addNotifTime(key){
   p[key+'Times'].push('07:00');
   localStorage.setItem('notifPrefs',JSON.stringify(p));
   _renderNotifTimes(key);
+  _syncSettingsToAccount();
+  _syncSettingsToBot().catch(()=>{});
 }
 function _removeNotifTime(key,idx){
   const p=loadNotifPrefs();
   if(p[key+'Times'])p[key+'Times'].splice(idx,1);
   localStorage.setItem('notifPrefs',JSON.stringify(p));
   _renderNotifTimes(key);
+  _syncSettingsToAccount();
+  _syncSettingsToBot().catch(()=>{});
 }
 function _updateNotifTime(key,idx,val){
   const p=loadNotifPrefs();
   if(!p[key+'Times'])p[key+'Times']=[];
   p[key+'Times'][idx]=val;
   localStorage.setItem('notifPrefs',JSON.stringify(p));
+  _syncSettingsToAccount();
+  _syncSettingsToBot().catch(()=>{});
 }
 function _renderNotifTimes(key){
   const el=document.getElementById('notif'+key.charAt(0).toUpperCase()+key.slice(1)+'Times');
@@ -3085,7 +3093,28 @@ function applyNotifPrefs(){
 
 function saveTelegram(){
   localStorage.setItem('telegramUser',document.getElementById('telegramUser')?.value||'');
-  updateTelegramStatus();showToast(T('saved'));
+  updateTelegramStatus();
+  _syncSettingsToBot().catch(()=>{});
+  showToast(T('saved'));
+}
+
+async function _syncSettingsToBot(){
+  const email=typeof authEmail==='function'?authEmail():'';
+  const user=localStorage.getItem('telegramUser')||'';
+  if(!email||!user)return;
+  let token='';
+  try{token=await authEnsureToken();}catch{return;}
+  if(!token)return;
+  const p=loadNotifPrefs();
+  const notifications={
+    schema:{enabled:!!p.daily,times:p.dailyTimes||['07:00']},
+    feedback:{enabled:!!p.feedback,times:p.feedbackTimes||['20:00']}
+  };
+  await fetch(GAUTH.AUTH_BACKEND+'/user/settings',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+    body:JSON.stringify({email,telegramUser:user,notifications})
+  });
 }
 
 // ── I18N ──────────────────────────────────────────────────────────────────────

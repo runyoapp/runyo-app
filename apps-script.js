@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// GOOGLE APPS SCRIPT – RunningX API v2.2
+// GOOGLE APPS SCRIPT – Runyo API v2.2
 //
 // HOE INSTALLEREN:
 // 1. Ga naar script.google.com → Nieuw project

@@ -19,7 +19,7 @@
 html,body{
   background:var(--bg);color:var(--text);
   font-family:var(--font-d);font-size:14px;
-  line-height:1.5;height:100%;overscroll-behavior:none;
+  line-height:1.5;height:100%;overscroll-behavior:none;overflow-x:hidden;
 }
 button{cursor:pointer}
 a{color:inherit;text-decoration:none}
@@ -559,7 +559,7 @@ a{color:inherit;text-decoration:none}
   .app{
     flex:1;min-width:0;max-width:calc(100vw - var(--sidebar-w));
     height:100dvh;margin:0;display:flex;flex-direction:column;
-    overflow:visible;
+    overflow:hidden;
   }
 
   /* Desktop topbar */
