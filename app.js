@@ -268,6 +268,7 @@ const state={
   pendingSW:null,
   planWeekOffset:0,     // C27: week swipe offset (0 = current week)
   currentFase:null,     // C29: active fase for floating label
+  raceHeaderOpen:false,
 };
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
@@ -636,64 +637,91 @@ function toggleAvatarMenu(btn){
 }
 
 
+function toggleRaceHeader(){
+  state.raceHeaderOpen=!state.raceHeaderOpen;
+  renderRacesBar();
+}
+
 function renderRacesBar(){
   const bar=document.getElementById('racesBar');if(!bar)return;
-  // C38: sheet primary, localStorage fallback
-  let sheetRaces=(state.data||[])
+
+  // Sheet races first, localStorage fallback
+  let races=(state.data||[])
     .filter(r=>r.type==='race'&&r.datum)
     .sort((a,b)=>a.datum.localeCompare(b.datum))
     .filter(r=>daysUntil(r.datum)>=-1)
-    .slice(0,4);
-  if(!sheetRaces.length&&!state.scriptUrl){
-    // No sheet — use localStorage races
-    sheetRaces=loadRaces()
+    .slice(0,5);
+  if(!races.length&&!state.scriptUrl){
+    races=loadRaces()
       .filter(r=>daysUntil(r.date)>=-1)
       .sort((a,b)=>a.date.localeCompare(b.date))
-      .slice(0,4)
+      .slice(0,5)
       .map(r=>({datum:r.date,titel:r.name,km:r.dist}));
   }
-  if(!sheetRaces.length){
-    bar.innerHTML='';
+
+  // No races — empty chip with add button
+  if(!races.length){
+    bar.innerHTML=`<div class="race-chip">
+      <div class="race-chip-empty">
+        <div class="race-chip-empty-label">Geen races gepland</div>
+        <div class="race-chip-empty-add" onclick="openRaceModal();event.stopPropagation()">+ Race →</div>
+      </div>
+    </div>`;
     return;
   }
 
-  let h='';
+  const main=races[0];
+  const rest=races.slice(1);
+  const cd=countdownDisplay(daysUntil(main.datum));
+  const kmRaw=(main.km||'').toString().trim().replace(/\s*km$/i,'');
+  const kmVal=parseFloat(kmRaw);
+  const distStr=kmRaw?(kmVal>100?`${kmRaw} m`:`${kmRaw} km`):'';
   const localRaces=loadRaces();
-  if(!sheetRaces.length){
-    // No races yet — show + only
-    h=`<div class="rb-add" onclick="openRaceModal()" style="border-left:none;padding-left:0">+</div>`;
-    bar.innerHTML=h;return;
-  }
-  sheetRaces.forEach(r=>{
-    const cd=countdownDisplay(daysUntil(r.datum));
-    const goalMatch=(r.detail||'').match(/\(Doel:\s*(\d+:\d{2}(?::\d{2})?)\)/);
-    const goalStr=goalMatch?goalMatch[1]:'';
-    // Smart unit: >100 = km, <=100 = meters (no one runs 5 km as "5")
-    // Actually: if raw value looks like meters (>=100 or has 'm'), use m
-    const kmRaw=(r.km||'').toString().trim().replace(/\s*km$/i,'');
-    const kmVal=parseFloat(kmRaw);
-    const distStr=kmRaw?(kmVal>100?`${kmRaw} m`:`${kmRaw} km`):'';
-    // raceType + mainGoal from localStorage (keyed by date)
-    const lr=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
-    const iconKey=raceTypeIconKey(lr?.raceType||'',r.km);
-    const isMain=!!lr?.mainGoal;
-    // Title font: larger for short names
-    const titleLen=(r.titel||'').length;
-    const titleSize=titleLen<=8?'13px':titleLen<=14?'11px':'10px';
-    h+=`<div class="rb-item" onclick="openDayFromRacesBar('${r.datum}')" style="cursor:pointer;min-height:80px;display:flex;flex-direction:column;${isMain?'border-left:2px solid var(--accent);padding-left:12px;':''}">
-      ${isMain?`<div style="font-family:var(--font-m);font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:2px">★ DOEL</div>`:''}
-      <div style="display:flex;align-items:flex-start;gap:4px;margin-bottom:2px">
-        <div style="margin-top:1px;flex-shrink:0">${RXIcon(iconKey,12,'var(--race-text)','var(--race-text)')}</div>
-        <div class="rb-title" style="font-size:${titleSize}">${esc(r.titel||r.datum)}</div>
+  const lr=localRaces.find(l=>l.date===main.datum)||localRaces.find(l=>l.name===main.titel);
+  const tier=lr?.raceType==='A'||lr?.mainGoal?'A':'B';
+  const open=state.raceHeaderOpen;
+
+  let h=`<div class="race-chip${open?' open':''}" onclick="toggleRaceHeader()">
+    <div class="race-chip-main">
+      <div class="race-dot"></div>
+      <div class="race-chip-body">
+        <div class="race-chip-name">${esc(main.titel||main.datum)}${distStr?` · ${distStr}`:''}</div>
+        <div class="race-chip-meta">${main.datum?main.datum.split('-').slice(1).reverse().join(' '):''}${tier?' · '+tier+'-race':''}</div>
       </div>
-      ${distStr?`<div class="rb-meta">${esc(distStr)}</div>`:''}
-      ${goalStr?`<div class="rb-goal">${esc(goalStr)}</div>`:''}
-      <div style="flex:1"></div>
-      <div class="rb-countdown">${cd.val}<span>${cd.unit}</span></div>
+      <div class="race-chip-countdown">${cd.val}<span>${cd.unit}</span></div>
+      <div class="race-chip-chevron">›</div>
     </div>`;
-  });
-  // C50: always show + to add race
-  h+=`<div class="rb-add" onclick="openRaceModal()" style="flex-shrink:0">+</div>`;
+
+  if(open){
+    h+=`<div class="race-chip-timeline">`;
+    if(rest.length){
+      h+=`<div class="race-chip-timeline-label">Volgende races</div>
+        <div class="race-chip-timeline-items">
+          <div class="race-chip-timeline-line"></div>`;
+      rest.forEach(r=>{
+        const rcd=countdownDisplay(daysUntil(r.datum));
+        const rl=localRaces.find(l=>l.date===r.datum)||localRaces.find(l=>l.name===r.titel);
+        const rt=rl?.raceType==='A'||rl?.mainGoal?'A':'B';
+        const rKm=(r.km||'').toString().trim().replace(/\s*km$/i,'');
+        const rKmVal=parseFloat(rKm);
+        const rDist=rKm?(rKmVal>100?`${rKm} m`:`${rKm} km`):'';
+        const dotColor=rt==='A'?'var(--cat-race)':'var(--muted)';
+        h+=`<div class="race-chip-timeline-item" onclick="openDayFromRacesBar('${r.datum}');event.stopPropagation()">
+          <div class="race-chip-timeline-dot" style="background:${dotColor}"></div>
+          <div class="race-chip-timeline-item-body">
+            <div class="race-chip-timeline-item-name">${esc(r.titel||r.datum)}${rDist?` · ${rDist}`:''}</div>
+            <div class="race-chip-timeline-item-meta">${r.datum||''} · ${rt}-race</div>
+          </div>
+          <div class="race-chip-timeline-item-days">${rcd.val}${rcd.unit}</div>
+        </div>`;
+      });
+      h+=`</div>`;
+    }
+    h+=`<div class="race-chip-add" onclick="openRaceModal();event.stopPropagation()">+ Race toevoegen</div>
+    </div>`;
+  }
+
+  h+=`</div>`;
   bar.innerHTML=h;
 }
 
