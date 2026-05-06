@@ -1,6 +1,6 @@
 # Runyo — Migratieplan persoonlijk → runyo.app
 
-Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
+Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ---
 
@@ -8,7 +8,7 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
 
 | Wat | Oud | Nieuw |
 |---|---|---|
-| GitHub org | `RunningX42` (persoonlijk) | org: `runyo-app` |
+| GitHub org | `RunningX42` (persoonlijk) | org: `runyoapp` |
 | Repo frontend | `XApp` | `runyo-app` |
 | Repo bot | `XBot` | `runyo-bot` |
 | Repo backend | `runningx-auth` | `runyo-auth` |
@@ -19,17 +19,17 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
 | Google Cloud project | persoonlijk project | `runyo-app` |
 | Google service account | persoonlijk | `bot@runyo-app.iam.gserviceaccount.com` |
 | Drive settings bestand | `runningx-settings.json` | `runyo-settings.json` |
-| Claude config repo | `RunningX42/claude` | `runyo-app/claude` |
+| Claude config repo | `RunningX42/claude` | `runyoapp/claude` |
 
 ---
 
 ## Fase 1 — Accounts aanmaken
 *(doe dit als eerste, niks kapot)*
 
-- [ ] GitHub org aanmaken: `runyo-app` onder luuk@runyo.app
-- [ ] Railway account aanmaken onder luuk@runyo.app
-- [ ] Google Cloud project aanmaken: `runyo-app` (luuk@runyo.app)
-- [ ] Formspree account aanmaken onder luuk@runyo.app
+- [x] GitHub org aanmaken: `runyoapp` onder info@runyo.app
+- [x] Railway account aanmaken onder info@runyo.app
+- [x] Google Cloud project aanmaken: `runyo-app` (info@runyo.app)
+- [x] Formspree account aanmaken onder info@runyo.app
 
 ---
 
@@ -53,13 +53,13 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
   git clone git@github.com:RunningX42/XBot.git runyo-bot
   git clone git@github.com:RunningX42/runningx-auth.git runyo-auth
   ```
-- [ ] Nieuwe repos aanmaken in org `runyo-app`: `runyo-app`, `runyo-bot`, `runyo-auth`
+- [ ] Nieuwe repos aanmaken in org `runyoapp`: `runyo-app`, `runyo-bot`, `runyo-auth`
 - [ ] Remotes overzetten en pushen naar nieuwe org
 - [ ] GitHub Pages inschakelen op `runyo-app` repo (branch: `main`)
 - [ ] Custom domain instellen: `runyo.app` in GitHub Pages settings
 - [ ] DNS instellen bij domeinregistrar:
   - `A` records → `185.199.108.153` / `.109.153` / `.110.153` / `.111.153`
-  - `CNAME www` → `runyo-app.github.io`
+  - `CNAME www` → `runyoapp.github.io`
 
 ---
 
@@ -85,14 +85,14 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
 ## Fase 6 — Railway deployen
 
 - [ ] Nieuw Railway project `runyo` aanmaken
-- [ ] Service `runyo-auth` aanmaken, koppelen aan `runyo-app/runyo-auth` repo
+- [ ] Service `runyo-auth` aanmaken, koppelen aan `runyoapp/runyo-auth` repo
   ```
   GOOGLE_CLIENT_ID=<nieuwe client id>
   GOOGLE_CLIENT_SECRET=<nieuwe client secret>
   ANTHROPIC_API_KEY=<huidig of nieuw>
   BOT_SECRET=<genereer nieuw gedeeld secret>
   ```
-- [ ] Service `runyo-bot` aanmaken, koppelen aan `runyo-app/runyo-bot` repo
+- [ ] Service `runyo-bot` aanmaken, koppelen aan `runyoapp/runyo-bot` repo
   ```
   BOT_SECRET=<zelfde als auth>
   BACKEND_URL=https://<nieuwe runyo-auth Railway URL>
@@ -133,7 +133,7 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
 - [ ] Repo `RunningX42/claude` aanmaken op GitHub (leeg)
 - [ ] Pushen: `cd ~/projects/claude-repo && git remote add origin git@github.com:RunningX42/claude.git && git push -u origin master`
 - [ ] Op elk nieuw device: `git clone git@github.com:RunningX42/claude.git` en agents kopiëren naar `~/.claude/agents/`
-- [ ] Na migratie: repo hernoemen naar `runyo-app/claude`
+- [ ] Na migratie: repo hernoemen naar `runyoapp/claude`
 
 ---
 
