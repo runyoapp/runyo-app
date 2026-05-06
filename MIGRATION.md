@@ -35,12 +35,13 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## Fase 2 — Google Cloud configureren
 
-- [ ] OAuth 2.0 client aanmaken in `runyo-app` project
+- [x] OAuth 2.0 client aanmaken in `runyo-app` project
   - Type: Web application
   - Authorized redirect URI: `https://runyo.app/oauth-callback.html`
   - Noteer nieuwe `client_id` en `client_secret`
-- [ ] OAuth scopes: `openid`, `email`, `profile`, `drive.file`, `drive.appdata`, `spreadsheets`
-- [ ] Service account aanmaken voor de bot (naam: `runyo-bot`), JSON key downloaden
+- [x] OAuth scopes: `openid`, `email`, `profile`, `drive.file`, `drive.appdata`, `spreadsheets`
+- [x] Service account aanmaken voor de bot (naam: `runyo-bot`), JSON key downloaden
+  - Org policy `iam.disableServiceAccountKeyCreation` moest eerst uit (gcloud `disable-enforce` op project `runyo-app`)
 - [ ] OAuth verificatie aanvragen (privacy policy vereist — zie fase 5)
 
 ---
