@@ -580,11 +580,14 @@ function renderTopbarAuth(){
   const email=loggedIn&&typeof authEmail==='function'?authEmail():'';
   const initials=email?email[0].toUpperCase():'?';
   // Settings gear icon (shown when NOT logged in, instellingen via gear)
+  const googleSvg=`<svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 009 18z" fill="#34A853"/><path d="M3.97 10.71A5.41 5.41 0 013.68 9c0-.59.1-1.17.29-1.71V4.96H.96A9 9 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 009 0 9 9 0 00.96 4.96L3.97 7.3C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335"/></svg>`;
+  const importSvg=`<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M5 8l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  const chevronSvg=`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
   const gearSvg=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
   const btnHtml=loggedIn
     ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:none;font-family:var(--font-d);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
     :`<button onclick="switchTab('settings')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center">${gearSvg}</button>
-      <button onclick="oauthConnectFlow()" style="background:var(--accent);color:var(--accent-ink);border:none;padding:7px 14px;font-family:var(--font-d);font-size:13px;font-weight:600;letter-spacing:-0.01em;border-radius:6px;cursor:pointer">Inloggen</button>`;
+      <button onclick="oauthConnectFlow()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:6px 14px;font-family:var(--font-d);font-size:13px;font-weight:500;letter-spacing:-0.01em;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px">${googleSvg}Inloggen</button>`;
   const el=document.getElementById('topbarAuth');
   const el2=document.getElementById('topbarAuthDesktop');
   if(el)el.innerHTML=btnHtml;
@@ -865,11 +868,19 @@ function noSchemaHint(){
       <div><div class="nch-text">${T('setup_title')}</div><div class="nch-link">${T('setup_body')}</div></div>
     </div>`;
   }
-  return `<div style="text-align:center;padding:40px 20px 32px">
-    <div style="font-size:32px;margin-bottom:12px;opacity:0.4">🏃</div>
-    <div style="font-family:var(--font-d);font-weight:800;font-size:22px;margin-bottom:8px">Login om te starten</div>
-    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.6">Log in met je Google-account om je trainingsschema te koppelen.</div>
-    <button onclick="oauthConnectFlow()" style="background:var(--accent);color:var(--accent-ink);border:none;padding:12px 24px;font-family:var(--font-m);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:6px;cursor:pointer">Inloggen met Google</button>
+  return `<div style="padding:32px 20px">
+    <div style="font-family:var(--font-d);font-weight:700;font-size:24px;letter-spacing:-0.03em;margin-bottom:8px">Breng je schema mee</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5">Importeer je trainingsschema en ontvang elke dag wat er op het programma staat.</div>
+    <button class="connect-tile primary" onclick="oauthConnectFlow()" style="margin-bottom:10px;border:none">
+      <div class="connect-tile-icon">${importSvg}</div>
+      <div class="connect-tile-body">
+        <div class="connect-tile-title">Schema importeren</div>
+        <div class="connect-tile-sub">PDF, Excel, foto of van je coach</div>
+      </div>
+      ${chevronSvg}
+    </button>
+    <button class="btn-google" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
+    <div style="text-align:center;font-size:11px;color:var(--faint);margin-top:10px;line-height:1.5">Door verder te gaan ga je akkoord met onze voorwaarden.</div>
   </div>`;
 }
 
@@ -2159,10 +2170,10 @@ function renderAccountSection(){
       <button class="account-logout" onclick="authSignOut()">${T('logout_btn')}</button>
     </div>`;
   }else{
-    el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+    el.innerHTML=`<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">
       Log in met Google om je schema te koppelen en data te synchroniseren.
     </div>
-    <button class="btn-primary" onclick="oauthConnectFlow()">Inloggen met Google</button>`;
+    <button class="btn-google" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>`;
   }
 }
 
@@ -2247,16 +2258,40 @@ function renderConnectSection(){
 
   if(oauthActive&&!sheetId){
     el.innerHTML=`
-      <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:12px">Ingelogd als <strong>${esc(authEmail())}</strong></div>
-      <button class="btn-primary" style="margin-bottom:8px" onclick="oauthPickExisting()">Bestaand schema koppelen</button>
-      <button class="btn-secondary" onclick="oauthCreateNew()">Nieuw leeg schema aanmaken</button>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Ingelogd als <strong style="color:var(--text)">${esc(authEmail())}</strong></div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+        <button class="connect-tile primary" onclick="openImportModal('all')" style="border:none">
+          <div class="connect-tile-icon">${importSvg}</div>
+          <div class="connect-tile-body">
+            <div class="connect-tile-title">Schema importeren</div>
+            <div class="connect-tile-sub">PDF, Excel, foto of van je coach</div>
+          </div>
+          ${chevronSvg}
+        </button>
+        <button class="connect-tile" onclick="oauthPickExisting()">
+          <div class="connect-tile-icon"><svg width="20" height="20" viewBox="0 0 48 48" fill="none"><path fill="#0F9D58" d="M37 4H17l-6 6v34a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path fill="#87CEAC" d="M17 4v4a2 2 0 0 1-2 2h-4z"/><path fill="#F1F1F1" d="M33 22H15v14h18V22zm-10 12h-6v-4h6zm0-6h-6v-4h6zm8 6h-6v-4h6zm0-6h-6v-4h6z"/></svg></div>
+          <div class="connect-tile-body">
+            <div class="connect-tile-title">Bestaand schema koppelen</div>
+            <div class="connect-tile-sub">Koppel een Google Sheet die je al hebt</div>
+          </div>
+          ${chevronSvg}
+        </button>
+        <button class="connect-tile" onclick="oauthCreateNew()">
+          <div class="connect-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M10 7v6M7 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+          <div class="connect-tile-body">
+            <div class="connect-tile-title">Leeg schema aanmaken</div>
+            <div class="connect-tile-sub">Begin met een nieuw leeg schema</div>
+          </div>
+          ${chevronSvg}
+        </button>
+      </div>
       ${_devBlock()}`;
     return;
   }
 
   el.innerHTML=`
-    <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:14px">Koppel je Google Sheets trainingsschema.</div>
-    <button class="btn-primary" id="oauthConnectBtn" onclick="oauthConnectFlow()" style="width:100%;margin-bottom:8px">Koppel met Google</button>
+    <div style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px">Koppel je trainingsschema om te starten.</div>
+    <button class="btn-google" id="oauthConnectBtn" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
     ${_devBlock()}`;
 }
 
