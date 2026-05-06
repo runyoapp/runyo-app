@@ -64,11 +64,14 @@ Architectuur: `runyo.app` (apex + www) wordt geserveerd door een bestaande Cloud
 ## Fase 4 — Code updaten
 *(doe dit ná fase 2 en 3 zodat je de nieuwe waarden hebt)*
 
-- [ ] `auth.js`: `client_id` → nieuwe OAuth client ID
-- [ ] `auth.js`: redirect URI naar `https://app.runyo.app/oauth-callback.html`
-- [ ] `auth.js`: `runningx-settings.json` → `runyo-settings.json`
-- [ ] `runyo-auth/server.js`: CORS origins → `https://app.runyo.app`
-- [ ] `index.html`: controleer op hardcoded `runningx42.github.io` verwijzingen
+- [x] `auth.js`: `client_id` → nieuwe OAuth client ID (`360342745908-n5l0071j...`)
+- [x] `auth.js`: redirect URI is dynamisch (`window.location.origin + '/oauth-callback.html'`) — werkt automatisch op `app.runyo.app`
+- [x] `auth.js`: `runningx-settings.json` → `runyo-settings.json`
+- [x] `runyo-auth/server.js`: CORS origins → `https://app.runyo.app`
+- [x] `ai-proxy-endpoint.js`: ALLOWED_ORIGINS → `https://app.runyo.app` + `https://runyo.app`
+- [x] `index.html`: geen hardcoded `runningx42.github.io` verwijzingen gevonden
+- [ ] `auth.js`: `AUTH_BACKEND` → nieuwe Railway URL (na Fase 6)
+- [ ] `import-log.html`: API URL → nieuwe Railway URL (na Fase 6)
 
 ---
 

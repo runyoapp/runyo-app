@@ -4,7 +4,7 @@
 
 const GAUTH = {
   AUTH_BACKEND: 'https://runningx-auth-production.up.railway.app',
-  CLIENT_ID: '724112309611-37u5dgrvat37l81tm1lamb1mq06l8erq.apps.googleusercontent.com',
+  CLIENT_ID: '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com',
   SCOPES: [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file',
@@ -704,7 +704,7 @@ async function _getOrCreateAppDataFile(){
   try{
     const token=await authEnsureToken();
     if(!token)return null;
-    const res=await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D'runningx-settings.json'&fields=files(id)",{
+    const res=await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D'runyo-settings.json'&fields=files(id)",{
       headers:{Authorization:'Bearer '+token}
     });
     if(res.status===403){localStorage.setItem('rx_drive_scope_missing','1');return null;}
@@ -713,7 +713,7 @@ async function _getOrCreateAppDataFile(){
     const data=await res.json();
     if(data.files?.length){_appDataFileIdCache=data.files[0].id;return _appDataFileIdCache;}
     const form=new FormData();
-    form.append('metadata',new Blob([JSON.stringify({name:'runningx-settings.json',parents:['appDataFolder']})],{type:'application/json'}));
+    form.append('metadata',new Blob([JSON.stringify({name:'runyo-settings.json',parents:['appDataFolder']})],{type:'application/json'}));
     form.append('file',new Blob(['{}'],{type:'application/json'}));
     const cr=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
       method:'POST',headers:{Authorization:'Bearer '+token},body:form

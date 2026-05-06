@@ -3,7 +3,7 @@
 // Place after existing /auth/* routes.
 
 const ALLOWED_ORIGINS = new Set([
-  'https://runningx42.github.io',
+  'https://app.runyo.app',
   'https://runyo.app',
 ]);
 const _cors = (req, res) => {
