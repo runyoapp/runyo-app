@@ -3586,3 +3586,35 @@ document.addEventListener('DOMContentLoaded',()=>{
     setTimeout(()=>{hideLoading();renderActiveView();},600);
   }
 });
+
+// ── BUG9: Full sign-out — wraps authSignOut with complete schema cleanup ──────
+(function(){
+  const _orig=typeof authSignOut==='function'?authSignOut:null;
+  authSignOut=function(){
+    const email=typeof authEmail==='function'?authEmail():'';
+
+    // 1. Reset all schema-related state
+    state.data=null;state.sheetId='';state.sheetName='';state.scriptUrl='';
+    state.currentFase=null;state.weekOffset=0;state.dayOffset=0;
+    state.raceHeaderOpen=false;state.planTypeFilters=[];state.planFilterOpen=false;
+    state._prs=null;state._races=null;
+
+    // 2. Clear per-email schema localStorage
+    if(email){
+      ['schemaList_','schemaDeleted_','sheetId_','sheetTabName_','sheetFileName_','accountSnap_']
+        .forEach(k=>localStorage.removeItem(k+email));
+    }
+    ['scriptUrl','sheetName','sheetId','oauth_sheetId'].forEach(k=>localStorage.removeItem(k));
+
+    // 3. Clear rendered tab content — no stale data after logout
+    ['todayContent','weekContent','planContent','calContent'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.innerHTML='';
+    });
+    const racesBar=document.getElementById('racesBar');if(racesBar)racesBar.innerHTML='';
+    const phaseTabs=document.getElementById('phaseTabs');if(phaseTabs)phaseTabs.innerHTML='';
+
+    // 4. Call original (clears tokens, re-renders header + active view)
+    if(_orig)_orig();
+    else{showToast('Uitgelogd');renderActiveView();renderHeader();}
+  };
+})();
