@@ -13,7 +13,7 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 | Repo bot | `XBot` | `runyo-bot` |
 | Repo backend | `runningx-auth` | `runyo-auth` |
 | Repo waitlist (landing) | (alleen lokaal) | `runyo-waitlist` (public, custom domain `runyo.app`) |
-| GitHub Pages URL | `runningx42.github.io/XApp/` | `runyo.app` (waitlist) + `app.runyo.app` (app) |
+| Live hosting | `runningx42.github.io/XApp/` (GitHub Pages) | `runyo.app` via Cloudflare Worker `runyo-waitlist` (apex + www) + `app.runyo.app` via GitHub Pages (app) |
 | Railway project | persoonlijk account | project: `runyo` |
 | Railway service bot | `XBot` | `runyo-bot` |
 | Railway service backend | `runningx-auth` | `runyo-auth` |
@@ -49,17 +49,15 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## Fase 3 — GitHub repos migreren
 
-Architectuur: `runyo.app` apex = landingpage met waitlist (repo `runyo-waitlist`); `app.runyo.app` subdomein = de app (repo `runyo-app`).
+Architectuur: `runyo.app` (apex + www) wordt geserveerd door een bestaande Cloudflare Worker `runyo-waitlist` — niet via GitHub Pages. `app.runyo.app` subdomein = de app via GitHub Pages (repo `runyo-app`). De `runyoapp/runyo-waitlist` repo dient als source-of-truth voor wijzigingen aan de waitlist; live deploy gaat via de Worker.
 
 - [x] Repos clonen vanuit RunningX42 (XApp, XBot, runningx-auth, claude)
 - [x] Nieuwe repos aanmaken in org `runyoapp`: `runyo-app`, `runyo-bot`, `runyo-auth`, `runyo-waitlist`, `claude`
 - [x] Remotes overzetten en pushen naar nieuwe org (HTTPS via fine-grained PAT; lokale checkouts hebben `origin` → `runyoapp/*` en `runningx42` → oude repo als fallback)
-- [ ] GitHub Pages inschakelen op `runyo-waitlist` repo (branch `main`) → custom domain `runyo.app` (apex)
+- [x] DNS bij Cloudflare voor `app.runyo.app`: `CNAME app → runyoapp.github.io` (proxy off / DNS only) — apex blijft via Worker
 - [ ] GitHub Pages inschakelen op `runyo-app` repo (branch `main`) → custom domain `app.runyo.app`
-- [ ] DNS instellen bij domeinregistrar:
-  - Apex `runyo.app` → `A` records `185.199.108.153`, `109.153`, `110.153`, `111.153`
-  - `CNAME app` → `runyoapp.github.io`
-  - `CNAME www` → `runyoapp.github.io` (optioneel — voor `www.runyo.app` redirect naar apex)
+  - Cert provisioning duurt ~30 min na DNS prop; daarna **Enforce HTTPS** aanvinken
+- [ ] (later, niet kritiek) GitHub Actions deploy van `runyoapp/runyo-waitlist` naar de Cloudflare Worker, zodat repo en live in sync blijven
 
 ---
 
