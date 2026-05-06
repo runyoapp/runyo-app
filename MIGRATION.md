@@ -6,15 +6,16 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## 📍 Resume — laatste stand (2026-05-06)
 
-**Klaar:** Fase 0, 1, 2 (m.u.v. OAuth verificatie), 3 (m.u.v. Pages SSL cert), 4 (m.u.v. Railway URL aanpassingen).
+**Klaar:** Fase 0, 1, 2 (m.u.v. OAuth verificatie), 3 (m.u.v. Pages SSL cert), 4 (m.u.v. Railway URL aanpassingen), 6 (m.u.v. GOOGLE_CREDENTIALS + BOT_TOKEN placeholders).
 
-**Volgende keer beginnen bij: Fase 6 — Railway deployen.**
+**Volgende keer beginnen bij: Fase 7 — Telegram bot + losse eindjes.**
 
-**Leg klaar voordat je doorgaat:**
-- `GOOGLE_CLIENT_SECRET` uit OAuth client `runyo web` (https://console.cloud.google.com/auth/clients?project=runyo-app)
-- `ANTHROPIC_API_KEY` (huidige op persoonlijk account of nieuwe)
-- Het service account JSON-bestand uit Fase 2.4 (wordt env var `GOOGLE_CREDENTIALS`)
-- `BOT_SECRET` wordt tijdens Fase 6 nieuw gegenereerd
+**Open acties:**
+- [ ] Fase 7: `@BotFather` → nieuw token → instellen als `BOT_TOKEN` in `runyo-bot` Railway service
+- [ ] `GOOGLE_CREDENTIALS` invullen in `runyo-bot` (service account JSON bij desktop)
+- [ ] `auth.js` `AUTH_BACKEND` + `import-log.html` URL bijwerken naar Railway URL van `runyo-auth`
+- [ ] GitHub Pages SSL cert afwachten + **Enforce HTTPS** aanvinken
+- [ ] Fase 5: privacy policy op `app.runyo.app/privacy.html`
 
 **Loose ends — niet vergeten:**
 - [ ] GitHub Pages SSL cert op `runyoapp/runyo-app` afwachten en daarna **Enforce HTTPS** aanvinken (https://github.com/runyoapp/runyo-app/settings/pages)
@@ -120,20 +121,21 @@ Architectuur: `runyo.app` (apex + www) wordt geserveerd door een bestaande Cloud
 
 ## Fase 6 — Railway deployen
 
-- [ ] Nieuw Railway project `runyo` aanmaken
-- [ ] Service `runyo-auth` aanmaken, koppelen aan `runyoapp/runyo-auth` repo
+- [x] Nieuw Railway project `runyo` aanmaken
+- [x] Service `runyo-auth` aanmaken, koppelen aan `runyoapp/runyo-auth` repo
   ```
-  GOOGLE_CLIENT_ID=<nieuwe client id>
-  GOOGLE_CLIENT_SECRET=<nieuwe client secret>
-  ANTHROPIC_API_KEY=<huidig of nieuw>
-  BOT_SECRET=<genereer nieuw gedeeld secret>
+  GOOGLE_CLIENT_ID=✅
+  GOOGLE_CLIENT_SECRET=✅
+  ANTHROPIC_API_KEY=✅ (nieuwe key aangemaakt)
+  BOT_SECRET=✅
   ```
-- [ ] Service `runyo-bot` aanmaken, koppelen aan `runyoapp/runyo-bot` repo
+- [x] Service `runyo-bot` aanmaken, koppelen aan `runyoapp/runyo-bot` repo
   ```
-  BOT_SECRET=<zelfde als auth>
-  BACKEND_URL=https://<nieuwe runyo-auth Railway URL>
-  FALLBACK_CHAT_ID=9452843
-  GOOGLE_CREDENTIALS=<nieuwe service account JSON>
+  BOT_SECRET=✅
+  BACKEND_URL=✅
+  FALLBACK_CHAT_ID=✅
+  GOOGLE_CREDENTIALS=⏳ placeholder — invullen bij desktop
+  BOT_TOKEN=⏳ placeholder — invullen na fase 7
   ```
 - [ ] Optioneel: custom domain `api.runyo.app` voor auth backend
 
