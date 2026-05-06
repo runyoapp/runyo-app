@@ -169,9 +169,11 @@ a{color:inherit;text-decoration:none}
   cursor:pointer;transition:border-color 0.15s;
 }
 .race-chip:hover{border-color:var(--cat-race)}
+.race-chip{display:flex;align-items:stretch}
 .race-chip-main{
-  padding:12px 14px;display:flex;align-items:center;gap:10px;
+  padding:12px 14px;display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;
 }
+.race-chip-main:hover .race-chip-name{color:var(--accent)}
 .race-dot{
   width:8px;height:8px;border-radius:50%;
   background:var(--cat-race);flex-shrink:0;

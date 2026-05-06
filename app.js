@@ -271,6 +271,12 @@ const state={
   raceHeaderOpen:false,
 };
 
+// ── SVG ICONS (module scope) ──────────────────────────────────────────────────
+const googleSvg=`<svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 009 18z" fill="#34A853"/><path d="M3.97 10.71A5.41 5.41 0 013.68 9c0-.59.1-1.17.29-1.71V4.96H.96A9 9 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 009 0 9 9 0 00.96 4.96L3.97 7.3C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335"/></svg>`;
+const importSvg=`<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M5 8l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const chevronSvg=`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const gearSvg=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 const T=k=>STRINGS[state.lang]?.[k]??STRINGS.nl[k]??k;
 const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -579,11 +585,6 @@ function renderTopbarAuth(){
   const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
   const email=loggedIn&&typeof authEmail==='function'?authEmail():'';
   const initials=email?email[0].toUpperCase():'?';
-  // Settings gear icon (shown when NOT logged in, instellingen via gear)
-  const googleSvg=`<svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 009 18z" fill="#34A853"/><path d="M3.97 10.71A5.41 5.41 0 013.68 9c0-.59.1-1.17.29-1.71V4.96H.96A9 9 0 000 9c0 1.45.35 2.83.96 4.04l3.01-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 009 0 9 9 0 00.96 4.96L3.97 7.3C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335"/></svg>`;
-  const importSvg=`<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3v10M5 8l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 16h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-  const chevronSvg=`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-  const gearSvg=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
   const btnHtml=loggedIn
     ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:none;font-family:var(--font-d);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
     :`<button onclick="switchTab('settings')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center">${gearSvg}</button>
@@ -684,16 +685,18 @@ function renderRacesBar(){
   const tier=lr?.raceType==='A'||lr?.mainGoal?'A':'B';
   const open=state.raceHeaderOpen;
 
-  let h=`<div class="race-chip${open?' open':''}" onclick="toggleRaceHeader()">
-    <div class="race-chip-main">
+  let h=`<div class="race-chip${open?' open':''}">
+    <div class="race-chip-main" onclick="openDayFromRacesBar('${main.datum}')">
       <div class="race-dot"></div>
       <div class="race-chip-body">
         <div class="race-chip-name">${esc(main.titel||main.datum)}${distStr?` · ${distStr}`:''}</div>
         <div class="race-chip-meta">${main.datum?main.datum.split('-').slice(1).reverse().join(' '):''}${tier?' · '+tier+'-race':''}</div>
       </div>
       <div class="race-chip-countdown">${cd.val}<span>${cd.unit}</span></div>
-      <div class="race-chip-chevron">›</div>
-    </div>`;
+    </div>
+    <button onclick="toggleRaceHeader()" style="background:none;border:none;border-left:1px solid var(--border);padding:0 14px;cursor:pointer;align-self:stretch;display:flex;align-items:center" title="Uitklappen">
+      <div class="race-chip-chevron" style="margin:0">›</div>
+    </button>`;
 
   if(open){
     h+=`<div class="race-chip-timeline">`;
@@ -2246,9 +2249,10 @@ function renderConnectSection(){
           </div>
         </div>
         ${_driveMissing?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1">Log opnieuw in voor automatische synchronisatie naar andere apparaten.</span><button class="btn-save" onclick="authSignOut&&authSignOut();oauthConnectFlow&&oauthConnectFlow()" style="white-space:nowrap;flex-shrink:0">Opnieuw inloggen</button></div>`:''}
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
-          <button class="btn-save" onclick="toggleConnectPanel('new')">+ Nieuw schema toevoegen</button>
+          <button class="btn-save" onclick="toggleConnectPanel('new')">+ Nieuw</button>
+          <button onclick="disconnectSheet()" style="background:none;border:none;color:var(--faint);font-family:var(--font-m);font-size:10px;letter-spacing:0.5px;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:2px">Ontkoppelen</button>
         </div>
         <div id="connectPanel" style="margin-top:12px"></div>
         ${_devBlock()}`;
@@ -2612,74 +2616,184 @@ function _renderImportModal(){
   const el=document.getElementById('dayModalContent');
   if(!el)return;
   const s=state.importStep,d=state.importData;
-  const back=(toStep)=>`<button class="btn-secondary" onclick="state.importStep=${toStep};_renderImportModal()">← Terug</button>`;
+  const stepLabel=(n)=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <button onclick="state.importStep=${n-1};_renderImportModal()" style="background:none;border:none;color:var(--text);font-family:var(--font-d);font-size:13px;font-weight:500;cursor:pointer;padding:0">← Terug</button>
+    <span style="font-family:var(--font-m);font-size:11px;color:var(--muted)">${n} / 4</span>
+  </div>`;
 
+  // ── Stap 1: bestand kiezen ───────────────────────────────────────────────
   if(s===1){
-    const accept=d.type==='excel'?'.xlsx':d.type==='pdf'?'.pdf':d.type==='image'?'.jpg,.jpeg,.png':'.xlsx,.pdf,.jpg,.jpeg,.png';
-    const icon=d.type==='excel'?'📊':d.type==='pdf'?'📑':'🖼';
-    el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">1/3</span></div>
-      <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:14px">Upload je trainingsschema als ${d.type==='excel'?'Excel-bestand':d.type==='pdf'?'PDF':'afbeelding'}.</div>
-      <label style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--border);border-radius:var(--r);cursor:pointer;background:var(--surface);margin-bottom:14px">
-        <span style="font-size:32px">${icon}</span>
-        <span style="font-family:var(--font-m);font-size:11px;color:${d.fileName?'var(--text)':'var(--muted)'}">${esc(d.fileName)||'Klik om bestand te kiezen'}</span>
-        <input type="file" accept="${accept}" style="display:none" onchange="_importFileSelected(this)">
-      </label>
-      <button class="btn-primary" style="width:100%" ${d.file?'':'disabled'} onclick="_importStep1Next()">Volgende →</button>`;
+    const accept='.xlsx,.pdf,.jpg,.jpeg,.png,.csv';
+    const tiles=[
+      {type:'pdf',label:'PDF',sub:'Schema van je coach of uit een boek',icon:`<svg width="22" height="22" viewBox="0 0 20 20" fill="none"><rect x="3" y="2" width="11" height="16" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M11 2v4h4" stroke="currentColor" stroke-width="1.5"/><text x="6" y="14" font-size="6" font-weight="700" font-family="Sora" fill="currentColor">PDF</text></svg>`},
+      {type:'excel',label:'Excel / CSV',sub:'XLSX, Numbers, CSV',icon:`<svg width="22" height="22" viewBox="0 0 20 20" fill="none"><rect x="3" y="2" width="11" height="16" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M11 2v4h4M6 9h7M6 12h7M6 15h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`},
+      {type:'image',label:'Foto',sub:'Handgeschreven of screenshot — werkt ook',icon:`<svg width="22" height="22" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="11" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 5l1-2h4l1 2" stroke="currentColor" stroke-width="1.5"/></svg>`},
+    ];
+    const selectedType=d.type&&d.type!=='all'?d.type:null;
+    el.innerHTML=`
+      <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);text-align:right;margin-bottom:16px">1 / 4</div>
+      <div style="font-family:var(--font-d);font-weight:700;font-size:22px;letter-spacing:-0.03em;margin-bottom:6px">Breng je schema mee</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">Hoe heb je 'm? runyo herkent ze allemaal.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+        ${tiles.map(t=>`
+          <button class="connect-tile${selectedType===t.type?' primary':''}" onclick="state.importData.type='${t.type}';_renderImportModal()" style="${selectedType===t.type?'border:none':''}">
+            <div class="connect-tile-icon">${t.icon}</div>
+            <div class="connect-tile-body">
+              <div class="connect-tile-title">${t.label}</div>
+              <div class="connect-tile-sub">${t.sub}</div>
+            </div>
+            ${selectedType===t.type?'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l4 4 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
+          </button>`).join('')}
+      </div>
+      ${selectedType?`
+        <label style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 16px;border:2px dashed var(--border);border-radius:var(--r-lg);cursor:pointer;background:var(--surface);margin-bottom:14px;transition:border-color 0.15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <svg width="28" height="28" viewBox="0 0 26 26" fill="none"><path d="M13 4v14M7 10l6-6 6 6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 19v3h20v-3" stroke="var(--accent)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          <span style="font-family:var(--font-d);font-size:14px;font-weight:500;color:${d.fileName?'var(--text)':'var(--muted)'}">${esc(d.fileName)||'Klik om bestand te kiezen'}</span>
+          <input type="file" accept="${accept}" style="display:none" onchange="_importFileSelected(this)">
+        </label>
+        <button class="btn-primary" ${d.file?'':'disabled'} onclick="_importStep1Next()">Volgende →</button>
+      `:`<div style="text-align:center;font-size:13px;color:var(--faint);padding:8px 0">Kies eerst een bestandstype hierboven</div>`}`;
     return;
   }
 
+  // ── Stap 2: configuratie ─────────────────────────────────────────────────
   if(s===2){
     const rd=d.runDays;
-    el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">2/3</span></div>
+    el.innerHTML=`
+      ${stepLabel(2)}
+      <div style="font-family:var(--font-d);font-weight:700;font-size:22px;letter-spacing:-0.03em;margin-bottom:6px">Even instellen</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">Dan weet runyo hoe je schema in de tijd past.</div>
       <div style="margin-bottom:14px">
-        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Begindatum</div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Begindatum schema</div>
         <input type="date" class="settings-input" value="${d.startDate}" onchange="state.importData.startDate=this.value">
       </div>
       <div style="margin-bottom:14px">
-        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Hardloopdagen</div>
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Hardloopdagen</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${_IMP_DAYS.map((n,i)=>`<button onclick="_importToggleDay(${i})" style="padding:6px 10px;border-radius:4px;border:1px solid ${rd.includes(i)?'var(--accent)':'var(--border)'};background:${rd.includes(i)?'var(--accent)':'var(--surface)'};color:${rd.includes(i)?'#000':'var(--muted)'};font-family:var(--font-m);font-size:10px;cursor:pointer">${n}</button>`).join('')}
+          ${_IMP_DAYS.map((n,i)=>`<button onclick="_importToggleDay(${i})" style="padding:7px 11px;border-radius:var(--r);border:1px solid ${rd.includes(i)?'var(--accent)':'var(--border)'};background:${rd.includes(i)?'var(--accent)':'var(--surface)'};color:${rd.includes(i)?'var(--accent-ink)':'var(--muted)'};font-family:var(--font-d);font-size:13px;font-weight:${rd.includes(i)?'600':'400'};cursor:pointer;transition:all 0.12s">${n}</button>`).join('')}
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <span style="font-family:var(--font-m);font-size:11px;color:var(--text)">Rustdagen uit schema behouden</span>
-        <button onclick="_importToggleRest()" style="width:40px;height:22px;border-radius:11px;border:none;background:${d.keepRest?'var(--accent)':'var(--border)'};cursor:pointer;position:relative;flex-shrink:0">
-          <span style="position:absolute;top:3px;${d.keepRest?'left:21px':'left:3px'};width:16px;height:16px;border-radius:50%;background:${d.keepRest?'#000':'var(--surface)'}"></span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-bottom:20px">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text)">Rustdagen behouden</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Rustdagen uit je schema als aparte rijen</div>
+        </div>
+        <button onclick="_importToggleRest()" style="width:44px;height:24px;border-radius:12px;border:none;background:${d.keepRest?'var(--accent)':'var(--border)'};cursor:pointer;position:relative;flex-shrink:0;transition:background 0.15s">
+          <span style="position:absolute;top:4px;${d.keepRest?'left:23px':'left:4px'};width:16px;height:16px;border-radius:50%;background:${d.keepRest?'var(--accent-ink)':'var(--surface)'}"></span>
         </button>
       </div>
-      <div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Preview →</button></div>`;
+      <button class="btn-primary" onclick="_importStep2Next()">Schema verwerken →</button>`;
     return;
   }
 
+  // ── Stap 3: schema herkend ───────────────────────────────────────────────
   if(s===3){
-    if(d.loading){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Schema verwerken… Dit kan een aantal minuten duren.</div>`;return;}
     const _debugBlock=()=>{
       const raw=d.rawResponse||'';
       const reportBtn=`<button class="btn-secondary" style="margin-top:8px;width:100%" onclick="_importReportBug()">Fout melden (bestand + respons opsturen)</button>`;
       return`<details style="margin-top:12px"><summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);cursor:pointer;letter-spacing:1px;text-transform:uppercase">Debug — analyse respons</summary><pre style="font-family:var(--font-m);font-size:9px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px;margin-top:6px;overflow:auto;max-height:160px;white-space:pre-wrap;word-break:break-all">${esc(raw||'(leeg)')}</pre>${reportBtn}</details>`;
     };
-    if(d.error){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">${esc(d.error)}</div><div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw</button></div>${_debugBlock()}`;return;}
-    if(!d.preview?.length){el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div><div style="font-family:var(--font-m);font-size:11px;color:var(--race-text);margin-bottom:16px">Geen schema gevonden, probeer een ander bestand.</div><div style="display:flex;gap:8px">${back(1)}<button class="btn-primary" style="flex:1" onclick="_importStep2Next()">Opnieuw proberen</button></div>${_debugBlock()}`;return;}
+    if(d.loading){
+      el.innerHTML=`${stepLabel(3)}
+        <div style="text-align:center;padding:40px 0">
+          <div style="width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:spin 0.8s linear infinite"></div>
+          <div style="font-family:var(--font-d);font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">Schema verwerken…</div>
+          <div style="font-size:13px;color:var(--muted)">Dit kan een minuut duren.</div>
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
+      return;
+    }
+    if(d.error){el.innerHTML=`${stepLabel(3)}<div style="font-size:13px;color:var(--cat-race);margin-bottom:16px;padding:12px;background:rgba(200,51,107,0.06);border:1px solid rgba(200,51,107,0.2);border-radius:var(--r)">${esc(d.error)}</div><button class="btn-primary" onclick="_importStep2Next()">Opnieuw proberen</button>${_debugBlock()}`;return;}
+    if(!d.preview?.length){el.innerHTML=`${stepLabel(3)}<div style="font-size:13px;color:var(--cat-race);margin-bottom:16px">Geen schema gevonden. Probeer een ander bestand.</div><button class="btn-primary" onclick="state.importStep=1;_renderImportModal()">Ander bestand kiezen</button>${_debugBlock()}`;return;}
 
-    const rapportHtml=d.rapport?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.6"><span style="color:var(--accent);font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:9px">Importrapportage </span>${esc(d.rapport)}</div>`:'';
-    const typeEmoji={run:'🏃',work:'💼',strength:'💪',mobility:'🧘',rest:'😴',race:'🏆',recovery:'🔄'};
-    const rows=d.preview.slice(0,60).map(r=>{
-      const t=normalizeType(r.type||'rest');
-      const cfg=TYPE_DISPLAY[t]||TYPE_DISPLAY.rest;
-      return`<tr><td style="padding:4px 6px;font-family:var(--font-m);font-size:10px;color:var(--muted);white-space:nowrap">${esc(r.datum)}</td><td style="padding:4px 6px"><span style="background:${cfg.bg};color:${cfg.text};padding:2px 5px;border-radius:3px;font-family:var(--font-m);font-size:9px;white-space:nowrap">${typeEmoji[t]||''} ${t}</span></td><td style="padding:4px 6px;font-family:var(--font-m);font-size:10px;color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.titel||'')}</td><td style="padding:4px 6px;font-family:var(--font-m);font-size:10px;color:var(--muted);white-space:nowrap">${r.km!=null&&r.km!==''?r.km+' km':''}</td></tr>`;
+    // Bouw week-overzicht (groepeer per ISO-week)
+    const weekMap={};
+    d.preview.forEach(r=>{
+      const dt=new Date(r.datum+'T12:00:00');
+      const wk=dt.toISOString().slice(0,10);
+      const mon=new Date(dt);mon.setDate(dt.getDate()-(dt.getDay()+6)%7);
+      const key=mon.toISOString().slice(0,10);
+      if(!weekMap[key])weekMap[key]={key,rows:[],km:0};
+      weekMap[key].rows.push(r);
+      weekMap[key].km+=parseFloat((r.km||0).toString().replace(',','.'))||0;
+    });
+    const weeks=Object.values(weekMap).sort((a,b)=>a.key.localeCompare(b.key)).slice(0,6);
+    const totalKm=d.preview.reduce((s,r)=>s+(parseFloat((r.km||0).toString().replace(',','.'))||0),0);
+    const catColor=(type)=>{
+      const t=normalizeType(type||'rest');
+      return{run:'var(--cat-run)',strength:'var(--cat-strength)',mobility:'var(--cat-mobility)',rest:'var(--border)',race:'var(--cat-race)',recovery:'var(--cat-recovery)',work:'var(--cat-work)'}[t]||'var(--border)';
+    };
+
+    const rapportHtml=d.rapport?`
+      <div style="background:var(--accent-glow);border:1px solid rgba(0,185,142,0.2);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start">
+        <svg width="16" height="16" viewBox="0 0 16 16" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--accent)" stroke-width="1.5"/><path d="M5 8l2.5 2.5 4-5" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">${esc(d.rapport)}</div>
+      </div>`:'';
+
+    const weekBars=weeks.map((w,wi)=>{
+      const bars=w.rows.map(r=>`<div style="flex:1;height:20px;border-radius:3px;background:${catColor(r.type)}" title="${esc(r.titel||r.type)}"></div>`).join('');
+      return`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:${wi?'1px solid var(--border)':'none'}">
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);width:32px;flex-shrink:0">WK ${wi+1}</div>
+        <div style="flex:1;display:flex;gap:3px">${bars}</div>
+        <div style="font-family:var(--font-m);font-size:11px;color:var(--text2);width:44px;text-align:right">${w.km.toFixed(0)}<span style="color:var(--muted)">km</span></div>
+      </div>`;
     }).join('');
-    el.innerHTML=`<div class="modal-title">Schema importeren <span style="font-weight:400;color:var(--muted)">3/3</span></div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:8px">${d.preview.length} activiteiten gevonden${d.preview.length>60?' (eerste 60 getoond)':''}</div>
-      ${rapportHtml}
-      <div style="overflow:auto;max-height:240px;border:1px solid var(--border);border-radius:4px;margin-bottom:12px">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="position:sticky;top:0;background:var(--surface)">
-            ${['Datum','Type','Titel','Km'].map(h=>`<th style="padding:4px 6px;font-family:var(--font-m);font-size:9px;color:var(--muted);text-align:left;letter-spacing:1px;text-transform:uppercase">${h}</th>`).join('')}
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+
+    const legendItems=[['run','var(--cat-run)','Run'],['strength','var(--cat-strength)','Kracht'],['mobility','var(--cat-mobility)','Mobility'],['rest','var(--border)','Rust'],['race','var(--cat-race)','Race']];
+    const legend=legendItems.map(([,c,l])=>`<div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:2px;background:${c}"></div><span style="font-size:11px;color:var(--muted)">${l}</span></div>`).join('');
+
+    el.innerHTML=`${stepLabel(3)}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-6" stroke="var(--accent-ink)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-family:var(--font-m);font-size:11px;color:var(--accent);letter-spacing:0.06em;text-transform:uppercase">Schema herkend</div>
       </div>
-      <div style="display:flex;gap:8px">${back(2)}<button class="btn-primary" style="flex:1" onclick="_confirmImport()">Importeren</button></div>`;
+      <div style="font-family:var(--font-d);font-weight:700;font-size:20px;letter-spacing:-0.02em;margin-bottom:4px">${weeks.length} weken · ${totalKm.toFixed(0)} km totaal</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">${d.preview.length} activiteiten · ${esc(d.fileName)}</div>
+      ${rapportHtml}
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+          <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">Eerste ${weeks.length} weken</div>
+          ${d.preview.length>weeks.length*7?`<div style="font-size:11px;color:var(--muted)">+ meer</div>`:''}
+        </div>
+        ${weekBars}
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">${legend}</div>
+      <button class="btn-primary" onclick="state.importStep=4;_renderImportModal()">Klopt. ga verder →</button>
+      <div style="text-align:center;margin-top:10px">
+        <button onclick="state.importStep=2;_renderImportModal()" style="background:none;border:none;color:var(--muted);font-family:var(--font-d);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Iets aanpassen</button>
+      </div>
+      ${_debugBlock()}`;
+    return;
+  }
+
+  // ── Stap 4: bevestigen + importeren ─────────────────────────────────────
+  if(s===4){
+    el.innerHTML=`
+      ${stepLabel(4)}
+      <div style="font-family:var(--font-d);font-weight:700;font-size:22px;letter-spacing:-0.03em;margin-bottom:6px">Alles klaar</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5">Klik op importeren om je schema toe te voegen aan Google Sheets.</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:20px">
+        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Samenvatting</div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;color:var(--muted)">Bestand</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(state.importData.fileName)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;color:var(--muted)">Activiteiten</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text)">${state.importData.preview?.length||0}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0">
+          <span style="font-size:13px;color:var(--muted)">Begindatum</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text)">${state.importData.startDate}</span>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="_confirmImport()">Schema importeren →</button>
+      <div style="text-align:center;margin-top:12px">
+        <div style="font-size:11px;color:var(--faint);line-height:1.5">Het schema wordt naar je gekoppelde Google Sheet geschreven.</div>
+      </div>`;
+    return;
   }
 }
 
@@ -3014,13 +3128,14 @@ function oauthDisconnect(){
   showToast('Uitgelogd');
 }
 function disconnectSheet(){
-  // C26: disconnect but keep data
-  state.scriptUrl='';state.sheetName='';
+  // Disconnect current sheet but keep it in the schema history list
+  state.scriptUrl='';state.sheetName='';state.sheetId='';
   localStorage.removeItem('scriptUrl');localStorage.removeItem('sheetName');
-  // keep state.data in memory so existing views still work until reload
+  if(typeof authSetSheetId==='function')authSetSheetId('');
+  localStorage.removeItem('oauth_sheetId');
   renderConnectSection();
   renderHeader();
-  showToast(T('saved'));
+  showToast('Schema ontkoppeld');
 }
 
 // Telegram verify
