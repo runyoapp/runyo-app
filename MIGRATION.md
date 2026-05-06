@@ -12,7 +12,8 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 | Repo frontend | `XApp` | `runyo-app` |
 | Repo bot | `XBot` | `runyo-bot` |
 | Repo backend | `runningx-auth` | `runyo-auth` |
-| GitHub Pages URL | `runningx42.github.io/XApp/` | `runyo.app` |
+| Repo waitlist (landing) | (alleen lokaal) | `runyo-waitlist` (public, custom domain `runyo.app`) |
+| GitHub Pages URL | `runningx42.github.io/XApp/` | `runyo.app` (waitlist) + `app.runyo.app` (app) |
 | Railway project | persoonlijk account | project: `runyo` |
 | Railway service bot | `XBot` | `runyo-bot` |
 | Railway service backend | `runningx-auth` | `runyo-auth` |
@@ -48,19 +49,17 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## Fase 3 — GitHub repos migreren
 
-- [ ] Repos clonen vanuit RunningX42:
-  ```bash
-  git clone git@github.com:RunningX42/XApp.git runyo-app
-  git clone git@github.com:RunningX42/XBot.git runyo-bot
-  git clone git@github.com:RunningX42/runningx-auth.git runyo-auth
-  ```
-- [ ] Nieuwe repos aanmaken in org `runyoapp`: `runyo-app`, `runyo-bot`, `runyo-auth`
-- [ ] Remotes overzetten en pushen naar nieuwe org
-- [ ] GitHub Pages inschakelen op `runyo-app` repo (branch: `main`)
-- [ ] Custom domain instellen: `runyo.app` in GitHub Pages settings
+Architectuur: `runyo.app` apex = landingpage met waitlist (repo `runyo-waitlist`); `app.runyo.app` subdomein = de app (repo `runyo-app`).
+
+- [x] Repos clonen vanuit RunningX42 (XApp, XBot, runningx-auth, claude)
+- [x] Nieuwe repos aanmaken in org `runyoapp`: `runyo-app`, `runyo-bot`, `runyo-auth`, `runyo-waitlist`, `claude`
+- [x] Remotes overzetten en pushen naar nieuwe org (HTTPS via fine-grained PAT; lokale checkouts hebben `origin` → `runyoapp/*` en `runningx42` → oude repo als fallback)
+- [ ] GitHub Pages inschakelen op `runyo-waitlist` repo (branch `main`) → custom domain `runyo.app` (apex)
+- [ ] GitHub Pages inschakelen op `runyo-app` repo (branch `main`) → custom domain `app.runyo.app`
 - [ ] DNS instellen bij domeinregistrar:
-  - `A` records → `185.199.108.153` / `.109.153` / `.110.153` / `.111.153`
-  - `CNAME www` → `runyoapp.github.io`
+  - Apex `runyo.app` → `A` records `185.199.108.153`, `109.153`, `110.153`, `111.153`
+  - `CNAME app` → `runyoapp.github.io`
+  - `CNAME www` → `runyoapp.github.io` (optioneel — voor `www.runyo.app` redirect naar apex)
 
 ---
 
@@ -68,8 +67,9 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 *(doe dit ná fase 2 en 3 zodat je de nieuwe waarden hebt)*
 
 - [ ] `auth.js`: `client_id` → nieuwe OAuth client ID
+- [ ] `auth.js`: redirect URI naar `https://app.runyo.app/oauth-callback.html`
 - [ ] `auth.js`: `runningx-settings.json` → `runyo-settings.json`
-- [ ] `runyo-auth/server.js`: CORS origins → `https://runyo.app`
+- [ ] `runyo-auth/server.js`: CORS origins → `https://app.runyo.app`
 - [ ] `index.html`: controleer op hardcoded `runningx42.github.io` verwijzingen
 
 ---
@@ -125,19 +125,19 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## Fase 9 — Testen & cutover
 
-- [ ] App testen op `runyo.app` — login, schema koppelen, import, Telegram
+- [ ] App testen op `app.runyo.app` — login, schema koppelen, import, Telegram
+- [ ] Landing testen op `runyo.app` — Formspree waitlist submit werkt
 - [ ] Bot testen — `/start`, dagelijks bericht, feedback
 - [ ] Backend health: `https://api.runyo.app/health`
 - [ ] Oude RunningX42 setup minimaal 1 week als fallback laten staan
 
 ---
 
-## Fase 0 — Claude config repo (nu al doen)
+## Fase 0 — Claude config repo (klaar)
 
-- [ ] Repo `RunningX42/claude` aanmaken op GitHub (leeg)
-- [ ] Pushen: `cd ~/projects/claude-repo && git remote add origin git@github.com:RunningX42/claude.git && git push -u origin master`
-- [ ] Op elk nieuw device: `git clone git@github.com:RunningX42/claude.git` en agents kopiëren naar `~/.claude/agents/`
-- [ ] Na migratie: repo hernoemen naar `runyoapp/claude`
+- [x] Repo `RunningX42/claude` aangemaakt + lokale agents/ + settings gepushed
+- [x] Op deze Windows-machine: cloned + agents gekopieerd naar `~/.claude/agents/`
+- [x] In Fase 3: tweede remote naar `runyoapp/claude` toegevoegd en gepushed (geen rename — RunningX42 blijft als fallback)
 
 ---
 
