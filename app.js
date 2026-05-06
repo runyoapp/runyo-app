@@ -581,9 +581,9 @@ function renderTopbarAuth(){
   // Settings gear icon (shown when NOT logged in, instellingen via gear)
   const gearSvg=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
   const btnHtml=loggedIn
-    ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#000;border:none;font-family:var(--font-d);font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
+    ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:none;font-family:var(--font-d);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
     :`<button onclick="switchTab('settings')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center">${gearSvg}</button>
-      <button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:7px 14px;font-family:var(--font-m);font-size:10px;font-weight:700;letter-spacing:0.5px;border-radius:6px;cursor:pointer">Inloggen</button>`;
+      <button onclick="oauthConnectFlow()" style="background:var(--accent);color:var(--accent-ink);border:none;padding:7px 14px;font-family:var(--font-d);font-size:13px;font-weight:600;letter-spacing:-0.01em;border-radius:6px;cursor:pointer">Inloggen</button>`;
   const el=document.getElementById('topbarAuth');
   const el2=document.getElementById('topbarAuthDesktop');
   if(el)el.innerHTML=btnHtml;
@@ -841,7 +841,7 @@ function noSchemaHint(){
     <div style="font-size:32px;margin-bottom:12px;opacity:0.4">🏃</div>
     <div style="font-family:var(--font-d);font-weight:800;font-size:22px;margin-bottom:8px">Login om te starten</div>
     <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.6">Log in met je Google-account om je trainingsschema te koppelen.</div>
-    <button onclick="oauthConnectFlow()" style="background:var(--accent);color:#000;border:none;padding:12px 24px;font-family:var(--font-m);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:6px;cursor:pointer">Inloggen met Google</button>
+    <button onclick="oauthConnectFlow()" style="background:var(--accent);color:var(--accent-ink);border:none;padding:12px 24px;font-family:var(--font-m);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:6px;cursor:pointer">Inloggen met Google</button>
   </div>`;
 }
 
@@ -1768,7 +1768,7 @@ function renderCalendar(){
   const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
   let h=`<div class="page-title" style="padding:14px 20px 4px">
     <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
-    <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:#000;cursor:pointer;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;border-radius:999px">+ Race</button>
+    <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:var(--accent-ink);cursor:pointer;font-family:var(--font-d);font-weight:700;font-size:13px;letter-spacing:-0.01em;border-radius:999px">+ Race</button>
   </div>
   <div style="padding:8px 20px 0">
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
@@ -2288,7 +2288,7 @@ async function _syncSettingsToAccount(){
   const snap={
     prs:localStorage.getItem('prs')||'{}',
     lang:localStorage.getItem('lang')||'nl',
-    theme:localStorage.getItem('theme')||'dark',
+    theme:localStorage.getItem('theme')||'light',
     telegramUser:localStorage.getItem('telegramUser')||'',
     notifPrefs:localStorage.getItem('notifPrefs')||'{}',
     schemaList:localStorage.getItem('schemaList_'+email)||'[]',
@@ -2428,7 +2428,7 @@ function toggleConnectPanel(panel){
         ${_foot('Leeg')}
       </button>
       <button onclick="toggleConnectPanel('url')" style="${_tileBase}border-color:rgba(198,242,78,0.35);background:linear-gradient(180deg,rgba(198,242,78,0.05),var(--surface) 70%);position:relative">
-        <span style="position:absolute;top:-8px;right:12px;padding:2px 8px;border-radius:999px;background:var(--accent);color:#000;font-family:var(--font-m);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Aanbevolen</span>
+        <span style="position:absolute;top:-8px;right:12px;padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-family:var(--font-m);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Aanbevolen</span>
         <div style="${_iconWrap}padding:4px">${_sheetsIcon}</div>
         <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Koppel Google Sheets URL</div>
         <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Plak een URL van een bestaande sheet. Wijzigingen verschijnen direct.</div>

@@ -6,19 +6,19 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="runyo">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#0E1F1A">
   <title>runyo</title>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-logo">RUNNING<span>X</span></div>
-  <div class="loading-sub" id="loadingSub">Laden...</div>
+  <div class="loading-logo">run<span>yo</span></div>
+  <div class="loading-sub" id="loadingSub">laden...</div>
   <div class="loading-bar"><div class="loading-bar-fill"></div></div>
 </div>
 
@@ -43,7 +43,7 @@
 <div class="onboarding-overlay" id="onboarding" style="display:none" onclick="onboardingOverlayClick(event)">
   <div class="onboarding-sheet" id="onboardingSheet">
     <div class="ob-header">
-      <div class="ob-logo">RUNNING<span>X</span></div>
+      <div class="ob-logo">run<span>yo</span></div>
       <button class="ob-skip" onclick="onboardingFinish()">Overslaan</button>
     </div>
     <div id="onboardingStep1">
@@ -99,8 +99,7 @@
 <div class="bottom-nav" id="bottomNav">
   <!-- Desktop sidebar logo -->
   <div class="sb-logo">
-    <div class="sb-logo-dot"></div>
-    <div class="sb-logo-text"><span class="sl-running">RUNNING</span><span class="sl-x">X</span></div>
+    <div class="sb-logo-wordmark">run<span>yo</span></div>
   </div>
   <div class="bn-pill">
     <span class="sb-section-label">SCHEMA</span>
@@ -134,7 +133,7 @@
 <div class="app">
 
   <div class="topbar">
-    <div class="topbar-logo"><span class="logo-running">RUNNING</span><span class="logo-x">X</span></div>
+    <div class="topbar-logo">run<span class="logo-x">yo</span></div>
     <div style="flex:1"></div>
     <div id="topbarAuth" style="display:flex;align-items:center;gap:8px"></div>
     <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
@@ -147,9 +146,9 @@
 
   <div class="desktop-topbar" id="desktopTopbar" style="display:none">
     <div class="dt-breadcrumb">
-      <span>RUNNINGX</span>
+      <span>runyo</span>
       <span class="dt-sep">/</span>
-      <span>SCHEMA</span>
+      <span>schema</span>
       <span class="dt-sep">/</span>
       <strong id="dtCurrentTab">VANDAAG</strong>
     </div>
@@ -245,7 +244,7 @@
               <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
             </div>
           </div>
-          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">runyo v3.39.0</div>
+          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">runyo v3.40.0</div>
         </div>
       </div>
 
