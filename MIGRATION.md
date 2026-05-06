@@ -19,6 +19,7 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
 | Google Cloud project | persoonlijk project | `runyo-app` |
 | Google service account | persoonlijk | `bot@runyo-app.iam.gserviceaccount.com` |
 | Drive settings bestand | `runningx-settings.json` | `runyo-settings.json` |
+| Claude config repo | `RunningX42/claude` | `runyo-app/claude` |
 
 ---
 
@@ -124,6 +125,15 @@ Migratie van RunningX42 (persoonlijk) naar luuk@runyo.app account.
 - [ ] Bot testen — `/start`, dagelijks bericht, feedback
 - [ ] Backend health: `https://api.runyo.app/health`
 - [ ] Oude RunningX42 setup minimaal 1 week als fallback laten staan
+
+---
+
+## Fase 0 — Claude config repo (nu al doen)
+
+- [ ] Repo `RunningX42/claude` aanmaken op GitHub (leeg)
+- [ ] Pushen: `cd ~/projects/claude-repo && git remote add origin git@github.com:RunningX42/claude.git && git push -u origin master`
+- [ ] Op elk nieuw device: `git clone git@github.com:RunningX42/claude.git` en agents kopiëren naar `~/.claude/agents/`
+- [ ] Na migratie: repo hernoemen naar `runyo-app/claude`
 
 ---
 
