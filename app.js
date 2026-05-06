@@ -3598,6 +3598,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.currentFase=null;state.weekOffset=0;state.dayOffset=0;
     state.raceHeaderOpen=false;state.planTypeFilters=[];state.planFilterOpen=false;
     state._prs=null;state._races=null;
+    localStorage.removeItem('userRaces');
 
     // 2. Clear per-email schema localStorage
     if(email){
