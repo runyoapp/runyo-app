@@ -4,6 +4,40 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ---
 
+## 📍 Resume — laatste stand (2026-05-06)
+
+**Klaar:** Fase 0, 1, 2 (m.u.v. OAuth verificatie), 3 (m.u.v. Pages SSL cert), 4 (m.u.v. Railway URL aanpassingen).
+
+**Volgende keer beginnen bij: Fase 6 — Railway deployen.**
+
+**Leg klaar voordat je doorgaat:**
+- `GOOGLE_CLIENT_SECRET` uit OAuth client `runyo web` (https://console.cloud.google.com/auth/clients?project=runyo-app)
+- `ANTHROPIC_API_KEY` (huidige op persoonlijk account of nieuwe)
+- Het service account JSON-bestand uit Fase 2.4 (wordt env var `GOOGLE_CREDENTIALS`)
+- `BOT_SECRET` wordt tijdens Fase 6 nieuw gegenereerd
+
+**Loose ends — niet vergeten:**
+- [ ] GitHub Pages SSL cert op `runyoapp/runyo-app` afwachten en daarna **Enforce HTTPS** aanvinken (https://github.com/runyoapp/runyo-app/settings/pages)
+- [ ] Na Fase 6: `auth.js` `AUTH_BACKEND` + `import-log.html` debug-log URL bijwerken naar nieuwe Railway URL voor `runyo-auth`
+- [ ] Fase 5 (privacy policy op `app.runyo.app/privacy.html`) + Fase 8 (Formspree formulier ID is al `xaqvjzna` in `runyo-waitlist`) parallel of na Fase 6/7/9
+- [ ] OAuth verificatie aanvragen (Fase 2 laatste open punt) — kan pas na privacy policy live
+- [ ] PAT `github_pat_11CDJFI6Q…` revoken op github.com/settings/tokens zodra migratie volledig klaar is
+
+**Architectuur recap:**
+- `runyo.app` (apex + www) → Cloudflare Worker `runyo-waitlist` (al live, ongewijzigd)
+- `app.runyo.app` → GitHub Pages voor `runyoapp/runyo-app`
+- `api.runyo.app` (optioneel later) → Railway service `runyo-auth`
+- Telegram: `@runyobot` (nog aan te maken in Fase 7)
+
+**Lokale checkouts (Windows machine):**
+- `C:\Users\Luuk\projects\XApp` — origin = `runyoapp/runyo-app`, fallback `runningx42`
+- `C:\Users\Luuk\projects\XBot` — origin = `runyoapp/runyo-bot`, fallback `runningx42`
+- `C:\Users\Luuk\projects\runningx-auth` — origin = `runyoapp/runyo-auth`, fallback `runningx42`
+- `C:\Users\Luuk\projects\claude` — origin = `runyoapp/claude` (master), fallback `runningx42`
+- `C:\Users\Luuk\projects\runyo-waitlist` — origin = `runyoapp/runyo-waitlist`
+
+---
+
 ## Naamgeving (overal consistent)
 
 | Wat | Oud | Nieuw |
