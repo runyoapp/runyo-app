@@ -28,7 +28,7 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 - `runyo.app` (apex + www) → Cloudflare Worker `runyo-waitlist` (al live, ongewijzigd)
 - `app.runyo.app` → GitHub Pages voor `runyoapp/runyo-app`
 - `api.runyo.app` (optioneel later) → Railway service `runyo-auth`
-- Telegram: `@runyobot` (nog aan te maken in Fase 7)
+- Telegram: `@runyo_appbot` (nog aan te maken in Fase 7)
 
 **Lokale checkouts (Windows machine):**
 - `C:\Users\Luuk\projects\XApp` — origin = `runyoapp/runyo-app`, fallback `runningx42`
@@ -149,7 +149,7 @@ Architectuur: `runyo.app` (apex + www) wordt geserveerd door een bestaande Cloud
   - Bot username: `runyobot` (moet eindigen op `bot`, lowercase)
   - Token noteren
 - [ ] Token instellen als Railway env var `BOT_TOKEN` voor service `runyo-bot`
-- [ ] Bot username vastgelegd: `@runyobot`
+- [ ] Bot username vastgelegd: `@runyo_appbot`
 
 ---
 
