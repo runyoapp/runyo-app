@@ -260,7 +260,7 @@ async function createNewSheet(){
     method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
     body:JSON.stringify({
-      properties:{title:`runyo — Trainingsschema ${today}`},
+      properties:{title:`runyo schema ${today}`},
       sheets:[{properties:{title:'Schema',index:0}}],
     }),
   });
@@ -283,7 +283,7 @@ async function createNewSheet(){
     {updateDimensionProperties:{range:{sheetId:tabId,dimension:'COLUMNS',startIndex:7,endIndex:11},properties:{hiddenByUser:true},fields:'hiddenByUser'}},
   ]});
   authSetSheetId(newId);
-  return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo — Trainingsschema ${today}`};
+  return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo schema ${today}`};
 }
 
 // ── Add missing columns to existing sheet ────────────────────────────────────

@@ -1,11 +1,12 @@
 // ── ACTIVITY DATA MODEL ───────────────────────────────────────────────────────
 // Canonical activity enum (English)
-const ACTIVITY_ENUM=['run','work','strength','mobility','rest','race','recovery'];
+const ACTIVITY_ENUM=['run','work','strength','mobility','rest','race','recovery','swim','bike','gym'];
 
 // Dutch → English normalization map (backward compat with sheet values)
 const TYPE_NL_MAP={
   werk:'work', rust:'rest', kracht:'strength',
   mobiliteit:'mobility', herstel:'recovery',
+  zwemmen:'swim', fietsen:'bike',
 };
 
 // Normalize a raw type string from the sheet to canonical enum value
@@ -24,12 +25,17 @@ const TYPE_DISPLAY={
   rest:    {bg:'var(--rest-bg)',   text:'var(--rest-text)',   i18n:'type_rust'},
   race:    {bg:'var(--race-bg)',   text:'var(--race-text)',   i18n:'type_race'},
   recovery:{bg:'var(--herstel-bg)',text:'var(--herstel-text)',i18n:'type_herstel'},
+  swim:    {bg:'var(--swim-bg)',   text:'var(--swim-text)',   i18n:'type_swim'},
+  bike:    {bg:'var(--bike-bg)',   text:'var(--bike-text)',   i18n:'type_bike'},
+  gym:     {bg:'var(--gym-bg)',    text:'var(--gym-text)',    i18n:'type_gym'},
   // Dutch aliases for backward compat
   werk:    {bg:'var(--work-bg)',   text:'var(--work-text)',   i18n:'type_werk'},
   kracht:  {bg:'var(--str-bg)',    text:'var(--str-text)',    i18n:'type_kracht'},
   mobiliteit:{bg:'var(--mob-bg)', text:'var(--mob-text)',    i18n:'type_mob'},
   rust:    {bg:'var(--rest-bg)',   text:'var(--rest-text)',   i18n:'type_rust'},
   herstel: {bg:'var(--herstel-bg)',text:'var(--herstel-text)',i18n:'type_herstel'},
+  zwemmen: {bg:'var(--swim-bg)',   text:'var(--swim-text)',   i18n:'type_swim'},
+  fietsen: {bg:'var(--bike-bg)',   text:'var(--bike-text)',   i18n:'type_bike'},
 };
 
 // Normalize distance: "10km" → 10, "800 m" → 0.8, "10" → 10
@@ -64,6 +70,9 @@ const ACTIVITY_OPTIONS=[
   {value:'rest',     sheet:'rust',       nl:'Rust'},
   {value:'race',     sheet:'race',       nl:'Race'},
   {value:'recovery', sheet:'herstel',    nl:'Herstel'},
+  {value:'swim',     sheet:'zwemmen',    nl:'Zwemmen'},
+  {value:'bike',     sheet:'fietsen',    nl:'Fietsen'},
+  {value:'gym',      sheet:'gym',        nl:'Gym'},
 ];
 // Map canonical type back to Dutch sheet value
 function toSheetType(canonical){
@@ -173,7 +182,7 @@ const STRINGS={
     select_score:'Selecteer eerst een score',
     week_km:'km gepland',week_sessions:'sessies',week_werk:'werkdagen',
     week_progress:'Weekvoortgang',week_done:'gedaan',week_feedback:'feedback',week_todo:'Nog te doen',
-    type_run:'Hardlopen',type_kracht:'Kracht',type_mob:'Mobiliteit',type_race:'Race',type_werk:'Werk',type_rust:'Rust',type_herstel:'Herstel',
+    type_run:'Hardlopen',type_kracht:'Kracht',type_mob:'Mobiliteit',type_race:'Race',type_werk:'Werk',type_rust:'Rust',type_herstel:'Herstel',type_swim:'Zwemmen',type_bike:'Fietsen',type_gym:'Gym',
     days_ago:'geweest',days_today:'Vandaag!',days_label:'dagen',weeks_label:'weken',months_label:'maanden',
     hm:'Halve marathon',marathon:'Marathon',other_dist:'Vrij invoer',
     stats_total:'Totaal km',stats_done:'km in plan',stats_days:'Dagen tot race',
@@ -220,7 +229,7 @@ const STRINGS={
     select_score:'Select a score first',
     week_km:'km planned',week_sessions:'sessions',week_werk:'work days',
     week_progress:'Week progress',week_done:'done',week_feedback:'feedback',week_todo:'Still to do',
-    type_run:'Running',type_kracht:'Strength',type_mob:'Mobility',type_race:'Race',type_werk:'Work',type_rust:'Rest',type_herstel:'Recovery',
+    type_run:'Running',type_kracht:'Strength',type_mob:'Mobility',type_race:'Race',type_werk:'Work',type_rust:'Rest',type_herstel:'Recovery',type_swim:'Swimming',type_bike:'Cycling',type_gym:'Gym',
     days_ago:'past',days_today:'Today!',days_label:'days',weeks_label:'weeks',months_label:'months',
     hm:'Half marathon',marathon:'Marathon',other_dist:'Custom',
     stats_total:'Total km',stats_done:'km in plan',stats_days:'Days to race',
@@ -1074,8 +1083,8 @@ function renderPlan(){
   const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
   const phaseTabs=document.getElementById('phaseTabs');
 
-  // C49: type filter state
-  if(!state.planTypeFilter)state.planTypeFilter='all';
+  // C49: multi-select type filter state
+  if(!state.planTypeFilters)state.planTypeFilters=[];
 
   if(faseValues.length>0){
     // Determine active fase
@@ -1096,8 +1105,9 @@ function renderPlan(){
     // Floating fase badge (top-right sticky)
     const faseBadge=`<div class="fase-badge" id="faseBadge">${esc(activeFase)}</div>`;
 
-    const filteredRows=state.planTypeFilter&&state.planTypeFilter!=='all'
-      ?allRows.filter(r=>r.fase===activeFase&&hasType(r.type,state.planTypeFilter))
+    const _tf=state.planTypeFilters||[];
+    const filteredRows=_tf.length
+      ?allRows.filter(r=>r.fase===activeFase&&_tf.some(f=>hasType(r.type,f)))
       :allRows.filter(r=>r.fase===activeFase);
     renderPlanRows(filteredRows,t,faseBadge);
   }else{
@@ -1134,6 +1144,14 @@ function renderPlanWithoutData(t){
   document.getElementById('planContent').innerHTML=h;
 }
 
+function _togglePlanFilter(type){
+  if(!state.planTypeFilters)state.planTypeFilters=[];
+  const idx=state.planTypeFilters.indexOf(type);
+  if(idx>=0)state.planTypeFilters.splice(idx,1);
+  else state.planTypeFilters.push(type);
+  renderPlan();
+}
+
 function selectFase(btn,fase){
   state.currentFase=fase;
   document.querySelectorAll('#phaseTabs .phase-tile').forEach(b=>b.classList.toggle('active',b.dataset.fase===fase));
@@ -1145,28 +1163,29 @@ function renderPlanRows(rows,t,faseBadge=''){
   const el=document.getElementById('planContent');
   if(!rows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;return;}
 
-  // C49: filter behind icon, deselectable
-  const activeTypes=[...new Set(rows.map(r=>r.type).filter(Boolean))];
+  // C49: multi-select filter behind icon
+  const activeTypes=[...new Set(rows.map(r=>normalizeType(r.type||'rest')).filter(t=>t&&t!=='rest'&&t!=='work'))];
+  const _tf=state.planTypeFilters||[];
   const filterOpen=state.planFilterOpen||false;
-  let filterH=`<div style="display:flex;justify-content:flex-end;margin-bottom:${filterOpen?'8':'0'}px">
-    <button onclick="state.planFilterOpen=!state.planFilterOpen;renderPlan()" style="background:${state.planTypeFilter&&state.planTypeFilter!=='all'?'var(--accent)':'none'};border:1px solid ${state.planTypeFilter&&state.planTypeFilter!=='all'?'var(--accent)':'var(--border)'};padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;color:${state.planTypeFilter&&state.planTypeFilter!=='all'?'#000':'var(--muted)'};-webkit-tap-highlight-color:transparent">
+  const filterActive=_tf.length>0;
+  let filterH=`<div style="display:flex;justify-content:flex-end;margin-bottom:${filterOpen?'8':'0'}px;gap:6px;align-items:center">
+    ${filterActive?`<button onclick="state.planTypeFilters=[];renderPlan()" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px">wis filter</button>`:''}
+    <button onclick="state.planFilterOpen=!state.planFilterOpen;renderPlan()" style="background:${filterActive?'var(--accent)':'none'};border:1px solid ${filterActive?'var(--accent)':'var(--border)'};padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;color:${filterActive?'var(--accent-ink)':'var(--muted)'};border-radius:var(--r);-webkit-tap-highlight-color:transparent">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="3,4 21,4 14,12 14,20 10,18 10,12"/></svg>
-      ${state.planTypeFilter&&state.planTypeFilter!=='all'?T(TYPES[state.planTypeFilter]?.i18n||state.planTypeFilter):''}
+      ${filterActive?`${_tf.length} filter${_tf.length>1?'s':''}`:T('filter')||'Filter'}
     </button>
   </div>`;
   if(filterOpen&&activeTypes.length>1){
     filterH+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
     activeTypes.forEach(tp=>{
-      const active=state.planTypeFilter===tp;
+      const active=_tf.includes(tp);
       const label=T(TYPES[tp]?.i18n||tp);
-      // Clicking active filter deselects it
-      const onclick=active?`state.planTypeFilter='all';renderPlan()`:`state.planTypeFilter='${tp}';renderPlan()`;
-      filterH+=`<button onclick="${onclick}" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:${active?'var(--accent)':'var(--surface)'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'#000':'var(--muted)'};font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent">${RXIcon(tp,14,active?'#000':'var(--muted)',active?'#000':'var(--accent)')}${label}</button>`;
+      filterH+=`<button onclick="_togglePlanFilter('${tp}')" style="display:flex;align-items:center;gap:4px;padding:5px 10px;background:${active?'var(--accent)':'var(--surface)'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'var(--accent-ink)':'var(--muted)'};font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:var(--r);-webkit-tap-highlight-color:transparent">${label}</button>`;
     });
     filterH+='</div>';
   }
 
-  let h=(faseBadge||'')+filterH;
+  let h=`<div class="plan-content-wrap">${faseBadge||''}${filterH}`;
   let lastFase=null;
 
   // swipe + scroll container
@@ -1238,7 +1257,7 @@ function renderPlanRows(rows,t,faseBadge=''){
     }
   }
 
-  h+='</div></div>'; // close swipe-inner + swipe-wrapper
+  h+='</div></div></div>'; // close swipe-inner + swipe-wrapper + plan-content-wrap
   el.innerHTML=h;
   requestAnimationFrame(()=>{
     el.querySelector('.is-today')?.scrollIntoView({behavior:'smooth',block:'center'});
@@ -2176,7 +2195,9 @@ function renderAccountSection(){
     el.innerHTML=`<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">
       Log in met Google om je schema te koppelen en data te synchroniseren.
     </div>
-    <button class="btn-google" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>`;
+    <div style="max-width:260px">
+      <button class="btn-google" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
+    </div>`;
   }
 }
 
@@ -2295,7 +2316,9 @@ function renderConnectSection(){
 
   el.innerHTML=`
     <div style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px">Koppel je trainingsschema om te starten.</div>
-    <button class="btn-google" id="oauthConnectBtn" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
+    <div style="max-width:260px">
+      <button class="btn-google" id="oauthConnectBtn" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
+    </div>
     ${_devBlock()}`;
 }
 
@@ -2444,6 +2467,69 @@ function _restoreSettingsFromAccount(email){
     }
   }catch(e){}
 }
+function _editSchemaModal(sheetId, name){
+  const isAppCreated=!!localStorage.getItem('driveFileName_'+sheetId);
+  const modal=document.getElementById('dayModal');
+  const el=document.getElementById('dayModalContent');
+  modal.classList.add('open');
+  el.innerHTML=`
+    <div class="modal-title">Schema bewerken</div>
+    <div style="margin-bottom:14px">
+      <label class="settings-label">Naam</label>
+      <input type="text" id="schemaEditName" class="settings-input" value="${esc(name)}" style="margin-top:4px">
+    </div>
+    <button class="btn-primary" onclick="_saveSchemaName('${sheetId}')">Opslaan</button>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Schema ontkoppelen verwijdert het uit je lijst, maar het Google Sheet blijft bestaan.</div>
+      ${isAppCreated?`<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer">
+        <input type="checkbox" id="driveTrashCheck" style="width:16px;height:16px;accent-color:var(--cat-race)">
+        <span style="font-size:12px;color:var(--text)">Ook verwijderen uit Google Drive</span>
+      </label>`:''}
+      <button onclick="_deleteSchemaWithOptions('${sheetId}')" style="background:none;border:1px solid rgba(200,51,107,0.4);color:var(--cat-race);font-family:var(--font-d);font-size:13px;font-weight:500;padding:8px 14px;border-radius:var(--r);cursor:pointer;width:100%">
+        Schema verwijderen uit lijst
+      </button>
+    </div>`;
+}
+
+function _saveSchemaName(sheetId){
+  const input=document.getElementById('schemaEditName');
+  const newName=input?.value?.trim();
+  if(!newName)return;
+  const email=typeof authEmail==='function'?authEmail():'';
+  const list=typeof _getSchemaList==='function'?_getSchemaList(email):[];
+  const entry=list.find(s=>s.id===sheetId);
+  if(entry){
+    entry.name=newName;
+    localStorage.setItem('schemaList_'+email,JSON.stringify(list));
+    localStorage.setItem('driveFileName_'+sheetId,newName);
+    if(email)localStorage.setItem('sheetFileName_'+email,newName);
+    _syncSettingsToAccount();
+  }
+  closeDayModal();
+  loadSheetPickerInline();
+  showToast('Naam opgeslagen');
+}
+
+async function _deleteSchemaWithOptions(sheetId){
+  const trash=document.getElementById('driveTrashCheck')?.checked;
+  const email=typeof authEmail==='function'?authEmail():'';
+  _deleteFromSchemaList(email,sheetId);
+  _syncSettingsToAccount();
+  if(trash){
+    try{
+      const token=await authEnsureToken();
+      await fetch(`https://www.googleapis.com/drive/v3/files/${sheetId}/trash`,{
+        method:'POST',headers:{Authorization:'Bearer '+token}
+      });
+      showToast('Schema verwijderd uit Drive');
+    }catch(e){showToast('Schema uit lijst verwijderd (Drive mislukt)');}
+  }else{
+    showToast('Schema uit lijst verwijderd');
+  }
+  closeDayModal();
+  loadSheetPickerInline();
+}
+
 function _confirmDeleteSchema(sheetId){
   const btns=document.querySelectorAll(`[data-trash="${sheetId}"]`);
   const btn=btns[0];
@@ -2574,11 +2660,11 @@ async function loadSheetPickerInline(){
   const rows=filtered.map(s=>{
     const isActive=s.id===currentId;
     return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
-      <button onclick="_saveSchemaHistory('${s.id}','${esc(s.name)}','${esc(s.url||'')}');oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid ${isActive?'var(--run-text)':'var(--border)'};border-radius:4px;cursor:pointer;text-align:left;flex:1;min-width:0">
-        <div style="width:7px;height:7px;border-radius:50%;background:${isActive?'var(--run-text)':'var(--faint)'};flex-shrink:0"></div>
-        <span style="font-family:var(--font-m);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(s.name||s.id)}</span>
+      <button onclick="_saveSchemaHistory('${s.id}','${esc(s.name)}','${esc(s.url||'')}');oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid ${isActive?'var(--cat-run)':'var(--border)'};border-radius:var(--r);cursor:pointer;text-align:left;flex:1;min-width:0">
+        <div style="width:7px;height:7px;border-radius:50%;background:${isActive?'var(--cat-run)':'var(--faint)'};flex-shrink:0"></div>
+        <span style="font-family:var(--font-d);font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(s.name||s.id)}</span>
       </button>
-      <button data-trash="${s.id}" onclick="_confirmDeleteSchema('${s.id}')" style="background:none;border:1px solid var(--border);color:var(--faint);cursor:pointer;padding:5px 9px;border-radius:4px;flex-shrink:0;font-size:13px;line-height:1" title="Verwijderen">🗑</button>
+      <button onclick="_editSchemaModal('${s.id}','${esc(s.name)}')" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:5px 9px;border-radius:var(--r);flex-shrink:0;font-size:13px;line-height:1" title="Bewerken">✏</button>
     </div>`;
   }).join('');
   const target=document.getElementById('connectPanel')||el;
@@ -2674,11 +2760,14 @@ function _renderImportModal(){
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--border);margin-bottom:20px">
-        <div>
-          <div style="font-size:13px;font-weight:500;color:var(--text)">Rustdagen behouden</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">Rustdagen uit je schema als aparte rijen</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:13px;font-weight:500;color:var(--text)">Rustdagen behouden</div>
+            <button onclick="_toggleRustTooltip()" style="background:var(--surface);border:1px solid var(--border);border-radius:50%;width:18px;height:18px;font-size:10px;color:var(--muted);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1" title="Uitleg">i</button>
+          </div>
+          <div id="rustTooltip" style="display:none;margin-top:6px;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;line-height:1.5">Staat dit aan, dan worden rustdagen uit je originele schema overgenomen op dezelfde positie. Zet uit als je zelf wil bepalen wanneer je rust.</div>
         </div>
-        <button onclick="_importToggleRest()" style="width:44px;height:24px;border-radius:12px;border:none;background:${d.keepRest?'var(--accent)':'var(--border)'};cursor:pointer;position:relative;flex-shrink:0;transition:background 0.15s">
+        <button onclick="_importToggleRest()" style="width:44px;height:24px;border-radius:12px;border:none;background:${d.keepRest?'var(--accent)':'var(--border)'};cursor:pointer;position:relative;flex-shrink:0;transition:background 0.15s;margin-left:12px">
           <span style="position:absolute;top:4px;${d.keepRest?'left:23px':'left:4px'};width:16px;height:16px;border-radius:50%;background:${d.keepRest?'var(--accent-ink)':'var(--surface)'}"></span>
         </button>
       </div>
@@ -2812,10 +2901,16 @@ function _importToggleDay(i){
   _renderImportModal();
 }
 function _importToggleRest(){state.importData.keepRest=!state.importData.keepRest;_renderImportModal();}
+function _toggleRustTooltip(){const t=document.getElementById('rustTooltip');if(t)t.style.display=t.style.display==='none'?'block':'none';}
 
 async function _importStep2Next(){
   state.importStep=3;
-  Object.assign(state.importData,{loading:true,error:null,preview:null});
+  const d0=state.importData;
+  Object.assign(d0,{loading:true,error:null,preview:null,importStartTs:new Date().toISOString()});
+  // G17: start log entry before AI call
+  _importSendLog({ts:d0.importStartTs,success:null,phase:'start',
+    fileName:d0.file?.name||'',fileType:d0.type||'',fileSize:d0.file?.size||0,
+    settings:{startDate:d0.startDate,runDays:d0.runDays,keepRest:d0.keepRest}});
   _renderImportModal();
   try{await _runImportAI();}
   catch(e){
@@ -2827,7 +2922,7 @@ async function _importStep2Next(){
       fileName:d.file?.name||'',fileType:d.type||'',fileSize:d.file?.size||0,
       settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
       rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
-      tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
+      tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,estimatedCostEur:d.estimatedCostEur||null,
       error:e.message||'Verwerking mislukt',fileBase64:d2.fileBase64||'',client:_importClientInfo(),
     });
   }
@@ -2918,7 +3013,7 @@ Regels (strikt):
 7. km: gebruik expliciete afstanden. Ranges zonder afstand → null. Miles × 1.609, afronden op 1 decimaal.
 8. Output: chronologisch, één entry per dag, geen dubbele datums.
 
-Schrijf eerst een TITEL: van maximaal 30 tekens — de naam van het schema zoals in het bestand staat (bijv. "ASICS 18-weken marathon"). Dan een RAPPORT: van 3-30 zinnen in gewone taal. Beschrijf: doel/afstand, totaal aantal weken, loopsessies per week, hoe het weekvolume oploopt (begin en piek km/week), taperweken, kracht/mobiliteit indien aanwezig. Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
+Schrijf eerst een TITEL: van maximaal 30 tekens — de naam van het schema zoals in het bestand staat (bijv. "ASICS 18-weken marathon"). Dan een RAPPORT: van maximaal 5 korte zinnen in gewone taal. Schrijf alsof je het uitlegt aan de gebruiker: wat het doel is, hoeveel weken, hoeveel hardloopsessies per week, hoe het volume opbouwt en of er een taperfase is. Geen technische velden, geen interne labels. Daarna DIRECT de JSON array op een nieuwe regel, geen markdown, geen \`\`\`json, geen extra tekst voor of na de array.`,
       messages:[{role:'user',content:userContent}],
     }),
   });
@@ -2929,6 +3024,12 @@ Schrijf eerst een TITEL: van maximaal 30 tekens — de naam van het schema zoals
   state.importData.rawResponse=raw;
   state.importData.tokenUsage=json.usage||null;
   state.importData.aiDuration=Date.now()-(state.importData.aiStart||Date.now());
+  // G18: estimate cost
+  if(json.usage){
+    const inp=(json.usage.input_tokens||0)/1e6*3;
+    const out=(json.usage.output_tokens||0)/1e6*15;
+    state.importData.estimatedCostEur=+(inp+out).toFixed(4);
+  }
   // Extract TITEL: and RAPPORT:
   const titelMatch=raw.match(/TITEL\s*:\s*([^\n\r]{1,30})/i);
   state.importData.schemaTitle=titelMatch?titelMatch[1].trim():'';
@@ -2992,6 +3093,7 @@ async function _doRacesCopy(){
       if(h==='km')return r.km!=null?String(r.km):'';
       if(h==='feedback')return'';
       if(h==='race_type')return r.race_type||'';
+      if(h==='fase')return''; // C64: clear fase on copied race rows
       return String(r[h]??'');
     }));
     const token=await authEnsureToken();
@@ -3026,10 +3128,15 @@ async function _confirmImport(){
       localStorage.setItem('sheetTabName_'+_em,sheetName);
       localStorage.setItem('sheetFileName_'+_em,sheet.title);
     }
-    // C60: use AI-recognised title or filename (without extension) as display name
+    // C61: sheet title = "runyo schema <title> <dd-mm-yyyy>"
     const _rawFile=d.file?.name||'';
-    const _fileBase=_rawFile.replace(/\.[^.]+$/,'').slice(0,30);
-    const _importDisplay=(d.schemaTitle&&d.schemaTitle.length>2?d.schemaTitle:_fileBase)||sheet.title;
+    const _fileBase=_rawFile.replace(/\.[^.]+$/,'').slice(0,50);
+    const _titlePart=(d.schemaTitle&&d.schemaTitle.length>2?d.schemaTitle.slice(0,50):_fileBase)||'';
+    const _today=new Date().toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const _importSheetTitle=_titlePart?`runyo schema ${_titlePart} ${_today}`:`runyo schema ${_today}`;
+    // Rename the sheet to the import-specific title
+    try{const _tok=await authEnsureToken();await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`,{method:'POST',headers:{Authorization:'Bearer '+_tok,'Content-Type':'application/json'},body:JSON.stringify({requests:[{updateSpreadsheetProperties:{properties:{title:_importSheetTitle},fields:'title'}}]})});}catch{}
+    const _importDisplay=_titlePart||sheet.title;
     localStorage.setItem('driveFileName_'+sheetId,_importDisplay);
     if(_em)localStorage.setItem('sheetFileName_'+_em,_importDisplay);
     _saveSchemaHistory(sheetId,_importDisplay,sheet.url);
@@ -3064,7 +3171,7 @@ async function _confirmImport(){
       fileName:d2.file?.name||'',fileType:d2.type||'',fileSize:d2.file?.size||0,
       settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
       rawResponse:d2.rawResponse||'',rapport:d2.rapport||'',parsedCount:rows.length,
-      tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
+      tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,estimatedCostEur:d2.estimatedCostEur||null,
       error:'',fileBase64:d2.fileBase64||'',client:_importClientInfo(),
     });
     await fetchData();
@@ -3080,7 +3187,7 @@ async function _confirmImport(){
       fileName:d2.file?.name||'',fileType:d2.type||'',fileSize:d2.file?.size||0,
       settings:{startDate:d2.startDate,runDays:d2.runDays,keepRest:d2.keepRest},
       rawResponse:d2.rawResponse||'',rapport:d2.rapport||'',parsedCount:d2.parsedCount||0,
-      tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,
+      tokenUsage:d2.tokenUsage||null,aiDuration:d2.aiDuration||null,estimatedCostEur:d2.estimatedCostEur||null,
       error:errMsg,fileBase64:d2.fileBase64||'',client:_importClientInfo(),
     });
   }
@@ -3108,7 +3215,7 @@ async function _importReportBug(){
         fileName:d.file?.name||'',fileType:d.type||'',fileSize:d.file?.size||0,
         settings:{startDate:d.startDate,runDays:d.runDays,keepRest:d.keepRest},
         rawResponse:d.rawResponse||'',rapport:d.rapport||'',parsedCount:d.parsedCount||0,
-        tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,
+        tokenUsage:d.tokenUsage||null,aiDuration:d.aiDuration||null,estimatedCostEur:d.estimatedCostEur||null,
         error:d.error||'',fileContent,fileBase64:d.fileBase64||'',client:_importClientInfo(),
       }),
     });

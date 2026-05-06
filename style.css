@@ -24,8 +24,15 @@
   --cat-race:     #C8336B;
   --cat-recovery: #7A8A85;
   --cat-work:     #7A8A85;
-  --cat-swim:     #1E8FD6;
-  --cat-gym:      #D2632B;
+  --cat-swim:     #1565C0;
+  --cat-bike:     #FF6F00;
+  --cat-gym:      #5D4037;
+  --swim-text:    #1565C0;
+  --swim-bg:      rgba(21,101,192,0.08);
+  --bike-text:    #FF6F00;
+  --bike-bg:      rgba(255,111,0,0.08);
+  --gym-text:     #5D4037;
+  --gym-bg:       rgba(93,64,55,0.08);
 
   /* ── Backward-compat aliases (used by app.js inline styles) ── */
   --run-text:     #00B98E;
@@ -83,8 +90,15 @@
   --cat-race:     #E54B6A;
   --cat-recovery: #86968F;
   --cat-work:     #86968F;
-  --cat-swim:     #5BB8F2;
-  --cat-gym:      #E07A4A;
+  --cat-swim:     #4D9FE0;
+  --cat-bike:     #FFB74D;
+  --cat-gym:      #A1887F;
+  --swim-text:    #4D9FE0;
+  --swim-bg:      rgba(77,159,224,0.08);
+  --bike-text:    #FFB74D;
+  --bike-bg:      rgba(255,183,77,0.08);
+  --gym-text:     #A1887F;
+  --gym-bg:       rgba(161,136,127,0.08);
 
   --run-text:     #3DDFB1;
   --run-bg:       rgba(61,223,177,0.08);
@@ -394,6 +408,7 @@ a{color:inherit;text-decoration:none}
 .wt-selected{border-color:var(--accent) !important}
 
 /* ── Training / Plan ──────────────────────────────────────────────────────── */
+.plan-content-wrap{max-width:480px;margin:0 auto}
 .plan-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
 .plan-row{
   display:flex;align-items:center;gap:10px;padding:11px 14px;
