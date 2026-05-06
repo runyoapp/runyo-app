@@ -1,5 +1,5 @@
 // runyo service worker v2.1.0
-const VERSION = 'runyo-v3.48.0';
+const VERSION = 'runyo-v3.49.0';
 const CACHE = VERSION;
 const ASSETS = ['./', './index.html'];
 

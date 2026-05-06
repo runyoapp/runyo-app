@@ -44,54 +44,20 @@
   <div class="onboarding-sheet" id="onboardingSheet">
     <div class="ob-header">
       <div class="ob-logo">run<span>yo</span></div>
-      <button class="ob-skip" onclick="onboardingFinish()">Overslaan</button>
+      <button class="ob-skip" onclick="onboardingFinish()">Ik weet het nog niet</button>
     </div>
     <div id="onboardingStep1">
-      <div class="ob-step">Stap 1 van 2</div>
-      <div class="ob-title">Welkom bij runyo<br>Wat is je doel?</div>
+      <div class="ob-title">Waar train je naartoe?</div>
+      <div class="ob-subtitle">Optioneel — je kunt dit later altijd toevoegen.</div>
       <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_race"></label>
-        <input type="text" class="settings-input" id="obRace" placeholder="Bijv. Big10 Rotterdam">
+        <label class="settings-label">Race of evenement</label>
+        <input type="text" class="settings-input" id="obRace" placeholder="Bijv. Marathon Rotterdam">
       </div>
       <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_date"></label>
+        <label class="settings-label">Wanneer is de race?</label>
         <input type="date" class="settings-input" id="obDate">
       </div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_dist"></label>
-        <select class="settings-input" id="obDist">
-          <option value="">---</option>
-          <option value="5km">5 km</option>
-          <option value="10km" selected>10 km</option>
-          <option value="10mile">10 mile</option>
-          <option value="HM" data-i18n-opt="hm"></option>
-          <option value="M" data-i18n-opt="marathon"></option>
-          <option value="other" data-i18n-opt="other_dist"></option>
-        </select>
-      </div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="goal_time"></label>
-        <input type="text" class="settings-input" id="obTime" placeholder="37:30">
-      </div>
-      <button class="btn-primary" onclick="onboardingNext()">Volgende</button>
-    </div>
-    <div id="onboardingStep2" style="display:none">
-      <div class="ob-step">Stap 2 van 2</div>
-      <div class="ob-title" data-i18n="pr_title"></div>
-      <div class="settings-field">
-        <label class="settings-label" data-i18n="pr_add"></label>
-        <select class="settings-input" id="obPrDist" onchange="addObPrField()">
-          <option value="">---</option>
-          <option value="5km">5 km</option>
-          <option value="10km">10 km</option>
-          <option value="10mile">10 mile</option>
-          <option value="HM" data-i18n-opt="hm"></option>
-          <option value="M" data-i18n-opt="marathon"></option>
-        </select>
-      </div>
-      <div id="obPrFields"></div>
-      <button class="btn-primary" style="margin-top:8px" onclick="onboardingFinish()">Aan de slag</button>
-      <button class="btn-secondary" onclick="onboardingFinish()">Overslaan</button>
+      <button class="btn-primary" onclick="onboardingFinish()">Doorgaan</button>
     </div>
   </div>
 </div>
@@ -233,7 +199,7 @@
               <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
             </div>
           </div>
-          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">runyo v3.48.0</div>
+          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">runyo v3.49.0</div>
         </div>
       </div>
 
@@ -253,7 +219,7 @@
 </div>
 
 <script src="rx-icons.js"></script>
-<script src="auth.js?v=3.48"></script>
-<script src="app.js?v=3.48"></script>
+<script src="auth.js?v=3.49"></script>
+<script src="app.js?v=3.49"></script>
 </body>
 </html>

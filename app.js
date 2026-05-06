@@ -3495,39 +3495,18 @@ function onboardingOverlayClick(e){
 }
 
 function shouldShowOnboarding(){
-  return loadRaces().length===0&&!localStorage.getItem('userName');
-}
-
-function onboardingNext(){
-  // B7: name removed from onboarding
-  const raceName=document.getElementById('obRace')?.value.trim();
-  const raceDate=document.getElementById('obDate')?.value;
-  const dist=document.getElementById('obDist')?.value;
-  const time=document.getElementById('obTime')?.value.trim();
-  if(raceName&&raceDate){
-    const races=loadRaces();
-    races.push({id:Date.now().toString(),name:raceName,date:raceDate,dist:dist||'',mainGoal:true});
-    persistRaces(races);
-  }
-  // X12: removed legacy goal object write
-  document.getElementById('onboardingStep1').style.display='none';
-  document.getElementById('onboardingStep2').style.display='block';
-}
-
-function addObPrField(){
-  const sel=document.getElementById('obPrDist'),dist=sel.value;
-  if(!dist)return;sel.value='';
-  const prs=loadPRs();if(dist in prs)return;
-  prs[dist]='';persistPRs(prs);
-  const c=document.getElementById('obPrFields');
-  c.innerHTML=PR_ORDER.filter(d=>d in prs).map(d=>`
-    <div class="pr-row" style="margin-bottom:8px">
-      <label class="pr-dist-lbl">${d}</label>
-      <input type="text" class="settings-input" style="flex:1" placeholder="${T('pr_placeholder')}" value="${esc(prs[d]||'')}" oninput="updatePR('${d}',this.value)">
-    </div>`).join('');
+  return !localStorage.getItem('onboardingDone');
 }
 
 function onboardingFinish(){
+  const raceName=document.getElementById('obRace')?.value.trim();
+  const raceDate=document.getElementById('obDate')?.value;
+  if(raceName&&raceDate){
+    const races=loadRaces();
+    races.push({id:Date.now().toString(),name:raceName,date:raceDate,dist:'',mainGoal:true});
+    persistRaces(races);
+  }
+  localStorage.setItem('onboardingDone','1');
   document.getElementById('onboarding').style.display='none';
   renderHeader();renderActiveView();
 }
