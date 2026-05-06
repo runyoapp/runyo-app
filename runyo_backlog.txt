@@ -50,7 +50,7 @@ E7  | Google OAuth + Sheets API v4 | 🔴 | Prioriteit 1
 🖥️ F — Platform
 ----------------
 F1 | Proper desktop website: volwaardige layout, sidebar of multi-column | 🔴
-F2 | Migratie naar dedicated Runyo account (@runyo.app): GitHub repos hernoemen (runyo-app, runyo-bot, runyo-auth), Google Cloud, Railway, domein koppeling | 🟡
+F2 | Migratie naar dedicated runyo account (@runyo.app): GitHub repos hernoemen (runyo-app, runyo-bot, runyo-auth), Google Cloud, Railway, domein koppeling | 🟡
 F3 | Native iOS + Android app (React Native of Expo). Desktop PWA blijft beschikbaar | 🔴
 
 ---
@@ -74,7 +74,7 @@ U33 | Instellingen: knoppen smaller als niet ingelogd (max-breedte 200px) | 🟢
 
 📊 Import log
 -------------
-G16b | Bij import: sheet wegschrijven naar zowel gebruikers Drive als Runyo Drive. Link naar beide sheets tonen in import log | 🔴
+G16b | Bij import: sheet wegschrijven naar zowel gebruikers Drive als runyo Drive. Link naar beide sheets tonen in import log | 🔴
 G17  | Import logging eerder starten: log aanmaken bij start van import, ook bij halverwege mislukken | 🟡
 G18  | Import log: geschatte kosten in euro tonen naast tokengebruik (input €3/1M, output €15/1M tokens) | 🟢
 

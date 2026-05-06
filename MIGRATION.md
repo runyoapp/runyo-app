@@ -1,4 +1,4 @@
-# Runyo — Migratieplan persoonlijk → runyo.app
+# runyo — Migratieplan persoonlijk → runyo.app
 
 Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
@@ -17,7 +17,7 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 | Railway service bot | `XBot` | `runyo-bot` |
 | Railway service backend | `runningx-auth` | `runyo-auth` |
 | Google Cloud project | persoonlijk project | `runyo-app` |
-| Google service account | persoonlijk | `bot@runyo-app.iam.gserviceaccount.com` |
+| Google service account | persoonlijk | `runyo-bot@runyo-app.iam.gserviceaccount.com` |
 | Drive settings bestand | `runningx-settings.json` | `runyo-settings.json` |
 | Claude config repo | `RunningX42/claude` | `runyoapp/claude` |
 
@@ -40,7 +40,7 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
   - Authorized redirect URI: `https://runyo.app/oauth-callback.html`
   - Noteer nieuwe `client_id` en `client_secret`
 - [ ] OAuth scopes: `openid`, `email`, `profile`, `drive.file`, `drive.appdata`, `spreadsheets`
-- [ ] Service account aanmaken voor de bot (naam: `bot`), JSON key downloaden
+- [ ] Service account aanmaken voor de bot (naam: `runyo-bot`), JSON key downloaden
 - [ ] OAuth verificatie aanvragen (privacy policy vereist — zie fase 5)
 
 ---
@@ -105,10 +105,13 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## Fase 7 — Telegram bot
 
-- [ ] Nieuw bot token via @BotFather (of bestaande overdragen)
-  - `/mybots` → RunyoBot → `API Token` → `Revoke` → nieuw token
-- [ ] Nieuw token instellen als Railway env var `BOT_TOKEN`
-- [ ] Bot naam/username blijft: `@RunyoBot`
+- [ ] Nieuwe bot aanmaken via @BotFather (alle lowercase, geen bestaande bot overzetten)
+  - In Telegram: open @BotFather → `/newbot`
+  - Bot name: `runyo`
+  - Bot username: `runyobot` (moet eindigen op `bot`, lowercase)
+  - Token noteren
+- [ ] Token instellen als Railway env var `BOT_TOKEN` voor service `runyo-bot`
+- [ ] Bot username vastgelegd: `@runyobot`
 
 ---
 
