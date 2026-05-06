@@ -3,7 +3,7 @@
 // Token stored in localStorage; re-auth prompt when expired
 
 const GAUTH = {
-  AUTH_BACKEND: 'https://runningx-auth-production.up.railway.app',
+  AUTH_BACKEND: 'https://runyo-auth-production.up.railway.app',
   CLIENT_ID: '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com',
   SCOPES: [
     'https://www.googleapis.com/auth/spreadsheets',
