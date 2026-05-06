@@ -143,13 +143,11 @@ Architectuur: `runyo.app` (apex + www) wordt geserveerd door een bestaande Cloud
 
 ## Fase 7 — Telegram bot
 
-- [ ] Nieuwe bot aanmaken via @BotFather (alle lowercase, geen bestaande bot overzetten)
-  - In Telegram: open @BotFather → `/newbot`
-  - Bot name: `runyo`
-  - Bot username: `runyobot` (moet eindigen op `bot`, lowercase)
-  - Token noteren
-- [ ] Token instellen als Railway env var `BOT_TOKEN` voor service `runyo-bot`
-- [ ] Bot username vastgelegd: `@runyo_appbot`
+- [x] Bot aangemaakt: `@runyo_appbot`
+- [x] Token ingesteld als Railway env var `BOT_TOKEN`
+- [x] Bot reageert op `/start` ✅
+- [x] bot.py leest TOKEN uit env var (niet hardcoded)
+  - Let op: hardcoded token veroorzaakte 409 conflicts — altijd via BOT_TOKEN env var
 
 ---
 
