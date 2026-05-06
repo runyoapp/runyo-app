@@ -6,23 +6,18 @@ Migratie van RunningX42 (persoonlijk) naar info@runyo.app account.
 
 ## 📍 Resume — laatste stand (2026-05-06)
 
-**Klaar:** Fase 0, 1, 2 (m.u.v. OAuth verificatie), 3 (m.u.v. Pages SSL cert), 4 (m.u.v. Railway URL aanpassingen), 6 (m.u.v. GOOGLE_CREDENTIALS + BOT_TOKEN placeholders).
+**Klaar:** Fase 0, 1, 2 (m.u.v. OAuth verificatie), 3 (m.u.v. Pages SSL cert), 4 (m.u.v. import-log.html URL), 6 ✅, 7 ✅
 
-**Volgende keer beginnen bij: Fase 7 — Telegram bot + losse eindjes.**
+**Volgende keer beginnen bij: DNS verificatie GitHub Pages + Fase 9 testen.**
 
 **Open acties:**
-- [ ] Fase 7: `@BotFather` → nieuw token → instellen als `BOT_TOKEN` in `runyo-bot` Railway service
-- [ ] `GOOGLE_CREDENTIALS` invullen in `runyo-bot` (service account JSON bij desktop)
-- [ ] `auth.js` `AUTH_BACKEND` + `import-log.html` URL bijwerken naar Railway URL van `runyo-auth`
-- [ ] GitHub Pages SSL cert afwachten + **Enforce HTTPS** aanvinken
+- [ ] DNS TXT verificatie GitHub Pages afwachten (`_github-pages-challenge-runyoapp` toegevoegd aan Cloudflare)
+- [ ] Na verificatie: custom domain `app.runyo.app` instellen in GitHub Pages + Enforce HTTPS aanvinken
+- [ ] `import-log.html` URL bijwerken naar Railway URL van `runyo-auth`
+- [ ] Fase 9: app testen op `app.runyo.app` (login, schema, bot)
 - [ ] Fase 5: privacy policy op `app.runyo.app/privacy.html`
-
-**Loose ends — niet vergeten:**
-- [ ] GitHub Pages SSL cert op `runyoapp/runyo-app` afwachten en daarna **Enforce HTTPS** aanvinken (https://github.com/runyoapp/runyo-app/settings/pages)
-- [ ] Na Fase 6: `auth.js` `AUTH_BACKEND` + `import-log.html` debug-log URL bijwerken naar nieuwe Railway URL voor `runyo-auth`
-- [ ] Fase 5 (privacy policy op `app.runyo.app/privacy.html`) + Fase 8 (Formspree formulier ID is al `xaqvjzna` in `runyo-waitlist`) parallel of na Fase 6/7/9
-- [ ] OAuth verificatie aanvragen (Fase 2 laatste open punt) — kan pas na privacy policy live
-- [ ] PAT `github_pat_11CDJFI6Q…` revoken op github.com/settings/tokens zodra migratie volledig klaar is
+- [ ] OAuth verificatie aanvragen — kan pas na privacy policy live
+- [ ] PAT `github_pat_11CDJFI6Q…` revoken op github.com/settings/tokens zodra migratie klaar
 
 **Architectuur recap:**
 - `runyo.app` (apex + www) → Cloudflare Worker `runyo-waitlist` (al live, ongewijzigd)
