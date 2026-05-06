@@ -103,10 +103,10 @@
   </div>
   <div class="bn-pill">
     <span class="sb-section-label">schema</span>
-    <button class="bn-item active" data-tab="today"><span class="bn-label"></span></button>
-    <button class="bn-item" data-tab="week"><span class="bn-label"></span></button>
-    <button class="bn-item" data-tab="plan"><span class="bn-label"></span></button>
-    <button class="bn-item" data-tab="calendar"><span class="bn-label"></span></button>
+    <button class="bn-item active" data-tab="today"><span class="bn-label">Vandaag</span></button>
+    <button class="bn-item" data-tab="week"><span class="bn-label">Week</span></button>
+    <button class="bn-item" data-tab="plan"><span class="bn-label">Training</span></button>
+    <button class="bn-item" data-tab="calendar"><span class="bn-label">Kalender</span></button>
   </div>
   <div id="sidebarPlanInfo" style="display:none">
     <div style="font-family:var(--font-m);font-size:9px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">PLAN</div>
@@ -124,7 +124,7 @@
     <div class="topbar-logo">run<span class="logo-x">yo</span></div>
     <div style="flex:1"></div>
     <div id="topbarAuth" style="display:flex;align-items:center;gap:8px"></div>
-    <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
+    <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="display:none">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
@@ -142,7 +142,7 @@
     </div>
     <div class="dt-actions">
 
-      <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="color:#ff6b35">
+      <button class="topbar-gear" onclick="devForceRefresh()" title="Force refresh" style="display:none">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
       <div id="topbarAuthDesktop" style="display:flex;align-items:center;gap:8px"></div>
@@ -206,6 +206,7 @@
             <span id="tgStatusText" data-i18n="tg_not_linked"></span>
           </div>
           <button class="btn-save" style="margin-top:10px" onclick="verifyTelegram()" id="tgVerifyBtn" data-i18n="tg_verify"></button>
+          <div class="settings-hint" style="margin-top:8px" id="tgHint">Stuur na het klikken <strong>/start</strong> naar @RunyoBot in Telegram. De status hierboven werkt bij zodra de koppeling actief is.</div>
           <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
             <div class="settings-title" style="margin-bottom:10px">Meldingen</div>
             <label style="display:flex;align-items:center;gap:10px;margin-bottom:4px;cursor:pointer">
@@ -232,7 +233,7 @@
               <button class="lang-btn" id="langBtnEn" onclick="setLang('en')" style="font-size:20px;background:none;border:none;cursor:pointer;opacity:0.45;transition:opacity 0.15s;padding:2px 6px">🇬🇧</button>
             </div>
           </div>
-          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">runyo v3.47.0</div>
+          <div style="font-size:10px;color:var(--faint);font-family:var(--font-m);margin-top:12px">runyo v3.48.0</div>
         </div>
       </div>
 
@@ -252,7 +253,7 @@
 </div>
 
 <script src="rx-icons.js"></script>
-<script src="auth.js?v=3.47"></script>
-<script src="app.js?v=3.47"></script>
+<script src="auth.js?v=3.48"></script>
+<script src="app.js?v=3.48"></script>
 </body>
 </html>

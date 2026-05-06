@@ -61,6 +61,16 @@ function normalizeEmptyValues(obj){
   return out;
 }
 
+function humanError(e){
+  const m=e?.message||'';
+  if(m.includes('429'))return'Te veel verzoeken — wacht even en probeer opnieuw.';
+  if(m.includes('403'))return'Geen toegang tot dit bestand.';
+  if(m.includes('401'))return'Sessie verlopen — log opnieuw in.';
+  if(m.includes('500')||m.includes('502')||m.includes('503'))return'Er is iets misgegaan, probeer opnieuw.';
+  if(m.includes('Failed to fetch')||m.includes('NetworkError'))return'Geen verbinding — controleer je internet.';
+  return m;
+}
+
 // Activity options for dropdowns — value=canonical English, sheet writes remapped
 const ACTIVITY_OPTIONS=[
   {value:'run',      sheet:'run',        nl:'Hardlopen'},
@@ -497,7 +507,7 @@ async function submitFeedback(datum,rating,tekst){
     await apiCall(apiParams({action:'setFeedback',datum,rating,tekst:tekst||'',...extra}));
     if(row){const e=['😵','😓','😐','💪','🔥'];row.feedback=`${rating}/5 ${e[rating-1]}${tekst?' – '+tekst:''}`;}
     showToast(T('feedback_logged'));return true;
-  }catch(e){showToast('❌ '+e.message);return false;}
+  }catch(e){showToast('❌ '+humanError(e));return false;}
 }
 
 // ── RENDER DISPATCH ───────────────────────────────────────────────────────────
@@ -1532,7 +1542,7 @@ async function saveModalNote(datum){
     if(json.status!=='ok')throw new Error(json.message);
     if(state.data){const row=state.data.find(r=>r.datum===datum);if(row)row.feedback=tekst;}
     showToast('✓ '+T('notes_save'));closeDayModal();
-  }catch(e){showToast('❌ '+e.message);}
+  }catch(e){showToast('❌ '+humanError(e));}
 }
 
 async function saveDayEdit(datum){
@@ -2070,7 +2080,7 @@ async function saveRace(){
       state._raceFromSheet=null;
       showToast('Race opgeslagen in schema');
       await fetchData();
-    }catch(e){showToast('❌ '+e.message);}
+    }catch(e){showToast('❌ '+humanError(e));}
   }else{
     if(state.data){
       const ex=state.data.find(r=>r.datum===date&&r.type==='race');
@@ -3466,7 +3476,7 @@ async function undoDelete(){
       detail:row.detail, km:row.km, fase:row.fase, feedback:row.feedback,
     });
     showToast('↩ Hersteld');
-  }catch(e){showToast('❌ '+e.message);}
+  }catch(e){showToast('❌ '+humanError(e));}
 }
 
 function updateConnectionStatus(ok,err){
@@ -3565,7 +3575,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         // Small delay so DOM is ready, then show sheet picker
         setTimeout(()=>showOAuthConnectSheet(),300);
       }catch(e){
-        showToast('❌ OAuth fout: '+e.message);
+        showToast('❌ Inloggen mislukt: '+humanError(e));
         hideLoading();renderActiveView();renderHeader();
       }
     })();
