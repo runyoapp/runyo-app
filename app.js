@@ -2709,7 +2709,12 @@ function toggleConnectPanel(panel){
   const _arrow='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>';
   const _foot=(meta)=>`<div style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase">${meta}</span><span style="width:22px;height:22px;border-radius:5px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;color:var(--muted)">${_arrow}</span></div>`;
   if(panel==='history'){
-    el.innerHTML='<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>';
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:14px 0">
+      <div style="width:180px;height:4px;background:var(--border);border-radius:999px;overflow:hidden">
+        <div style="height:100%;background:var(--accent);border-radius:999px;transform:scaleX(0);transform-origin:left center;animation:loadBarFill 1.5s ease-out infinite"></div>
+      </div>
+      <span style="font-family:var(--font-d);font-size:13px;color:var(--muted)">Eerder gekoppelde schema's zoeken…</span>
+    </div>`;
     loadSheetPickerInline();
   }else if(panel==='url'){
     el.dataset.panel='url';
@@ -2762,7 +2767,7 @@ function oauthSelectFromUrl(){
 async function loadSheetPickerInline(){
   const el=document.getElementById('sheetPickerInline')||document.getElementById('connectPanel');
   if(!el)return;
-  el.innerHTML=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:4px 0">Laden…</div>`;
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:14px 0"><div style="width:180px;height:4px;background:var(--border);border-radius:999px;overflow:hidden"><div style="height:100%;background:var(--accent);border-radius:999px;transform:scaleX(0);transform-origin:left center;animation:loadBarFill 1.5s ease-out infinite"></div></div><span style="font-family:var(--font-d);font-size:13px;color:var(--muted)">Eerder gekoppelde schema's zoeken…</span></div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
   // Use per-email schema list as source of truth
   const _em2=typeof authEmail==='function'?authEmail():'';
