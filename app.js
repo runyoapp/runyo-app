@@ -2026,18 +2026,20 @@ function weekDragEnd(e){
 
 async function doReschedule(rowIndex,oldDate,newDate){
   if(!oldDate||!newDate||newDate===oldDate)return;
-  const row=state.data?.find(r=>r.rowIndex===rowIndex||r.datum===oldDate);
+  // Find by rowIndex first (stable), fall back to datum only if no rowIndex
+  const row=rowIndex
+    ?state.data?.find(r=>r.rowIndex===rowIndex)
+    :state.data?.find(r=>r.datum===oldDate);
   if(!row)return;
   showToast('Verplaatsen…');
   const fase=getFaseForDate(newDate)||row.fase||'';
   const fields={...row,datum:newDate,fase};
   try{
-    if(rowIndex&&state.scriptUrl)await updateActivity(rowIndex,fields);
-    else if(rowIndex)await oauthUpdateRow(rowIndex,fields);
-    row.datum=newDate;row.fase=fase;
+    // sheetUpdateRow handles both scriptUrl and OAuth modes correctly
+    if(row.rowIndex)await sheetUpdateRow(row.rowIndex,fields);
+    else{row.datum=newDate;row.fase=fase;renderWeek();}
     const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
     showToast('✓ Verplaatst naar '+newDate.slice(8)+' '+mn[parseInt(newDate.slice(5,7))-1]);
-    renderWeek();
   }catch(err){showToast('❌ '+err.message);}
 }
 
