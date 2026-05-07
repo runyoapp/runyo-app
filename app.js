@@ -750,8 +750,11 @@ function toggleAvatarMenu(btn){
   if(m.style.display==='block'){m.style.display='none';return;}
   if(btn){
     const r=btn.getBoundingClientRect();
-    m.style.top=(r.bottom+6)+'px';
-    m.style.right=(window.innerWidth-r.right)+'px';
+    const openRight=r.left<window.innerWidth/2;
+    m.style.left=openRight?(r.left)+'px':'auto';
+    m.style.right=openRight?'auto':(window.innerWidth-r.right)+'px';
+    m.style.top=openRight?(r.top)+'px':(r.bottom+6)+'px';
+    m.style.bottom='auto';
   }
   m.style.display='block';
   setTimeout(()=>document.addEventListener('click',function h(e){
