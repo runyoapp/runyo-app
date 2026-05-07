@@ -620,7 +620,8 @@ async function oauthSelectFromUrl(){
 
 async function oauthCreateNew(){
   const content=document.getElementById('dayModalContent');
-  content.innerHTML=`<div class="modal-title">Schema aanmaken…</div><div style="color:var(--muted);font-size:12px">Even geduld…</div>`;
+  content.innerHTML=`<div class="modal-title">Schema aanmaken…</div>`;
+  if(typeof showLoading==='function')showLoading();
   try{
     const result=await createNewSheet();
     await _finalizeOAuthSheet(result.id,result.title,result.url);
@@ -719,6 +720,7 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   if(typeof renderHeader==='function')renderHeader();
   if(typeof renderConnectSection==='function')renderConnectSection();
   showToast('✓ Schema gekoppeld');
+  if(typeof showLoading==='function')showLoading();
   await fetchData();
   // C63: offer to copy races from previous schema
   if(typeof _offerRacesCopy==='function')_offerRacesCopy(sheetId);

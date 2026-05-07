@@ -3280,7 +3280,8 @@ async function _confirmImport(){
   const _preImportRaces=_getFutureRaces(state.data);
   const _hadActiveSchema=!!(typeof authSheetId==='function'&&authSheetId());
   const el=document.getElementById('dayModalContent');
-  el.innerHTML=`<div class="modal-title">Importeren…</div><div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:32px;text-align:center">Nieuw schema aanmaken…</div>`;
+  el.innerHTML=`<div class="modal-title">Importeren…</div>`;
+  showLoading();
   try{
     // Always create a fresh sheet — never modify an existing connected sheet
     const sheet=await createNewSheet();
@@ -3493,6 +3494,7 @@ function saveSettings(){
   const sn=document.getElementById('sheetNameInput')?.value||'';
   state.sheetName=sn;localStorage.setItem('sheetName',sn);
   showToast(T('connecting'));
+  showLoading();
   fetchData().then(()=>renderConnectSection());
 }
 
@@ -3625,6 +3627,17 @@ function switchTab(tab){
   renderActiveView();
 }
 
+function showLoading(){
+  const el=document.getElementById('loadingOverlay');
+  if(!el)return;
+  el.style.display='flex';
+  el.classList.remove('hidden');
+  // Re-trigger animations
+  const logo=el.querySelector('.loading-logo');
+  const fill=document.getElementById('loadingBarFill');
+  if(logo){logo.style.animation='none';void logo.offsetWidth;logo.style.animation='';}
+  if(fill){fill.style.animation='none';void fill.offsetWidth;fill.style.animation='';}
+}
 function hideLoading(){
   const el=document.getElementById('loadingOverlay');
   el.classList.add('hidden');setTimeout(()=>el.style.display='none',350);

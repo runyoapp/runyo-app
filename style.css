@@ -126,20 +126,31 @@ a{color:inherit;text-decoration:none}
 
 /* ── Loading ──────────────────────────────────────────────────────────────── */
 .loading-overlay{
-  position:fixed;inset:0;background:var(--bg);z-index:9000;
+  position:fixed;inset:0;z-index:9000;
+  background:var(--bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:16px;transition:opacity 0.3s;
+  gap:18px;transition:opacity 0.35s;
 }
 .loading-overlay.hidden{opacity:0;pointer-events:none}
 .loading-logo{
-  font-family:var(--font-d);font-weight:700;font-size:36px;
+  font-family:var(--font-d);font-weight:700;font-size:64px;
   letter-spacing:-0.035em;color:var(--text);line-height:1;
+  opacity:0;animation:loadLogoIn 0.4s ease-out 0.05s forwards;
 }
-.loading-logo span{color:var(--accent)}
-.loading-sub{font-family:var(--font-m);font-size:11px;color:var(--muted);letter-spacing:1px}
-.loading-bar{width:120px;height:2px;background:var(--border);border-radius:1px;overflow:hidden}
-.loading-bar-fill{height:100%;background:var(--accent);animation:loadBar 1.4s ease infinite}
-@keyframes loadBar{0%{width:0;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0;margin-left:100%}}
+.loading-bar{width:180px;height:4px;background:var(--border);border-radius:999px;overflow:hidden}
+.loading-bar-fill{
+  height:100%;background:var(--accent);border-radius:999px;
+  transform:scaleX(0);transform-origin:left center;
+  animation:loadBarFill 1.5s ease-out infinite;
+}
+@keyframes loadLogoIn{from{opacity:0}to{opacity:1}}
+@keyframes loadBarFill{
+  0%  {transform:scaleX(0);}
+  65% {transform:scaleX(0.88);}
+  82% {transform:scaleX(0.9);}
+  83% {transform:scaleX(0);}
+  100%{transform:scaleX(0);}
+}
 
 /* ── Toast ────────────────────────────────────────────────────────────────── */
 .toast{
