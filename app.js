@@ -1941,142 +1941,113 @@ function getWeekDatesOffset(offset){
 // ── CALENDAR ──────────────────────────────────────────────────────────────────
 function renderCalendar(){
   const el=document.getElementById('calContent');
-  const races=loadRaces();
   const y=state.calYear,m=state.calMonth;
   const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  const days=state.lang==='en'?DAYS_EN:DAYS_NL;
-  const dowOrder=[1,2,3,4,5,6,0];
   const firstDay=new Date(y,m,1);
   const lastDay=new Date(y,m+1,0);
   const startPad=(firstDay.getDay()+6)%7;
   const t=todayStr();
+
+  // Build cells
   const cells=[];
   for(let i=0;i<startPad;i++){const d=new Date(y,m,1-startPad+i);cells.push({date:d,other:true});}
   for(let i=1;i<=lastDay.getDate();i++)cells.push({date:new Date(y,m,i),other:false});
   while(cells.length%7!==0){const p=cells[cells.length-1].date;const nd=new Date(p);nd.setDate(p.getDate()+1);cells.push({date:nd,other:true});}
 
-  // C34: all races come from sheet; no localStorage races
+  // Date → primary training type
+  const dateTypeMap={};
+  (state.data||[]).forEach(r=>{
+    if(!r.datum||r.type==='rest'||r.type==='work')return;
+    if(!dateTypeMap[r.datum])dateTypeMap[r.datum]=normalizeType(r.type||'run');
+  });
+
   const sheetRaces=(state.data||[]).filter(r=>r.type==='race'&&r.datum);
-  // Build training day marks from data
-  const trainingDates=new Set();
-  const doneDates=new Set();
-  const workDates=new Set();
-  const raceDates=new Set(sheetRaces.map(r=>r.datum));
-  if(state.data){
-    state.data.forEach(r=>{
-      if(!r.datum)return;
-      // C43: skip werk and rust from calendar dots
-      if(r.type==='work'||r.type==='rest')return;
-      if(!r.type==='race'){
-        trainingDates.add(r.datum);
-        if(r.feedback)doneDates.add(r.datum);
-      }
-    });
-  }
 
-  const mf_months=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  const months_short=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-  let h=`<div class="page-title" style="padding:14px 20px 4px">
-    <div><div class="pt-kicker">Kalender</div><div class="pt-h">${mf[m]} ${y}</div></div>
-    <button onclick="openRaceModal()" style="background:var(--accent);border:0;padding:9px 14px;color:var(--accent-ink);cursor:pointer;font-family:var(--font-d);font-weight:700;font-size:13px;letter-spacing:-0.01em;border-radius:999px">+ Race</button>
+  // Header
+  let h=`<div class="cal-header">
+    <div class="cal-month-title">${mf[m]} ${y}</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="week-nav-btn" onclick="calPrev()">‹</button>
+      <button class="week-nav-btn" onclick="calNext()">›</button>
+      <button class="today-add-btn" onclick="openRaceModal()">+</button>
+    </div>
   </div>
-  <div style="padding:8px 20px 0">
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-    <button onclick="calPrev()" style="background:transparent;border:1px solid var(--border);padding:6px 10px;color:var(--text);cursor:pointer;font-family:var(--font-d);font-size:14px;-webkit-tap-highlight-color:transparent">‹</button>
-    <div style="flex:1"></div>
-    <button onclick="calNext()" style="background:transparent;border:1px solid var(--border);padding:6px 10px;color:var(--text);cursor:pointer;font-family:var(--font-d);font-size:14px;-webkit-tap-highlight-color:transparent">›</button>
-  </div>
-  <div class="cal-grid" style="margin-bottom:6px">
-    ${dowOrder.map(i=>`<div class="cal-dow">${days[i]}</div>`).join('')}`;
+  <div style="padding:0 16px">`;
 
+  // Day-of-week headers
+  h+=`<div class="cal-grid" style="margin-bottom:4px">`;
+  ['M','D','W','D','V','Z','Z'].forEach(d=>{h+=`<div class="cal-dow">${d}</div>`;});
+  h+=`</div>`;
+
+  // Day cells
+  h+=`<div class="cal-grid" style="gap:4px">`;
   cells.forEach(({date,other})=>{
     const y2=date.getFullYear(),m2=String(date.getMonth()+1).padStart(2,'0'),d2=String(date.getDate()).padStart(2,'0');
     const ds=`${y2}-${m2}-${d2}`;
-    const isToday=ds===t,isRaceDay=raceDates.has(ds),isSel=state.calSelectedDate===ds;
-    // Dot marks (C35: race = red circle)
-    let dot='';
-    if(doneDates.has(ds))dot=`<div style="width:5px;height:5px;border-radius:50%;background:var(--accent);margin:3px auto 0"></div>`;
-
-    else if(trainingDates.has(ds)&&!other)dot=`<div style="width:5px;height:5px;border-radius:50%;border:1px solid var(--accent);margin:3px auto 0"></div>`;
-
-    // C35: race day = red circle around number
-    const isRaceDayThis=isRaceDay&&!other;
-    if(other){h+=`<div style="padding:8px 0 10px;text-align:center"></div>`;return;}
-    const textColor=isToday?'#000':isRaceDayThis?'#fff':'var(--text)';
-    const circleBg=isToday?'var(--accent)':isRaceDayThis?'var(--race-text)':(isSel?'rgba(198,242,78,0.22)':'transparent');
-    const onclick=other?'':`selectCalDate('${ds}')`;
-    h+=`<div onclick="${onclick}" style="padding:8px 0 10px;text-align:center;cursor:${other?'default':'pointer'};position:relative">
-      <div style="width:30px;height:30px;margin:0 auto;display:flex;align-items:center;justify-content:center;border-radius:50%;background:${circleBg}${isRaceDayThis?';border:2px solid var(--race-text)':''}">
-        <span style="font-family:var(--font-d);font-weight:700;font-size:16px;color:${textColor}">${date.getDate()}</span>
-      </div>
-      ${dot}
+    const isToday=ds===t;
+    const isSel=state.calSelectedDate===ds;
+    const type=dateTypeMap[ds];
+    const dotColor=type?typeOf(type).text:null;
+    h+=`<div onclick="${other?'':(`selectCalDate('${ds}')`)}" class="cal-cell2${isToday?' c2-today':''}${other?' c2-other':''}${isSel?' c2-sel':''}">
+      <div class="c2-num">${date.getDate()}</div>
+      ${dotColor&&!other?`<div class="c2-dot" style="background:${isToday?'rgba(6,32,25,0.55)':dotColor}"></div>`:''}
     </div>`;
   });
-  h+='</div>';
+  h+=`</div>`;
 
-  // Dot legend
-  h+=`<div class="cal-dot-legend" style="margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:4px"></span>Gedaan</span>
-    <span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;border:1px solid var(--accent);margin-right:4px"></span>Gepland</span>
+  // Category legend for this month
+  const monthTypes=[...new Set((state.data||[]).filter(r=>{if(!r.datum||r.type==='rest'||r.type==='work')return false;const rd=parseDate(r.datum);return rd.getFullYear()===y&&rd.getMonth()===m;}).map(r=>normalizeType(r.type||'run')).filter(Boolean))];
+  if(monthTypes.length){
+    h+=`<div class="cal-legend">`;
+    monthTypes.forEach(type=>{const ti=typeOf(type);h+=`<div class="cal-legend-item"><div style="width:6px;height:6px;border-radius:999px;flex-shrink:0;background:${ti.text}"></div><span>${T(ti.i18n)}</span></div>`;});
+    h+=`</div>`;
+  }
 
-    <span><span style="display:inline-block;width:14px;height:3px;background:var(--accent);margin-right:4px;vertical-align:middle"></span>Race</span>
-  </div>`;
-
+  // Selected date detail
   if(state.calSelectedDate){
-    // C34: show all sheet rows for this date
     const selRows=(state.data||[]).filter(r=>r.datum===state.calSelectedDate);
-    const selRaceRows=selRows.filter(r=>r.type==='race');
     if(selRows.length){
       selRows.forEach(r=>{
         const ti=typeOf(r.type);
-        h+=`<div style="background:${r.type==='race'?'rgba(244,67,54,0.06)':'rgba(255,255,255,0.02)'};border:1px solid ${r.type==='race'?'rgba(244,67,54,0.3)':'var(--border)'};padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="openDayModal('${state.calSelectedDate}')">
-          <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${RXIcon(r.type?.split(',')[0].trim()||'run',18,'var(--text)','var(--accent)')}</div>
+        h+=`<div class="today-tmr-card" onclick="openDayModal('${state.calSelectedDate}')" style="margin-bottom:6px;-webkit-tap-highlight-color:transparent">
+          <div class="today-tmr-bar" style="background:${ti.text}"></div>
           <div style="flex:1;min-width:0">
-            <div style="font-family:var(--font-m);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${ti.text};margin-bottom:2px">${T(ti.i18n)}</div>
-            <div style="font-family:var(--font-d);font-weight:700;font-size:15px">${esc(r.titel||'')}</div>
-            ${r.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--accent);margin-top:2px">${esc(r.km)} km</div>`:''}
+            <div class="today-tmr-label">${T(ti.i18n)}</div>
+            <div class="today-tmr-title">${esc(r.titel||'')}${r.km?' · '+esc(r.km)+' km':''}</div>
           </div>
+          <div class="today-tmr-chevron">›</div>
         </div>`;
       });
-    }else{
-      h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);padding:8px 0 12px">${fmtDateFull(state.calSelectedDate)}</div>`;
     }
   }
 
-  // C34: month races from sheet
+  // Month races
   const monthRaces=sheetRaces.filter(r=>{const rd=parseDate(r.datum);return rd.getFullYear()===y&&rd.getMonth()===m;}).sort((a,b)=>a.datum.localeCompare(b.datum));
-  h+=`<div><div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('races_this_month')}</div>`;
-  if(!monthRaces.length){
-    h+=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);padding:8px 2px">${T('no_races_month')}</div>`;
-  }else{
+  if(monthRaces.length){
+    h+=`<div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 8px">${T('races_this_month')}</div>`;
     monthRaces.forEach(r=>{
       const cd=countdownDisplay(daysUntil(r.datum));
       h+=`<div class="cal-race-row" onclick="openDayModal('${r.datum}')">
         <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${RXIcon('race',20,'var(--race-text)','var(--race-text)')}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-family:var(--font-m);font-size:9px;color:var(--race-text);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:2px">Race</div>
-          <div style="font-size:13px;font-weight:600">${esc(r.titel||r.datum)}</div>
-          ${r.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${esc(r.km)} km</div>`:''}
+          <div style="font-family:var(--font-d);font-size:12px;font-weight:600;color:var(--cat-race);margin-bottom:2px">Race</div>
+          <div style="font-family:var(--font-d);font-size:14px;font-weight:600">${esc(r.titel||r.datum)}</div>
+          ${r.km?`<div style="font-family:var(--font-d);font-size:12px;color:var(--muted)">${esc(r.km)} km</div>`:''}
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:var(--font-d);font-size:18px;color:var(--accent)">${cd.val}</div>
-          <div style="font-family:var(--font-m);font-size:8px;color:var(--faint)">${cd.unit}</div>
+          <div style="font-family:var(--font-d);font-weight:800;font-size:20px;color:var(--text);letter-spacing:-0.03em;line-height:1">${cd.val}</div>
+          <div style="font-family:var(--font-d);font-size:11px;color:var(--muted);margin-top:2px">${cd.unit}</div>
         </div>
       </div>`;
     });
   }
-  h+='</div>';
-  h+='</div>'; // close padding wrapper
+
+  h+=`</div>`; // close padding wrapper
   el.innerHTML=h;
-  // C58: calendar swipe
   if(!el._calSwipe){
-    el._calSwipe=true;
-    let sx=0;
+    el._calSwipe=true;let sx=0;
     el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});
-    el.addEventListener('touchend',e=>{
-      const dx=e.changedTouches[0].clientX-sx;
-      if(Math.abs(dx)>50){dx<0?calNext():calPrev();}
-    },{passive:true});
+    el.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>50){dx<0?calNext():calPrev();}},{passive:true});
   }
 }
 
