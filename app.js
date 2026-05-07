@@ -643,22 +643,55 @@ function openDayFromRacesBar(datum){
 }
 
 function renderSidebarPlanInfo(){
+  if(!state.data)return;
+  const t=todayStr();
+  const allRows=state.data;
+  const todayRow=allRows.find(r=>r.datum===t);
+  const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
+  const fase=todayRow?.fase||state.currentFase||'';
+  const faseIdx=faseValues.indexOf(fase);
+
+  // Phase info
   const faseEl=document.getElementById('sbFaseLabel');
+  const faseCountEl=document.getElementById('sbFaseCount');
   const weekEl=document.getElementById('sbWeekLabel');
   const fillEl=document.getElementById('sbProgressFill');
-  if(!faseEl&&!weekEl)return;
-  if(!state.data){return;}
-  const t=todayStr();
-  const todayRow=state.data.find(r=>r.datum===t);
-  const fase=todayRow?.fase||state.currentFase||'';
+  const kmEl=document.getElementById('sbKmLabel');
+  const pctEl=document.getElementById('sbPctLabel');
   if(faseEl)faseEl.textContent=fase||'—';
+  if(faseCountEl&&faseValues.length>1)faseCountEl.textContent=`${faseIdx+1} / ${faseValues.length}`;
+
+  // Current fase duration
+  if(weekEl&&fase){
+    const fRows=allRows.filter(r=>r.fase===fase&&r.datum);
+    const fStart=fRows[0]?.datum,fEnd=fRows[fRows.length-1]?.datum;
+    if(fStart&&fEnd){
+      const wks=Math.max(1,Math.ceil((parseDate(fEnd)-parseDate(fStart))/604800000+1));
+      weekEl.textContent=`${wks} weken`;
+    }
+  }
+
+  // Week km progress (for bar + km label)
   const mondayStr=getMondayStr();
   const endOfWeek=mondayStr.slice(0,8)+String(parseInt(mondayStr.slice(8))+6).padStart(2,'0');
-  const weekDone=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  const weekTotal=state.data.filter(r=>r.datum>=mondayStr&&r.datum<=endOfWeek).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
-  if(weekEl)weekEl.textContent=weekTotal>0?`${weekDone.toFixed(0)} / ${weekTotal.toFixed(0)} km`:'';
+  const weekDone=allRows.filter(r=>r.datum>=mondayStr&&r.datum<=t).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+  const weekTotal=allRows.filter(r=>r.datum>=mondayStr&&r.datum<=endOfWeek).reduce((s,r)=>s+(parseFloat(r.km)||0),0);
   const pct=weekTotal>0?Math.min(100,Math.round(weekDone/weekTotal*100)):0;
   if(fillEl)fillEl.style.width=pct+'%';
+  if(kmEl)kmEl.textContent=weekTotal>0?`${weekDone.toFixed(0)} / ${weekTotal.toFixed(0)} km`:'';
+  if(pctEl)pctEl.textContent=weekTotal>0?`${pct}%`:'';
+
+  // User row
+  const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  const email=loggedIn&&typeof authEmail==='function'?authEmail():'';
+  const initials=email?email[0].toUpperCase():'?';
+  const name=localStorage.getItem('userName')||email.split('@')[0]||'—';
+  const avatarEl=document.getElementById('sbAvatarBtn');
+  const nameEl=document.getElementById('sbUserName');
+  const subEl=document.getElementById('sbUserSub');
+  if(avatarEl)avatarEl.textContent=initials;
+  if(nameEl)nameEl.textContent=name;
+  if(subEl)subEl.textContent=loggedIn?'gesynced':'niet ingelogd';
 }
 
 function renderHeader(){

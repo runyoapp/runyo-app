@@ -68,20 +68,49 @@
   <!-- Desktop sidebar logo -->
   <div class="sb-logo">
     <div class="sb-logo-wordmark">run<span>yo</span></div>
+    <div class="sb-logo-bar"><div class="sb-logo-bar-fill"></div></div>
   </div>
   <div class="bn-pill">
-    <span class="sb-section-label"></span>
-    <button class="bn-item active" data-tab="today"><span class="bn-label">Vandaag</span></button>
-    <button class="bn-item" data-tab="week"><span class="bn-label">Week</span></button>
-    <button class="bn-item" data-tab="plan"><span class="bn-label">Training</span></button>
-    <button class="bn-item" data-tab="calendar"><span class="bn-label">Kalender</span></button>
+    <button class="bn-item active" data-tab="today">
+      <span class="bn-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="10" height="9" rx="1.2"/><path d="M2 6h10"/><path d="M5 2v2M9 2v2" stroke-linecap="round"/><circle cx="7" cy="9" r="1" fill="currentColor" stroke="none"/></svg></span>
+      <span class="bn-label">vandaag</span>
+    </button>
+    <button class="bn-item" data-tab="week">
+      <span class="bn-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4h10M2 7h10M2 10h10" stroke-linecap="round"/><circle cx="11" cy="7" r="1.2" fill="currentColor" stroke="none"/></svg></span>
+      <span class="bn-label">week</span>
+    </button>
+    <button class="bn-item" data-tab="plan">
+      <span class="bn-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="5"/><circle cx="7" cy="7" r="1.4" fill="currentColor" stroke="none"/></svg></span>
+      <span class="bn-label">training</span>
+    </button>
+    <button class="bn-item" data-tab="calendar">
+      <span class="bn-icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="10" height="9" rx="1.2"/><path d="M5 2v2M9 2v2" stroke-linecap="round"/></svg></span>
+      <span class="bn-label">kalender</span>
+    </button>
   </div>
   <div id="sidebarPlanInfo" style="display:none">
-    <div style="font-family:var(--font-m);font-size:9px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">PLAN</div>
-    <div id="sbFaseLabel" style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text2);margin-bottom:2px">—</div>
-    <div id="sbWeekLabel" style="font-family:var(--font-m);font-size:9px;color:var(--muted)">—</div>
-    <div style="height:2px;background:var(--border);margin-top:10px;border-radius:1px;overflow:hidden">
-      <div id="sbProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width 0.4s ease"></div>
+    <div class="sb-plan-card">
+      <div class="sb-plan-top">
+        <span class="sb-plan-kicker">plan</span>
+        <span id="sbFaseCount" class="sb-plan-count"></span>
+      </div>
+      <div id="sbFaseLabel" class="sb-plan-fase">—</div>
+      <div id="sbWeekLabel" class="sb-plan-sub"></div>
+      <div class="sb-plan-bar-wrap">
+        <div id="sbProgressFill" class="sb-plan-bar-fill"></div>
+      </div>
+      <div class="sb-plan-km-row">
+        <span id="sbKmLabel"></span>
+        <span id="sbPctLabel" class="sb-plan-pct"></span>
+      </div>
+    </div>
+    <div class="sb-user-row" id="sbUserRow">
+      <button id="sbAvatarBtn" class="sb-user-avatar" onclick="toggleAvatarMenu(this)">?</button>
+      <div style="flex:1;min-width:0">
+        <div id="sbUserName" class="sb-user-name">—</div>
+        <div id="sbUserSub" class="sb-user-sub">runyo</div>
+      </div>
+      <div class="sb-user-chevron">›</div>
     </div>
   </div>
 </div>
