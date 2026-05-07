@@ -766,7 +766,9 @@ function toggleAvatarMenu(btn){
     }
   }
   m.style.display='block';
+  const _trigger=btn;
   setTimeout(()=>document.addEventListener('click',function h(e){
+    if(_trigger&&_trigger.contains(e.target))return; // laat toggle zelf sluiten
     const m2=document.getElementById('avatarDropdown');
     if(m2&&!m2.contains(e.target)){m2.style.display='none';}
     document.removeEventListener('click',h);
@@ -908,7 +910,7 @@ function renderToday(){
   let h=`<div style="height:12px"></div>`;
   h+=stripH;
   h+=`<div class="today-kicker">
-    <span>${dayLabel}${faseKicker?' · '+faseKicker:''}</span>
+    <span>${dayLabel}${faseKicker?`<span class="today-kicker-fase"> · ${faseKicker}</span>`:''}</span>
     <button class="today-add-btn" onclick="openAddActivity('${t}')">+</button>
   </div>`;
 
