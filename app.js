@@ -1335,7 +1335,7 @@ function renderPlanRows(rows,t,faseBadge=''){
               ${r.km||r.distance?`<span style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(r.km||r.distance)}km</span>`:''}
             </div>
             <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
-            ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
+            ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:12px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
             ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
             <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
           </div>`;}).join('')}
@@ -1494,7 +1494,7 @@ function openDayModal(dateStr,targetRowIndex){
           </div>
           ${r.km?`<div style="font-family:var(--font-d);font-weight:800;font-size:22px;color:${isRaceRow?'var(--race-text)':'var(--accent)'};flex-shrink:0">${esc(r.km)}<span style="font-size:12px;color:var(--muted)">km</span></div>`:''}
         </div>
-        ${r.detail?`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);line-height:1.6;padding-top:10px;border-top:1px solid var(--border)">${esc(r.detail)}</div>`:''}
+        ${r.detail?`<div style="font-family:var(--font-m);font-size:12px;color:var(--muted);line-height:1.6;padding-top:10px;border-top:1px solid var(--border)">${esc(r.detail)}</div>`:''}
       </div>`;
     });
 
