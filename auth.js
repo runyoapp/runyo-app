@@ -38,7 +38,7 @@ function authIsExpired(){
 function authSaveToken(token,expiresIn){
   localStorage.setItem(GAUTH.TOKEN_KEY,token);
   localStorage.setItem(GAUTH.EXPIRY_KEY,String(Date.now()+expiresIn*1000));
-  localStorage.removeItem('rx_drive_scope_missing');
+  localStorage.removeItem('runyo_drive_scope_missing');
   _appDataFileIdCache=null;
 }
 function authClear(){
@@ -737,9 +737,9 @@ async function _getOrCreateAppDataFile(){
     const res=await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D'runyo-settings.json'&fields=files(id)",{
       headers:{Authorization:'Bearer '+token}
     });
-    if(res.status===403){localStorage.setItem('rx_drive_scope_missing','1');return null;}
+    if(res.status===403){localStorage.setItem('runyo_drive_scope_missing','1');return null;}
     if(!res.ok)return null;
-    localStorage.removeItem('rx_drive_scope_missing');
+    localStorage.removeItem('runyo_drive_scope_missing');
     const data=await res.json();
     if(data.files?.length){_appDataFileIdCache=data.files[0].id;return _appDataFileIdCache;}
     const form=new FormData();

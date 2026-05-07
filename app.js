@@ -431,7 +431,7 @@ function raceEmoji(race){
   return'🏁';
 }
 
-// Map raceType string → RXIcon type key
+// Map raceType string → icon type key
 function raceTypeIconKey(raceType, dist){
   const tp=(raceType||'').toLowerCase(), d=(dist||'').toLowerCase();
   if(tp.includes('trail')||tp.includes('ultra'))return'trail';
@@ -1347,7 +1347,7 @@ function planRowsHtml(rows,t){
     h+=`<div>
       <div class="plan-row${isPast?' is-past':''}${isTdy?' is-today':''}${work?' is-work':''}" onclick="togglePlanRow('${rowId}')">
         <div class="plan-row-date"><strong>${parts[0]} ${parts[1]}</strong>${parts[2]}</div>
-        <div class="plan-row-emoji">${RXIcon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
+        <div class="plan-row-emoji">${icon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
         <div class="plan-row-body"><div class="plan-row-title">${dayRows.map(r=>esc(r.title||r.titel||'—')).join(' · ')}</div></div>
         <div class="plan-row-km">${dayRows.map(r=>r.km||r.distance).filter(Boolean).map(k=>k+'km').join('+')}</div>
         ${dayRows.some(r=>r.feedback)?'<div class="plan-row-feedback"></div>':''}
@@ -1356,14 +1356,14 @@ function planRowsHtml(rows,t){
         ${dayRows.map(r=>{const rti=typeOf(r.type);return`
           <div style="padding:8px 0;${dayRows.length>1?'border-bottom:1px solid var(--border)':''}">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-              ${RXIcon(r.type,14,'var(--muted)','var(--accent)')}
+              ${icon(r.type,14,'var(--muted)','var(--accent)')}
               <span class="badge" style="background:${rti.bg};color:${rti.text}">${T(rti.i18n)}</span>
               ${r.km||r.distance?`<span style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(r.km||r.distance)}km</span>`:''}
             </div>
             <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
             ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:12px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
             ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
-            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
+            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-d);font-size:13px;font-weight:500;letter-spacing:-0.01em;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
           </div>`;}).join('')}
       </div>
     </div>`;
@@ -1475,7 +1475,7 @@ function renderPlanRows(rows,t,faseBadge=''){
     h+=`<div>
       <div class="plan-row${isPast?' is-past':''}${isTdy?' is-today':''}${work?' is-work':''}" onclick="togglePlanRow('${rowId}')">
         <div class="plan-row-date"><strong>${parts[0]} ${parts[1]}</strong>${parts[2]}</div>
-        <div class="plan-row-emoji">${RXIcon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
+        <div class="plan-row-emoji">${icon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
         <div class="plan-row-body"><div class="plan-row-title">${dayRows.map(r=>esc(r.title||r.titel||'—')).join(' · ')}</div></div>
         <div class="plan-row-km">${dayRows.map(r=>r.km||r.distance).filter(Boolean).map(k=>k+'km').join('+')}</div>
         ${dayRows.some(r=>r.feedback)?'<div class="plan-row-feedback"></div>':''}
@@ -1484,14 +1484,14 @@ function renderPlanRows(rows,t,faseBadge=''){
         ${dayRows.map(r=>{const rti=typeOf(r.type);return`
           <div style="padding:8px 0;${dayRows.length>1?'border-bottom:1px solid var(--border)':''}">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-              ${RXIcon(r.type,14,'var(--muted)','var(--accent)')}
+              ${icon(r.type,14,'var(--muted)','var(--accent)')}
               <span class="badge" style="background:${rti.bg};color:${rti.text}">${T(rti.i18n)}</span>
               ${r.km||r.distance?`<span style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(r.km||r.distance)}km</span>`:''}
             </div>
             <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
             ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:12px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
             ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
-            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
+            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-d);font-size:13px;font-weight:500;letter-spacing:-0.01em;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
           </div>`;}).join('')}
       </div>
     </div>`;
@@ -1640,7 +1640,7 @@ function openDayModal(dateStr,targetRowIndex){
       h+=`<div class="card ${rb}" onclick="${clickHandler}" data-date="${dateStr}" style="padding:14px 16px;margin-bottom:${idx<rows.length-1?'8':'10'}px;cursor:pointer;-webkit-tap-highlight-color:transparent">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:${r.detail?'10':'0'}px">
           <div style="width:32px;height:32px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            ${RXIcon(iconKey,18,isRaceRow?'var(--race-text)':'var(--text)',isRaceRow?'var(--race-text)':'var(--accent)')}
+            ${icon(iconKey,18,isRaceRow?'var(--race-text)':'var(--text)',isRaceRow?'var(--race-text)':'var(--accent)')}
           </div>
           <div style="flex:1;min-width:0">
             <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:${rti.text};margin-bottom:2px">${T(rti.i18n)}${parsedRaceType?' · '+esc(parsedRaceType):''}</div>
@@ -2184,7 +2184,7 @@ function renderCalendar(){
     monthRaces.forEach(r=>{
       const cd=countdownDisplay(daysUntil(r.datum));
       h+=`<div class="cal-race-row" onclick="openDayModal('${r.datum}')">
-        <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${RXIcon('race',20,'var(--race-text)','var(--race-text)')}</div>
+        <div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center">${icon('race',20,'var(--race-text)','var(--race-text)')}</div>
         <div style="flex:1;min-width:0">
           <div style="font-family:var(--font-d);font-size:12px;font-weight:600;color:var(--cat-race);margin-bottom:2px">Race</div>
           <div style="font-family:var(--font-d);font-size:14px;font-weight:600">${esc(r.titel||r.datum)}</div>
@@ -2536,7 +2536,7 @@ function renderConnectSection(){
         if(typeof _syncSettingsToAccount==='function')_syncSettingsToAccount().catch(()=>{});
       }
       _saveSchemaHistory(sheetId,fileName,sheetUrl);
-      const _driveMissing=localStorage.getItem('rx_drive_scope_missing')==='1';
+      const _driveMissing=localStorage.getItem('runyo_drive_scope_missing')==='1';
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
           <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
