@@ -1137,52 +1137,74 @@ function renderWeek(){
 function renderPlan(){
   const el=document.getElementById('planContent');
   const titleEl=document.getElementById('planPageTitle');
-  const t=todayStr();
-
-  // PageTitle — C34: sheet races
-  if(titleEl){
-    const sheetRaceRows=(state.data||[]).filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
-    const nextRace=sheetRaceRows.find(r=>daysUntil(r.datum)>=0);
-    const _cd=nextRace?countdownDisplay(daysUntil(nextRace.datum)):null;
-    const kicker=nextRace?`Next race: ${esc(nextRace.titel||nextRace.datum)} · ${_cd.val} ${_cd.unit}`:'Training';
-    titleEl.innerHTML=`<div class="page-title"><div><div class="pt-kicker">${kicker}</div><div class="pt-h">Training</div></div></div>`;
-  }
-
-  if(!state.data){renderPlanWithoutData(t);return;}
-
-  const allRows=state.data.filter(r=>r.datum);
-  if(!allRows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;document.getElementById('phaseTabs').innerHTML='';return;}
-
-  const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
   const phaseTabs=document.getElementById('phaseTabs');
-
-  // C49: multi-select type filter state
+  const t=todayStr();
   if(!state.planTypeFilters)state.planTypeFilters=[];
 
-  if(faseValues.length>0){
-    // Determine active fase
-    let activeFase=state.currentFase||phaseTabs.querySelector('.phase-tile.active')?.dataset.fase||faseValues[0];
-    if(!faseValues.includes(activeFase))activeFase=faseValues[0];
-    state.currentFase=activeFase;
+  // Schema overview header
+  if(titleEl){
+    const allR=state.data?.filter(r=>r.datum)||[];
+    const raceRows=allR.filter(r=>r.type==='race'&&r.datum).sort((a,b)=>a.datum.localeCompare(b.datum));
+    const nextRace=raceRows.find(r=>daysUntil(r.datum)>=0);
+    const schemaName=nextRace?.titel||'Training';
+    const totalKm=allR.reduce((s,r)=>s+(parseFloat(r.km)||0),0);
+    const startDate=allR[0]?.datum;
+    const endDate=nextRace?.datum||allR[allR.length-1]?.datum;
+    const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+    const fmtS=d=>{if(!d)return'';const p=parseDate(d);return`${p.getDate()} ${mn[p.getMonth()]}`;};
+    let weekNum=1,totalWeeks=1,pct=0;
+    if(startDate&&endDate){
+      const s=parseDate(startDate),e=parseDate(endDate),n=parseDate(t);
+      totalWeeks=Math.max(1,Math.ceil((e-s)/604800000));
+      weekNum=Math.min(totalWeeks,Math.max(1,Math.ceil((n-s)/604800000)+1));
+      pct=Math.min(100,Math.round((weekNum-1)/totalWeeks*100));
+    }
+    titleEl.innerHTML=allR.length?`<div class="plan-schema-header">
+      <div class="psh-kicker">training${totalKm>0?' · '+Math.round(totalKm)+' km':''}</div>
+      <div class="psh-title">${esc(schemaName)}</div>
+      <div class="psh-sub">Week ${weekNum} van ${totalWeeks}</div>
+      <div class="psh-bar"><div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px"></div></div>
+      <div class="psh-dates"><span>Start · ${fmtS(startDate)}</span><span>Race · ${fmtS(endDate)}</span></div>
+    </div>`:`<div class="plan-schema-header"><div class="psh-kicker">training</div><div class="psh-title">Training</div></div>`;
+  }
 
-    // Phase strip v4: 4 equal tiles
+  if(!state.data){phaseTabs.innerHTML='';renderPlanWithoutData(t);return;}
+  const allRows=state.data.filter(r=>r.datum);
+  if(!allRows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;phaseTabs.innerHTML='';return;}
+
+  const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
+
+  if(faseValues.length>0){
+    // Auto-select current fase on first load
+    if(!state.currentFase||!faseValues.includes(state.currentFase)){
+      state.currentFase=faseValues.find(f=>allRows.filter(r=>r.fase===f).some(r=>r.datum>=t))||faseValues[faseValues.length-1];
+    }
+    const activeFase=state.currentFase;
+
+    // Vertical phase list
+    phaseTabs.style.cssText='padding:8px 16px 0;margin-top:0';
     phaseTabs.innerHTML=faseValues.map((f,i)=>{
+      const fRows=allRows.filter(r=>r.fase===f&&r.datum);
+      const fEnd=fRows[fRows.length-1]?.datum,fStart=fRows[0]?.datum;
+      const allPast=fEnd&&fEnd<t;
+      const hasFuture=fStart&&fStart>t;
+      const isCurrent=!allPast&&!hasFuture;
+      const isActive=f===activeFase;
       const shortName=f.replace(/^Fase\s*\d+\s*[·–-]\s*/i,'').trim()||f;
-      const faseNum=f.match(/\d+/)?.[0]||String(i+1);
-      return `<div class="phase-tile${f===activeFase?' active':''}" onclick="selectFase(this,'${esc(f)}')" data-fase="${esc(f)}">
-        <div class="phase-tile-name">F${faseNum}</div>
-        <div class="phase-tile-sub">${esc(shortName)}</div>
+      const num=String(f.match(/\d+/)?.[0]||i+1).padStart(2,'0');
+      const wks=fStart&&fEnd?Math.max(1,Math.ceil((parseDate(fEnd)-parseDate(fStart))/604800000+1)):'';
+      const cls=`plan-fase-row${isActive?' is-active':''}${isCurrent?' is-current':allPast?' is-done':''}`;
+      return `<div class="${cls}" onclick="selectFase(this,'${esc(f)}')" data-fase="${esc(f)}">
+        <div class="pfr-num">${num}</div>
+        <div style="flex:1;min-width:0"><div class="pfr-name">${esc(shortName)}</div></div>
+        ${wks?`<div class="pfr-weeks">${wks}w</div>`:''}
+        <div class="pfr-icon">${allPast?'✓':isCurrent?'→':''}</div>
       </div>`;
     }).join('');
 
-    // Floating fase badge (top-right sticky)
-    const faseBadge=`<div class="fase-badge" id="faseBadge">${esc(activeFase)}</div>`;
-
     const _tf=state.planTypeFilters||[];
-    const filteredRows=_tf.length
-      ?allRows.filter(r=>r.fase===activeFase&&_tf.some(f=>hasType(r.type,f)))
-      :allRows.filter(r=>r.fase===activeFase);
-    renderPlanRows(filteredRows,t,faseBadge);
+    const rows=_tf.length?allRows.filter(r=>r.fase===activeFase&&_tf.some(f=>hasType(r.type,f))):allRows.filter(r=>r.fase===activeFase);
+    renderPlanRows(rows,t,'');
   }else{
     phaseTabs.innerHTML='';
     renderPlanRows(allRows,t,'');
@@ -1227,9 +1249,10 @@ function _togglePlanFilter(type){
 
 function selectFase(btn,fase){
   state.currentFase=fase;
-  document.querySelectorAll('#phaseTabs .phase-tile').forEach(b=>b.classList.toggle('active',b.dataset.fase===fase));
-  const badge=fase?`<div class="fase-badge">${esc(fase)}</div>`:'';
-  renderPlanRows((state.data||[]).filter(r=>(r.fase||'')===(fase||'')),todayStr(),badge);
+  document.querySelectorAll('#phaseTabs .plan-fase-row').forEach(b=>b.classList.toggle('is-active',b.dataset.fase===fase));
+  const _tf=state.planTypeFilters||[];
+  const rows=_tf.length?(state.data||[]).filter(r=>r.fase===fase&&_tf.some(f=>hasType(r.type,f))):(state.data||[]).filter(r=>(r.fase||'')===(fase||''));
+  renderPlanRows(rows,todayStr(),'');
 }
 
 function renderPlanRows(rows,t,faseBadge=''){
@@ -1318,7 +1341,7 @@ function renderPlanRows(rows,t,faseBadge=''){
 
   // C29: next-fase nudge at bottom
   const faseValues=state.data?[...new Set(state.data.map(r=>r.fase||'').filter(Boolean))]:[];
-  const activeFase=document.getElementById('phaseTabs')?.querySelector('.phase-tile.active')?.dataset.fase;
+  const activeFase=document.getElementById('phaseTabs')?.querySelector('.plan-fase-row.is-active')?.dataset.fase;
   if(activeFase&&faseValues.length>1){
     const idx=faseValues.indexOf(activeFase);
     if(idx<faseValues.length-1){
@@ -1347,7 +1370,7 @@ function togglePlanRow(id){
 
 // navigate to fase by name
 function selectFaseByName(fase){
-  const tile=document.querySelector(`#phaseTabs .phase-tile[data-fase="${CSS.escape(fase)}"]`);
+  const tile=document.querySelector(`#phaseTabs .plan-fase-row[data-fase="${CSS.escape(fase)}"]`);
   if(tile)selectFase(tile,fase);
 }
 
@@ -1374,7 +1397,7 @@ function swipePlanFase(dir){
   const faseValues=[...new Set(state.data.map(r=>r.fase||'').filter(Boolean))];
   if(faseValues.length<=1)return;
   const phaseTabs=document.getElementById('phaseTabs');
-  const active=phaseTabs?.querySelector('.phase-tile.active');
+  const active=phaseTabs?.querySelector('.plan-fase-row.is-active');
   if(!active)return;
   const idx=faseValues.indexOf(active.dataset.fase);
   const next=faseValues[idx+dir];
@@ -3530,9 +3553,9 @@ function switchTab(tab){
   document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
   document.getElementById('scrollArea').scrollTop=0;
-  const tabNames={today:'VANDAAG',week:'WEEK',plan:'TRAINING',calendar:'KALENDER',settings:'INSTELLINGEN'};
+  const tabNames={today:'vandaag',week:'week',plan:'training',calendar:'kalender',settings:'instellingen'};
   const dtEl=document.getElementById('dtCurrentTab');
-  if(dtEl)dtEl.textContent=tabNames[tab]||tab.toUpperCase();
+  if(dtEl)dtEl.textContent=tabNames[tab]||tab;
   renderActiveView();
 }
 
