@@ -1058,104 +1058,75 @@ function renderWeek(){
   const days=state.lang==='en'?DAYS_EN:DAYS_NL;
   const wd=dates.map(d=>({date:d,rows:(state.data||[]).filter(r=>r.datum===d),row:(state.data||[]).find(r=>r.datum===d)??null}));
   const d0=parseDate(dates[0]),d6=parseDate(dates[6]);
-  const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
   const months=state.lang==='en'?MONTHS_EN:MONTHS_NL;
-  // Week number (ISO)
   const jan4=new Date(d0.getFullYear(),0,4);
   const weekNum=Math.ceil(((d0-jan4)/86400000+jan4.getDay()+1)/7);
   const weekLabel=`${d0.getDate()}–${d6.getDate()} ${months[d0.getMonth()]}`;
   const plannedKm=wd.reduce((s,{rows})=>s+rows.reduce((a,r)=>a+(parseFloat(r.km)||0),0),0);
   const doneKm=wd.filter(({date})=>date<=t).reduce((s,{rows})=>s+rows.reduce((a,r)=>a+(parseFloat(r.km)||0),0),0);
-  const workDays=wd.filter(({rows})=>rows.some(r=>r.type==='work')).length;
-  const fbDone=wd.filter(({rows})=>rows.some(r=>r.feedback)).length;
   const pct=plannedKm>0?Math.min(100,Math.round(doneKm/plannedKm*100)):0;
+  const kmLeft=Math.max(0,plannedKm-doneKm);
 
-  let h=`<div class="page-title" style="padding:14px 20px 4px">
-    <div><div class="pt-kicker">Week ${weekNum}</div><div class="pt-h">${weekLabel}</div></div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div style="text-align:right">
-        <div style="font-family:var(--font-d);font-weight:800;font-size:26px;color:var(--accent);line-height:1">${plannedKm.toFixed(0)}<span style="color:var(--muted);font-size:12px">km</span></div>
-        <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1px">GEPLAND</div>
-      </div>
-      <button onclick="openWeekAddActivity()" style="width:28px;height:28px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:18px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent">+</button>
-    </div>
-  </div>
-  <div style="display:flex;gap:4px;padding:0 20px 8px;align-items:center">
-    <button onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">‹</button>
-    ${offset!==0?`<button onclick="state.weekOffset=0;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase">Nu</button>`:''}
-    <div style="flex:1"></div>
-    <button onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()" style="background:transparent;border:1px solid var(--border);padding:4px 10px;color:var(--muted);cursor:pointer;font-family:var(--font-d);font-size:16px;-webkit-tap-highlight-color:transparent">›</button>
-  </div>
-  <div id="weekSwipeWrap" style="padding:0 20px">
-  <div style="margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-      <span style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">${T('week_progress')}</span>
-      <span style="font-family:var(--font-m);font-size:10px;color:var(--text)">${doneKm.toFixed(1)} / ${plannedKm.toFixed(0)} km</span>
-    </div>
-    <div style="height:6px;background:var(--surface);border:1px solid var(--border);position:relative">
-      <div style="position:absolute;inset:0;width:${pct}%;background:var(--accent)"></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;margin-top:6px">
-      <span style="font-family:var(--font-m);font-size:9px;color:${pct===100?'var(--accent)':'var(--muted)'}">${pct}%</span>
-      <span style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${(()=>{
-        const runs=wd.filter(({rows})=>rows.some(r=>r.type==='run'||r.type==='race')).length;
-        return (fbDone>0?`✓ ${fbDone} feedback · `:'')+(runs>0?`${runs} ${runs===1?'run':'runs'}`:'');
-      })()}</span>
-    </div>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px">`;
-
-  wd.forEach(({date,row})=>{
-    const isT=date===t,isPast=date<t,d=parseDate(date);
-    const ti=row?typeOf(row.type):null;
-    const isWorkDay=isWork(row?.type);
-    let status='';
-    if(row?.feedback)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--accent)">✓${row.km?' '+parseFloat(row.km).toFixed(0)+'k':''}</div>`;
-    // C44: werk shows label, no dot
-    else if(isWorkDay)status=`<div style="font-family:var(--font-m);font-size:8px;color:var(--work-text);letter-spacing:0.5px">werk</div>`;
-    else if(row?.km)status=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${parseFloat(row.km).toFixed(0)}k</div>`;
-    const dot=ti&&!status&&!isWorkDay?`<div style="width:5px;height:5px;border-radius:50%;background:${isPast?'var(--faint)':ti.text};margin-top:4px"></div>`:'';
-    // C44: no accent border for work days
-    // C45: past days are faded; C46: click highlights day row below
-    h+=`<div data-week-tile="${date}" onclick="weekTileClick('${date}')" style="background:${isT?'var(--bg)':'var(--surface)'};border:1px solid ${isT?'var(--accent)':'var(--border)'};padding:8px 2px 10px;text-align:center;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;opacity:${isPast&&!isT?0.45:1};cursor:pointer;transition:border-color 0.15s">
+  // Header: ‹ Week N + date range › | km total right
+  let h=`<div class="week-header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="week-nav-btn" onclick="state.weekOffset=(state.weekOffset||0)-1;renderWeek()">‹</button>
       <div>
-        <div style="font-family:var(--font-m);font-size:8px;color:var(--muted);letter-spacing:0.5px">${days[dayIdx(d)]}</div>
-        <div style="font-family:var(--font-d);font-weight:800;font-size:16px;color:${isT?'var(--accent)':'var(--text)'};margin-top:2px">${d.getDate()}</div>
+        <div class="week-header-num">Week ${weekNum}</div>
+        <div class="week-header-dates">${weekLabel}${offset!==0?` · <button class="week-now-btn" onclick="state.weekOffset=0;renderWeek()">Nu</button>`:''}</div>
       </div>
-      ${status||dot}
+      <button class="week-nav-btn" onclick="state.weekOffset=(state.weekOffset||0)+1;renderWeek()">›</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="text-align:right">
+        <div class="week-km-total">${doneKm.toFixed(0)}<span class="week-km-slash"> / ${plannedKm.toFixed(0)} km</span></div>
+        <div class="week-km-pct">${pct}%${kmLeft>0?' · '+kmLeft.toFixed(0)+' km te gaan':''}</div>
+      </div>
+      <button class="today-add-btn" onclick="openWeekAddActivity()">+</button>
+    </div>
+  </div>`;
+
+  // Progress bar
+  h+=`<div class="week-progress-bar"><div style="width:${pct}%;height:100%;background:var(--accent);border-radius:2px"></div></div>`;
+
+  // Day strip (today highlighted, click scrolls to row)
+  h+=`<div style="height:14px"></div>
+  <div class="today-day-strip">
+    <div class="tds-days">`;
+  wd.forEach(({date,rows},i)=>{
+    const isT=date===t;
+    const tr=rows.find(r=>r.type!=='rest'&&r.type!=='work');
+    const dotColor=tr?(isT?'rgba(255,255,255,0.65)':typeOf(tr.type).text):'transparent';
+    const d=parseDate(date);
+    h+=`<div class="today-day-block${isT?' active':''}" onclick="weekScrollToDay('${date}')">
+      <div class="tdb-day">${DAYS_NL[i]}</div>
+      <div class="tdb-num">${d.getDate()}</div>
+      <div class="tdb-dot" style="background:${dotColor}"></div>
     </div>`;
   });
-  h+=`</div>`;
+  h+=`</div></div>`;
 
+  // Day rows
+  h+=`<div id="weekSwipeWrap" style="padding:14px 16px 0">`;
   if(!state.data){h+=noSchemaHint();}
   else{
-    // Week: show active days (exclude rust/werk), include past days greyed
-    // All active rows grouped by date
     const activeDays=wd.map(({date,rows})=>({date,activeRows:rows.filter(r=>r.type&&r.type!=='work'&&r.type!=='rest')})).filter(({activeRows})=>activeRows.length);
-    if(activeDays.length){
-      h+=`<div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('week_todo')}</div>`;
-      activeDays.forEach(({date,activeRows})=>{
-        const isTdy=date===t,isPastDay=date<t,d=parseDate(date);
-        h+=`<div data-upcoming-date="${date}" style="background:var(--surface);border:1px solid ${isTdy?'var(--accent)':'var(--border)'};padding:12px;margin-bottom:6px;opacity:${isPastDay&&!isTdy?0.45:1};transition:border-color 0.2s">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:${activeRows.length>1?'10':'0'}px">
-            <div style="text-align:center;min-width:36px;padding-right:10px;border-right:1px solid var(--border);flex-shrink:0">
-              <div style="font-family:var(--font-m);font-size:9px;color:var(--muted)">${days[dayIdx(d)]}</div>
-              <div style="font-family:var(--font-d);font-weight:800;font-size:18px;color:${isTdy?'var(--accent)':'var(--text)'}">${d.getDate()}</div>
-            </div>
-            <div style="flex:1;min-width:0">
-              ${activeRows.map((row,i)=>{const ti=typeOf(row.type);return`<div onclick="openDayModalRow(${row.rowIndex},'${date}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:${i>0?'8px 0 0':0};${i>0?'border-top:1px solid var(--border);margin-top:8px':''}">
-                <div style="width:18px;height:18px;flex-shrink:0">${RXIcon(normalizeType(row.type||'rest'),16,'var(--muted)','var(--accent)')}</div>
-                <div style="flex:1;min-width:0">
-                  <div style="font-family:var(--font-m);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${ti.text}">${T(ti.i18n)}</div>
-                  <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'')}</div>
-                </div>
-                ${row.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--accent);flex-shrink:0">${esc(row.km)}km</div>`:''}
-              </div>`;}).join('')}
-            </div>
+    activeDays.forEach(({date,activeRows})=>{
+      const isTdy=date===t,isPast=date<t,d=parseDate(date);
+      activeRows.forEach((row,i)=>{
+        const ti=typeOf(row.type);
+        h+=`<div data-upcoming-date="${date}" onclick="openDayModalRow(${row.rowIndex},'${date}')"
+          class="week-day-row${isTdy?' today':isPast?' past':''}"
+          style="${i>0?'margin-top:4px':''};-webkit-tap-highlight-color:transparent">
+          <div class="wdr-bar" style="background:${ti.text}"></div>
+          <div style="flex:1;min-width:0">
+            <div class="wdr-label">${days[dayIdx(d)]} · ${T(ti.i18n)}</div>
+            <div class="wdr-title">${esc(row.titel||'')}</div>
           </div>
+          ${row.km?`<div class="wdr-km">${esc(row.km)} km</div>`:''}
         </div>`;
       });
-    }
+    });
   }
   h+=`</div>`;
   el.innerHTML=h;
@@ -1858,6 +1829,11 @@ function initWeekSwipe(){
 
 // helper: get week dates for a given offset
 // C51: week tile click — only border highlight, never opens modal
+function weekScrollToDay(date){
+  const row=document.querySelector(`[data-upcoming-date="${date}"]`);
+  if(row){row.scrollIntoView({behavior:'smooth',block:'nearest'});row.style.outline='2px solid var(--accent)';setTimeout(()=>row.style.outline='',1200);}
+}
+
 function weekTileClick(date){
   const t=todayStr();
   // Remove selected class from all, add to clicked
