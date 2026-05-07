@@ -41,24 +41,16 @@
   </div>
 </div>
 
-<div class="onboarding-overlay" id="onboarding" style="display:none" onclick="onboardingOverlayClick(event)">
+<div class="onboarding-overlay" id="onboarding" style="display:none">
   <div class="onboarding-sheet" id="onboardingSheet">
     <div class="ob-header">
       <div class="ob-logo">run<span>yo</span></div>
-      <button class="ob-skip" onclick="onboardingFinish()">Ik weet het nog niet</button>
     </div>
     <div id="onboardingStep1">
-      <div class="ob-title">Waar train je naartoe?</div>
-      <div class="ob-subtitle">Optioneel — je kunt dit later altijd toevoegen.</div>
-      <div class="settings-field">
-        <label class="settings-label">Race of evenement</label>
-        <input type="text" class="settings-input" id="obRace" placeholder="Bijv. Marathon Rotterdam">
-      </div>
-      <div class="settings-field">
-        <label class="settings-label">Wanneer is de race?</label>
-        <input type="date" class="settings-input" id="obDate">
-      </div>
-      <button class="btn-primary" onclick="onboardingFinish()">Doorgaan</button>
+      <div class="ob-title">Jouw training, elke dag bij de hand</div>
+      <div class="ob-subtitle">Koppel jouw trainingsschema en ontvang dagelijks wat er op het programma staat.</div>
+      <button class="btn-primary" onclick="onboardingStartConnect()">Schema koppelen</button>
+      <button class="ob-skip-inline" onclick="onboardingFinish()">Ik verken eerst</button>
     </div>
   </div>
 </div>

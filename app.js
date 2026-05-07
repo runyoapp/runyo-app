@@ -797,16 +797,8 @@ function renderRacesBar(){
       .map(r=>({datum:r.date,titel:r.name,km:r.dist}));
   }
 
-  // No races — empty chip with add button
-  if(!races.length){
-    bar.innerHTML=`<div class="race-chip">
-      <div class="race-chip-empty">
-        <div class="race-chip-empty-label">Geen races gepland</div>
-        <div class="race-chip-empty-add" onclick="openRaceModal();event.stopPropagation()">+ Race →</div>
-      </div>
-    </div>`;
-    return;
-  }
+  // No races — hide chip entirely
+  if(!races.length){bar.innerHTML='';return;}
 
   const main=races[0];
   const rest=races.slice(1);
@@ -1020,9 +1012,10 @@ function renderToday(){
 function noSchemaHint(){
   const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
   if(loggedIn){
-    return `<div class="no-connection-hint" onclick="switchTab('settings')">
-      <div class="nch-icon">📋</div>
-      <div><div class="nch-text">${T('setup_title')}</div><div class="nch-link">${T('setup_body')}</div></div>
+    return `<div style="padding:32px 20px">
+      <div style="font-family:var(--font-d);font-weight:700;font-size:24px;letter-spacing:-0.03em;margin-bottom:8px">Geen schema gekoppeld</div>
+      <div style="font-family:var(--font-d);font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Koppel jouw trainingsschema en ontvang dagelijks wat er op het programma staat.</div>
+      <button class="btn-primary" onclick="showOAuthConnectSheet&&showOAuthConnectSheet()||switchTab('settings')">Schema koppelen</button>
     </div>`;
   }
   return `<div style="padding:32px 20px">
@@ -2012,7 +2005,6 @@ function renderCalendar(){
     <div style="display:flex;gap:6px;align-items:center">
       <button class="week-nav-btn" onclick="calPrev()">‹</button>
       <button class="week-nav-btn" onclick="calNext()">›</button>
-      <button class="today-add-btn" onclick="openRaceModal()">+</button>
     </div>
   </div>
   <div style="padding:0 16px">`;
@@ -3673,25 +3665,19 @@ function updateConnectionStatus(ok,err){
 
 // ── ONBOARDING ────────────────────────────────────────────────────────────────
 // U1: click outside sheet dismisses (wegklikbaar)
-function onboardingOverlayClick(e){
-  if(e.target===document.getElementById('onboarding'))onboardingFinish();
-}
-
 function shouldShowOnboarding(){
   return !localStorage.getItem('onboardingDone');
 }
 
 function onboardingFinish(){
-  const raceName=document.getElementById('obRace')?.value.trim();
-  const raceDate=document.getElementById('obDate')?.value;
-  if(raceName&&raceDate){
-    const races=loadRaces();
-    races.push({id:Date.now().toString(),name:raceName,date:raceDate,dist:'',mainGoal:true});
-    persistRaces(races);
-  }
   localStorage.setItem('onboardingDone','1');
   document.getElementById('onboarding').style.display='none';
   renderHeader();renderActiveView();
+}
+
+async function onboardingStartConnect(){
+  onboardingFinish();
+  await oauthConnectFlow();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────

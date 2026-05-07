@@ -778,8 +778,9 @@ a{color:inherit;text-decoration:none}
 .ob-logo span{color:var(--accent)}
 .ob-skip{background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:12px;letter-spacing:0.3px;text-decoration:underline;text-underline-offset:2px;transition:color 0.12s;min-height:36px;padding:0 4px;cursor:pointer}
 .ob-skip:hover{color:var(--text)}
-.ob-title{font-size:17px;font-weight:600;margin-bottom:4px;line-height:1.3;letter-spacing:-0.01em}
-.ob-subtitle{font-family:var(--font-m);font-size:11px;color:var(--muted);margin-bottom:16px}
+.ob-title{font-family:var(--font-d);font-size:22px;font-weight:800;margin-bottom:8px;line-height:1.2;letter-spacing:-0.03em;color:var(--text)}
+.ob-subtitle{font-family:var(--font-d);font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.ob-skip-inline{display:block;width:100%;background:none;border:none;color:var(--muted);font-family:var(--font-d);font-size:13px;padding:14px 0 0;cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent}
 .ob-step{font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1px;margin-bottom:6px}
 
 /* ── Desktop ≥768px ───────────────────────────────────────────────────────── */
