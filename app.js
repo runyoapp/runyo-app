@@ -923,7 +923,7 @@ function renderToday(){
   if(!state.data){
     h+=`<div style="padding:0 16px">`;
     h+=noSchemaHint();
-    h+=`<div class="mob-reminder"><div class="mob-title">${T('mob_reminder')}</div><div class="mob-text">${T('mob_text')}</div></div></div>`;
+    h+=`</div>`;
     el.innerHTML=h;return;
   }
 
@@ -997,9 +997,6 @@ function renderToday(){
     </div>`;
   }
 
-  if(!row||isMob(row.type)){
-    h+=`<div class="mob-reminder"><div class="mob-title">${T('mob_reminder')}</div><div class="mob-text">${T('mob_text')}</div></div>`;
-  }
 
   h+=`</div>`;
   el.innerHTML=h;
@@ -1890,32 +1887,32 @@ function openStats(){
     {label:T('stats_feedback'),val:fbRows.length,unit:T('stats_fb_sub'),hi:false},
   ].filter(Boolean);
 
-  let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  let h=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
     <div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;font-weight:600">Stats · all-time</div>
-      <div style="font-family:var(--font-d);font-weight:800;font-size:22px;text-transform:uppercase;margin-top:2px">Jouw run</div>
+      <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-0.01em">all-time</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:26px;letter-spacing:-0.04em;color:var(--text);line-height:1;margin-top:2px">Jouw run</div>
     </div>
-    <button onclick="closeStats()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:10px;letter-spacing:1px;text-transform:uppercase">Sluit ✕</button>
+    <button onclick="closeStats()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:8px 14px;cursor:pointer;font-family:var(--font-d);font-size:13px;border-radius:8px;-webkit-tap-highlight-color:transparent">✕</button>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">`;
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">`;
   tiles.forEach(t=>{
-    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px">
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${esc(t.label)}</div>
-      <div style="font-family:var(--font-d);font-weight:800;font-size:32px;line-height:1;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:4px">${esc(t.unit)}</div>
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:16px;border-radius:12px">
+      <div style="font-family:var(--font-d);font-size:12px;color:var(--muted);letter-spacing:-0.005em;margin-bottom:8px;font-weight:500">${esc(t.label)}</div>
+      <div style="font-family:var(--font-d);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.04em;color:${t.hi?'var(--accent)':'var(--text)'}">${esc(String(t.val))}</div>
+      <div style="font-family:var(--font-d);font-size:12px;color:var(--muted);margin-top:4px">${esc(t.unit)}</div>
     </div>`;
   });
   h+='</div>';
   if(fbRows.length){
-    h+=`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:8px">${T('stats_recent')}</div>`;
+    h+=`<div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-0.01em;margin-bottom:10px">${T('stats_recent')}</div>`;
     fbRows.slice(-3).reverse().forEach(row=>{
       const d=parseDate(row.datum);
-      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between">
-          <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(row.titel||'Training')}</div>
-          <span style="font-family:var(--font-m);font-size:10px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);padding:14px;border-radius:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <div style="font-family:var(--font-d);font-weight:600;font-size:14px;letter-spacing:-0.01em">${esc(row.titel||'Training')}</div>
+          <span style="font-family:var(--font-d);font-size:12px;color:var(--muted)">${d.getDate()} ${months[d.getMonth()]}</span>
         </div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--text);margin-top:4px;line-height:1.5">${esc(row.feedback)}</div>
+        <div style="font-family:var(--font-d);font-size:13px;color:var(--text2);line-height:1.5">${esc(row.feedback)}</div>
       </div>`;
     });
   }
@@ -2428,21 +2425,20 @@ function renderConnectSection(){
       _saveSchemaHistory(sheetId,fileName,sheetUrl);
       const _driveMissing=localStorage.getItem('rx_drive_scope_missing')==='1';
       el.innerHTML=`
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
           <div style="width:8px;height:8px;border-radius:50%;background:var(--run-text);flex-shrink:0"></div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;margin-bottom:3px">${esc(fileName)}</div>
-            <a href="${esc(sheetUrl)}" target="_blank" style="font-family:var(--font-m);font-size:10px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Schema openen in Google Sheets ↗</a>
+            <div style="font-family:var(--font-d);font-size:14px;font-weight:600;letter-spacing:-0.01em;margin-bottom:3px">${esc(fileName)}</div>
+            <a href="${esc(sheetUrl)}" target="_blank" style="font-family:var(--font-d);font-size:12px;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#0F9D58"/><path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>Openen in Google Sheets ↗</a>
           </div>
+          <button onclick="disconnectSheet()" style="background:none;border:none;color:var(--muted);font-family:var(--font-d);font-size:12px;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:2px;flex-shrink:0;-webkit-tap-highlight-color:transparent">Ontkoppelen</button>
         </div>
-        ${_driveMissing?`<div style="font-family:var(--font-m);font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1">Log opnieuw in voor automatische synchronisatie naar andere apparaten.</span><button class="btn-save" onclick="authSignOut&&authSignOut();oauthConnectFlow&&oauthConnectFlow()" style="white-space:nowrap;flex-shrink:0">Opnieuw inloggen</button></div>`:''}
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn-save" onclick="toggleConnectPanel('history')">Gekoppelde schema's</button>
-          <button class="btn-save" onclick="toggleConnectPanel('new')">+ Nieuw</button>
-          <button onclick="disconnectSheet()" style="background:none;border:none;color:var(--faint);font-family:var(--font-m);font-size:10px;letter-spacing:0.5px;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:2px">Ontkoppelen</button>
+        ${_driveMissing?`<div style="font-family:var(--font-d);font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="flex:1">Log opnieuw in voor automatische synchronisatie naar andere apparaten.</span><button class="btn-save" onclick="authSignOut&&authSignOut();oauthConnectFlow&&oauthConnectFlow()" style="white-space:nowrap;flex-shrink:0;font-size:12px;padding:7px 12px">Opnieuw inloggen</button></div>`:''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-save" onclick="toggleConnectPanel('history')" style="font-size:13px;padding:8px 14px">Gekoppelde schema's</button>
+          <button class="btn-save" onclick="toggleConnectPanel('new')" style="font-size:13px;padding:8px 14px">+ Nieuw trainingsschema</button>
         </div>
-        <div id="connectPanel" style="margin-top:12px"></div>
-        ${_devBlock()}`;
+        <div id="connectPanel" style="margin-top:12px"></div>`;
     })();
     return;
   }
@@ -2454,7 +2450,7 @@ function renderConnectSection(){
         <button class="connect-tile primary" onclick="openImportModal('all')" style="border:none">
           <div class="connect-tile-icon">${importSvg}</div>
           <div class="connect-tile-body">
-            <div class="connect-tile-title">Schema importeren</div>
+            <div class="connect-tile-title">Importeer eigen schema <span style="background:var(--accent);color:var(--accent-ink);font-size:9px;padding:1px 6px;border-radius:999px;font-family:var(--font-d);font-weight:700;letter-spacing:-0.01em;vertical-align:middle;margin-left:4px">Aanbevolen</span></div>
             <div class="connect-tile-sub">PDF, Excel, foto of van je coach</div>
           </div>
           ${chevronSvg}
@@ -2462,7 +2458,7 @@ function renderConnectSection(){
         <button class="connect-tile" onclick="oauthPickExisting()">
           <div class="connect-tile-icon"><svg width="20" height="20" viewBox="0 0 48 48" fill="none"><path fill="#0F9D58" d="M37 4H17l-6 6v34a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path fill="#87CEAC" d="M17 4v4a2 2 0 0 1-2 2h-4z"/><path fill="#F1F1F1" d="M33 22H15v14h18V22zm-10 12h-6v-4h6zm0-6h-6v-4h6zm8 6h-6v-4h6zm0-6h-6v-4h6z"/></svg></div>
           <div class="connect-tile-body">
-            <div class="connect-tile-title">Bestaand schema koppelen</div>
+            <div class="connect-tile-title">Koppel Google Sheets schema</div>
             <div class="connect-tile-sub">Koppel een Google Sheet die je al hebt</div>
           </div>
           ${chevronSvg}
@@ -2475,8 +2471,7 @@ function renderConnectSection(){
           </div>
           ${chevronSvg}
         </button>
-      </div>
-      ${_devBlock()}`;
+      </div>`;
     return;
   }
 
@@ -2485,7 +2480,7 @@ function renderConnectSection(){
     <div style="max-width:260px">
       <button class="btn-google" id="oauthConnectBtn" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
     </div>
-    ${_devBlock()}`;
+`;
 }
 
 // ── PER-EMAIL SCHEMA LIST ─────────────────────────────────────────────────────
@@ -2838,18 +2833,6 @@ async function loadSheetPickerInline(){
 }
 
 
-function _devBlock(){
-  return `<details style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
-    <summary style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:1px;text-transform:uppercase;cursor:pointer">Dev — Apps Script</summary>
-    <div class="settings-field" style="margin-top:8px">
-      <label class="settings-label">Apps Script URL</label>
-      <div class="settings-hint" style="margin-bottom:6px">${T('connect_hint')}</div>
-      <input type="url" class="settings-input" id="scriptUrl" placeholder="${T('connect_url_placeholder')}"
-        value="${esc(state.scriptUrl)}">
-    </div>
-    <button class="btn-save" style="margin-top:4px" onclick="saveSettings()">Opslaan</button>
-  </details>`;
-}
 
 // ── E6 AI SCHEMA IMPORT ───────────────────────────────────────────────────────
 state.importStep=0;
