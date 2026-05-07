@@ -64,31 +64,40 @@ function authSheetId(){
 }
 function authSetSheetId(id){localStorage.setItem(GAUTH.SHEET_ID_KEY,id);}
 
-// ── OAuth flow — popup-based (PKCE + postMessage) ────────────────────────────
-// Opens a popup. After consent Google redirects popup to REDIRECT_URI which
-// loads a tiny receiver page that posts the code back via postMessage.
+// ── OAuth flow ────────────────────────────────────────────────────────────────
+// PWA standalone (iOS): redirect flow — geen popups toegestaan.
+// Overige browsers: popup met synchrone window.open() voor Safari-compatibiliteit.
 async function authSignIn(){
-  const {verifier,challenge}=await _pkce();
-  localStorage.setItem('pkce_verifier',verifier);
-
+  const isPWA=window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches;
   const params=new URLSearchParams({
     client_id:    GAUTH.CLIENT_ID,
     redirect_uri: GAUTH.REDIRECT_URI,
     response_type:'code',
     scope:        GAUTH.SCOPES,
-    code_challenge:        challenge,
-    code_challenge_method: 'S256',
+    code_challenge_method:'S256',
     access_type:  'offline',
     prompt:       'consent',
   });
 
-  const url='https://accounts.google.com/o/oauth2/v2/auth?'+params;
+  if(isPWA){
+    // Redirect flow — sla verifier op, redirect naar Google
+    const {verifier,challenge}=await _pkce();
+    localStorage.setItem('pkce_verifier',verifier);
+    params.set('code_challenge',challenge);
+    window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
+    return new Promise(()=>{}); // page navigates away
+  }
+
+  // Popup flow — open SYNCHRONOUSLY vóór await (Safari vereist dit)
+  const popup=window.open('','gauth','width=520,height=640,left=200,top=80');
+  if(!popup)throw new Error('Popup geblokkeerd — sta popups toe voor deze pagina');
+
+  const {verifier,challenge}=await _pkce();
+  localStorage.setItem('pkce_verifier',verifier);
+  params.set('code_challenge',challenge);
+  popup.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params;
 
   return new Promise((resolve,reject)=>{
-    const popup=window.open(url,'gauth','width=520,height=640,left=200,top=80');
-    if(!popup){reject(new Error('Popup geblokkeerd — sta popups toe voor deze pagina'));return;}
-
-    // Listen for postMessage from the popup (sent by oauth-callback.html)
     function onMessage(e){
       if(e.origin!==window.location.origin)return;
       if(e.data?.type!=='OAUTH_CODE')return;
@@ -99,8 +108,6 @@ async function authSignIn(){
       _exchangeCode(e.data.code).then(resolve).catch(reject);
     }
     window.addEventListener('message',onMessage);
-
-    // Fallback: detect popup closed without posting
     const closedTimer=setInterval(()=>{
       if(popup.closed){
         clearInterval(closedTimer);
@@ -109,6 +116,27 @@ async function authSignIn(){
       }
     },500);
   });
+}
+
+// Verwerk een OAuth-code die via redirect (iOS PWA) in localStorage is opgeslagen
+async function _checkOauthRedirectReturn(){
+  const code=localStorage.getItem('oauth_return_code');
+  if(!code)return;
+  localStorage.removeItem('oauth_return_code');
+  try{
+    await _exchangeCode(code);
+    const em=typeof authEmail==='function'?authEmail():'';
+    if(em&&typeof _restoreSettingsFromAccount==='function')_restoreSettingsFromAccount(em);
+    if(typeof renderHeader==='function')renderHeader();
+    if(authSheetId()){
+      if(typeof switchTab==='function')switchTab('today');
+      if(typeof fetchData==='function')fetchData();
+    }else{
+      if(typeof showOAuthConnectSheet==='function')showOAuthConnectSheet();
+    }
+  }catch(e){
+    if(typeof showToast==='function')showToast('❌ Inloggen mislukt: '+e.message);
+  }
 }
 
 async function _exchangeCode(code){

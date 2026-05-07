@@ -10,11 +10,16 @@
   const code=p.get('code');
   const error=p.get('error');
   if(window.opener){
+    // Popup flow: stuur code terug via postMessage
     window.opener.postMessage(
       code ? {type:'OAUTH_CODE',code} : {type:'OAUTH_CODE',error:error||'Onbekende fout'},
       window.location.origin
     );
-  } 
+  } else {
+    // Redirect flow (iOS PWA): sla code op in localStorage, ga terug naar app
+    if(code) localStorage.setItem('oauth_return_code', code);
+    window.location.replace(window.location.origin + '/runyo-app/');
+  }
 </script>
 </body>
 </html>

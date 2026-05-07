@@ -3701,6 +3701,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(urlParams.get('sheet'))state.scriptUrl=urlParams.get('sheet');
   if(urlParams.get('tab'))state.sheetName=urlParams.get('tab');
 
+  if(typeof _checkOauthRedirectReturn==='function')_checkOauthRedirectReturn();
   applyI18n();renderHeader();
 
   // Desktop: show topbar based on screen width
