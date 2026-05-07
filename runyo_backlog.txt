@@ -30,7 +30,7 @@ C62 | Meerdere activiteittypes toevoegen: zwemmen, fietsen, gym (emoji + kleur, 
 
 🔔 D — Notificaties & Bot
 --------------------------
-D3 | Telegram bot reageert op notificatie-instellingen in app (tijden, aan/uit per type) | 🔴
+✓ D3 | Telegram bot reageert op notificatie-instellingen in app (tijden, aan/uit per type) | 🔴
 D5 | WhatsApp notificaties onderzoeken als alternatief/aanvulling op Telegram (WhatsApp Business API of Twilio) | 🟡
 D6 | Bot: bij feedback vragen eerst activiteit laten raten met 5 emoji's (zoals in de app), daarna vrije tekst | 🟡
 
@@ -82,9 +82,9 @@ G17  | Import logging eerder starten: log aanmaken bij start van import, ook bij
 
 💡 G — Visie & Marketing (toon alleen op verzoek)
 --------------------------------------------------
-G11a | Merkidentiteit: logo, kleurpallet, typografie, tagline | 🟡
-G11b | Landingspagina op runyo.app: propositie, screenshots, CTA voor early access | 🔴
-G11c | Social media: Instagram + TikTok account aanmaken, contentstrategie | 🟡
+✓ G11a | Merkidentiteit: logo, kleurpallet, typografie, tagline | 🟡
+✓ G11b | Landingspagina op runyo.app: propositie, screenshots, CTA voor early access | 🔴
+✓ G11c | Social media: Instagram + TikTok account aanmaken, contentstrategie | 🟡
 G11d | Advertentiecampagne: Meta Ads gericht op recreatieve hardlopers NL/BE | 🟡
 G11e | Influencer onderzoek: NL/BE hardloop-creators 5k-100k volgers, DM-template | 🟡
 G11f | Hardloopgemeenschappen: Strava clubs, Reddit, Facebook groepen — organische introductie | 🟢
