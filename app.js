@@ -1178,6 +1178,16 @@ function renderWeek(){
   requestAnimationFrame(()=>{initWeekSwipe();initWeekTouchDrag();});
 }
 
+let _weekDragActive=false;
+
+function _weekDragCleanup(drag){
+  if(!drag)return;
+  try{drag.el.style.opacity='';}catch{}
+  document.querySelectorAll('.wdr-ghost').forEach(el=>el.remove());
+  document.querySelectorAll('.wdr-drop-target,.wdr-droppable').forEach(b=>b.classList.remove('wdr-drop-target','wdr-droppable'));
+  _weekDragActive=false;
+}
+
 function initWeekTouchDrag(){
   const rows=document.querySelectorAll('#weekSwipeWrap .week-day-row[data-row-date]');
   const dayBlocks=()=>document.querySelectorAll('#weekContent .today-day-block[data-date]');
@@ -1193,12 +1203,13 @@ function initWeekTouchDrag(){
         active:false,ghost:null,
         timer:setTimeout(()=>{
           drag.active=true;
+          _weekDragActive=true;
           row.style.opacity='0.4';
           const rect=row.getBoundingClientRect();
           const g=document.createElement('div');
           g.className='wdr-ghost';
           g.style.cssText=`position:fixed;pointer-events:none;z-index:9999;width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(14,31,26,0.25);`;
-          g.innerHTML=row.outerHTML.replace(/draggable="true"/,'').replace(/ondrag\w+="[^"]*"/g,'');
+          g.innerHTML=row.innerHTML;
           document.body.appendChild(g);
           drag.ghost=g;
           dayBlocks().forEach(b=>b.classList.add('wdr-droppable'));
@@ -1218,19 +1229,19 @@ function initWeekTouchDrag(){
       dayBlocks().forEach(b=>b.classList.toggle('wdr-drop-target',b===target));
     },{passive:false});
 
-    row.addEventListener('touchend',e=>{
+    const endHandler=e=>{
       if(!drag)return;
       clearTimeout(drag.timer);
       if(drag.active){
-        const t=e.changedTouches[0];
-        const target=document.elementFromPoint(t.clientX,t.clientY)?.closest('.today-day-block[data-date]');
+        const t=(e.changedTouches||e.touches)[0];
+        const target=t?document.elementFromPoint(t.clientX,t.clientY)?.closest('.today-day-block[data-date]'):null;
         if(target?.dataset.date)doReschedule(drag.rowIndex,drag.date,target.dataset.date);
-        drag.el.style.opacity='';
-        drag.ghost?.remove();
-        dayBlocks().forEach(b=>b.classList.remove('wdr-drop-target','wdr-droppable'));
       }
+      _weekDragCleanup(drag);
       drag=null;
-    },{passive:true});
+    };
+    row.addEventListener('touchend',endHandler,{passive:true});
+    row.addEventListener('touchcancel',endHandler,{passive:true});
   });
 }
 
@@ -1997,6 +2008,7 @@ function initWeekSwipe(){
   let sx=0,sy=0;
   wrap.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
   wrap.addEventListener('touchend',e=>{
+    if(_weekDragActive)return; // geen swipe tijdens drag
     const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
     if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
       state.weekOffset=(state.weekOffset||0)+(dx<0?1:-1);
