@@ -1220,7 +1220,7 @@ function initWeekTouchDrag(){
       if(!drag)return;
       const t=e.touches[0];
       if(!drag.active){
-        if(Math.abs(t.clientX-drag.sx)>8||Math.abs(t.clientY-drag.sy)>8){clearTimeout(drag.timer);drag=null;}
+        if(Math.abs(t.clientX-drag.sx)>8||Math.abs(t.clientY-drag.sy)>8){clearTimeout(drag.timer);_weekDragCleanup(drag);drag=null;}
         return;
       }
       e.preventDefault();
@@ -1585,9 +1585,9 @@ function openDayModal(dateStr,targetRowIndex){
   const d=parseDate(dateStr);
   const dayNames=state.lang==='en'?DAYS_EN:DAYS_NL;
   const mNames=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
-  let h=`<div style="margin-bottom:16px">
-    <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">${dayNames[dayIdx(d)]} · ${mNames[d.getMonth()]} ${d.getFullYear()}</div>
-    <div style="font-family:var(--font-d);font-weight:800;font-size:28px;line-height:1;text-transform:uppercase">${d.getDate()} ${mNames[d.getMonth()]}</div>
+  let h=`<div style="margin-bottom:18px">
+    <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-0.01em;margin-bottom:4px">${dayNames[dayIdx(d)]} · ${mNames[d.getMonth()]} ${d.getFullYear()}</div>
+    <div style="font-family:var(--font-d);font-weight:800;font-size:30px;line-height:1;letter-spacing:-0.04em;color:var(--text)">${d.getDate()} ${mNames[d.getMonth()]}</div>
   </div>`;
 
   if(!row){
@@ -1682,7 +1682,7 @@ function openDayModal(dateStr,targetRowIndex){
       `<option value="${o.value}"${row.type===o.value?' selected':''}>${o.nl}</option>`
     ).join('');
     h+=`<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:10px">
-      <button onclick="document.getElementById('editFields').style.display=document.getElementById('editFields').style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase;width:100%;text-align:left;margin-bottom:6px">› Activiteit bewerken</button>
+      <button onclick="const ef=document.getElementById('editFields');const open=ef.style.display!=='none';ef.style.display=open?'none':'block';this.textContent=open?'Activiteit bewerken ›':'Activiteit bewerken ∧';" style="background:none;border:none;color:var(--muted);font-family:var(--font-d);font-size:13px;font-weight:600;letter-spacing:-0.01em;cursor:pointer;padding:0;width:100%;text-align:left;margin-bottom:10px">Activiteit bewerken ›</button>
       <div id="editFields" style="display:none">
         <div style="margin-bottom:8px">
           <label class="settings-label">Dag</label>
