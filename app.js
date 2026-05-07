@@ -2825,10 +2825,10 @@ function toggleConnectPanel(panel){
   const el=document.getElementById('connectPanel');if(!el)return;
   if(el.dataset.panel===panel&&panel!=='url'){el.innerHTML='';delete el.dataset.panel;return;}
   el.dataset.panel=panel;
-  const _tileBase='display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:left;transition:border-color 0.15s;min-height:170px;';
-  const _iconWrap='width:44px;height:44px;border-radius:9px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;flex-shrink:0;';
+  const _tileBase='display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;cursor:pointer;text-align:left;transition:border-color 0.15s;min-height:170px;-webkit-tap-highlight-color:transparent;';
+  const _iconWrap='width:44px;height:44px;border-radius:10px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;flex-shrink:0;';
   const _arrow='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>';
-  const _foot=(meta)=>`<div style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--font-m);font-size:9px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase">${meta}</span><span style="width:22px;height:22px;border-radius:5px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;color:var(--muted)">${_arrow}</span></div>`;
+  const _foot=(meta)=>`<div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><span style="font-family:var(--font-d);font-size:11px;font-weight:500;color:var(--muted);letter-spacing:-0.005em">${meta}</span><span style="width:22px;height:22px;border-radius:6px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center;color:var(--muted)">${_arrow}</span></div>`;
   if(panel==='history'){
     el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:14px 0">
       <div style="width:180px;height:4px;background:var(--border);border-radius:999px;overflow:hidden">
@@ -2839,9 +2839,9 @@ function toggleConnectPanel(panel){
     loadSheetPickerInline();
   }else if(panel==='url'){
     el.dataset.panel='url';
-    el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
-      <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Google Sheets URL koppelen</div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:10px">Plak de URL van een bestaand schema met de juiste kolommen.</div>
+    el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+      <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-0.01em;margin-bottom:4px">Google Sheets URL koppelen</div>
+      <div style="font-family:var(--font-d);font-size:13px;color:var(--muted);margin-bottom:12px">Plak de URL van een bestaand schema met de juiste kolommen.</div>
       <div style="display:flex;gap:6px"><input type="url" class="settings-input" id="inlineSheetUrl" placeholder="https://docs.google.com/spreadsheets/…" style="flex:1"><button class="btn-save" onclick="oauthSelectFromUrl()">Koppelen</button></div>
     </div>`;
     setTimeout(()=>document.getElementById('inlineSheetUrl')?.focus(),50);
@@ -2853,25 +2853,25 @@ function toggleConnectPanel(panel){
     const _imgChip='<svg viewBox="0 0 48 48" width="16" height="16"><path fill="#FF9E3D" d="M37 4H17l-6 6v34a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path fill="#FFD3A8" d="M17 4v4a2 2 0 0 1-2 2h-4z"/><circle cx="20" cy="22" r="2.2" fill="#fff"/><path fill="#fff" d="M15 36l5-7 4 4 5-6 6 9z"/></svg>';
     const _chip=(svg)=>`<span style="width:26px;height:26px;border-radius:5px;background:var(--bg);border:1px solid var(--border);display:grid;place-items:center">${svg}</span>`;
     el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:4px">
-      <button onclick="oauthCreateNew()" style="${_tileBase}">
-        <div style="${_iconWrap}color:var(--accent)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
-        <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Maak nieuw schema</div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Begin met een lege Google Sheet — de juiste kolommen staan al klaar.</div>
-        ${_foot('Leeg')}
+      <button onclick="openImportModal('all')" style="${_tileBase}border-color:var(--accent);position:relative">
+        <span style="position:absolute;top:-8px;right:12px;padding:2px 10px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-family:var(--font-d);font-size:11px;font-weight:700;letter-spacing:-0.01em">Aanbevolen</span>
+        <div style="${_iconWrap}color:var(--accent)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M15 4l1.5 3 3 1.5-3 1.5L15 13l-1.5-3-3-1.5 3-1.5L15 4z"/><path d="M5 19l8-8"/><path d="M4.5 5.5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-0.01em">Importeer eigen schema</div>
+        <div style="font-family:var(--font-d);font-size:13px;color:var(--muted);line-height:1.5">Upload een Excel, PDF of foto. We digitaliseren het automatisch.</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:auto;padding-top:6px">${_chip(_excelChip)}${_chip(_pdfChip)}${_chip(_imgChip)}<span style="font-family:var(--font-d);font-size:11px;color:var(--muted)">.xlsx · .pdf · .jpg</span></div>
+        ${_foot('Automatisch')}
       </button>
-      <button onclick="toggleConnectPanel('url')" style="${_tileBase}border-color:rgba(198,242,78,0.35);background:linear-gradient(180deg,rgba(198,242,78,0.05),var(--surface) 70%);position:relative">
-        <span style="position:absolute;top:-8px;right:12px;padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-family:var(--font-m);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Aanbevolen</span>
+      <button onclick="toggleConnectPanel('url')" style="${_tileBase}">
         <div style="${_iconWrap}padding:4px">${_sheetsIcon}</div>
-        <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Koppel Google Sheets URL</div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Plak een URL van een bestaande sheet. Wijzigingen verschijnen direct.</div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-0.01em">Koppel Google Sheets</div>
+        <div style="font-family:var(--font-d);font-size:13px;color:var(--muted);line-height:1.5">Plak een URL van een bestaande sheet. Wijzigingen verschijnen direct.</div>
         ${_foot('Live sync')}
       </button>
-      <button onclick="openImportModal('all')" style="${_tileBase}">
-        <div style="${_iconWrap}color:var(--accent)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M15 4l1.5 3 3 1.5-3 1.5L15 13l-1.5-3-3-1.5 3-1.5L15 4z"/><path d="M5 19l8-8"/><path d="M4.5 5.5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg></div>
-        <div style="font-family:var(--font-m);font-size:11px;font-weight:600;color:var(--text)">Importeer eigen schema</div>
-        <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);line-height:1.5">Upload een Excel, PDF of foto. We digitaliseren het automatisch.</div>
-        <div style="display:flex;align-items:center;gap:5px;margin-top:auto;padding-top:6px">${_chip(_excelChip)}${_chip(_pdfChip)}${_chip(_imgChip)}<span style="font-family:var(--font-m);font-size:9px;color:var(--faint)">.xlsx · .pdf · .jpg</span></div>
-        ${_foot('Automatisch')}
+      <button onclick="oauthCreateNew()" style="${_tileBase}">
+        <div style="${_iconWrap}color:var(--accent)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+        <div style="font-family:var(--font-d);font-size:14px;font-weight:600;color:var(--text);letter-spacing:-0.01em">Leeg schema aanmaken</div>
+        <div style="font-family:var(--font-d);font-size:13px;color:var(--muted);line-height:1.5">Begin met een lege Google Sheet — de juiste kolommen staan al klaar.</div>
+        ${_foot('Leeg')}
       </button>
     </div>`;
   }
