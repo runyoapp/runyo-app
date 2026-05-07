@@ -16,6 +16,9 @@ const GAUTH = {
   EXPIRY_KEY: 'gauth_expiry',
   EMAIL_KEY:  'gauth_email',
   SHEET_ID_KEY: 'oauth_sheetId',
+  // Google API key voor Drive Picker — aanmaken in Cloud Console →
+  // APIs & Services → Credentials → Create API Key → beperk tot Picker API + domein
+  PICKER_API_KEY: '',
 };
 
 // ── PKCE helpers ─────────────────────────────────────────────────────────────
@@ -315,6 +318,33 @@ async function createNewSheet(){
   return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo schema ${today}`};
 }
 
+// ── Google Drive Picker (B14) ─────────────────────────────────────────────────
+function openDrivePicker(){
+  return new Promise(async(resolve,reject)=>{
+    const token=await authEnsureToken();
+    const load=()=>{
+      if(!window.google?.picker){reject(new Error('Picker niet geladen'));return;}
+      const builder=new google.picker.PickerBuilder()
+        .addView(new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS)
+          .setIncludeFolders(false))
+        .setOAuthToken(token)
+        .setCallback(data=>{
+          if(data[google.picker.Response.ACTION]===google.picker.Action.PICKED){
+            const doc=data[google.picker.Response.DOCUMENTS][0];
+            resolve({id:doc[google.picker.Document.ID],name:doc[google.picker.Document.NAME]});
+          }else if(data[google.picker.Response.ACTION]===google.picker.Action.CANCEL){
+            resolve(null);
+          }
+        });
+      if(GAUTH.PICKER_API_KEY)builder.setDeveloperKey(GAUTH.PICKER_API_KEY);
+      builder.build().setVisible(true);
+    };
+    if(window.gapi&&window.google?.picker){load();}
+    else if(window.gapi){gapi.load('picker',load);}
+    else{reject(new Error('Google API niet beschikbaar'));}
+  });
+}
+
 // ── Deel sheet met runyo service account (G16b) ───────────────────────────────
 async function shareSheetWithRunyo(sheetId){
   try{
@@ -571,18 +601,22 @@ async function oauthPickExisting(){
     }
     const months=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
     content.innerHTML=`<div class="modal-title">Schema kiezen</div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Recente sheets</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+      <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--muted);letter-spacing:-0.01em;margin-bottom:10px">Recente sheets</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
         ${sheets.map(s=>{
           const d=new Date(s.modifiedTime);
           const ago=`${d.getDate()} ${months[d.getMonth()]}`;
-          return `<button onclick="oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface);border:1px solid var(--border);cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent">
-            <span style="font-family:var(--font-d);font-weight:700;font-size:14px;color:var(--text)">${esc(s.name)}</span>
-            <span style="font-family:var(--font-m);font-size:9px;color:var(--faint)">${ago}</span>
+          return `<button onclick="oauthSelectSheet('${s.id}','${esc(s.name)}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent">
+            <span style="font-family:var(--font-d);font-weight:600;font-size:14px;color:var(--text);letter-spacing:-0.01em">${esc(s.name)}</span>
+            <span style="font-family:var(--font-d);font-size:12px;color:var(--muted)">${ago}</span>
           </button>`;
         }).join('')}
       </div>
-      <div style="font-family:var(--font-m);font-size:10px;color:var(--muted);margin-bottom:6px">Of plak een Sheet URL:</div>
+      <button class="btn-secondary" style="margin-bottom:10px;display:flex;align-items:center;gap:8px;justify-content:center" onclick="(async()=>{try{const r=await openDrivePicker();if(r)oauthSelectSheet(r.id,r.name);}catch(e){if(typeof showToast==='function')showToast('❌ '+e.message);}})()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        Bladeren in Drive
+      </button>
+      <div style="font-family:var(--font-d);font-size:13px;color:var(--muted);margin-bottom:6px">Of plak een Sheet URL:</div>
       <input type="url" class="settings-input" id="oauthSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…">
       <button class="btn-secondary" style="margin-top:8px" onclick="oauthSelectFromUrl()">Koppelen via URL</button>`;
   }catch(e){
