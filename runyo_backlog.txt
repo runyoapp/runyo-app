@@ -39,7 +39,7 @@ D6 | Bot: bij feedback vragen eerst activiteit laten raten met 5 emoji's (zoals 
 🔗 E — Integraties & Data
 --------------------------
 E1  | Strava-koppeling | 🔴 | Prioriteit 6
-E2  | Weerkoppeling bij Vandaag-tabblad | 🟡
+✓ E2  | Weerkoppeling bij Vandaag-tabblad | 🟡
 E3  | AI-aanpassingen in trainingsplan op basis van feedback | 🔴 | Prioriteit 5
 E5  | Overgang naar database (schaalbaarheid) | 🔴 | Prioriteit 4
 E6  | AI schema-import: upload schema → AI converteert → preview → runyo sheet aanmaken | 🔴 | Prioriteit 3
