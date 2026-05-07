@@ -13,7 +13,7 @@ BUG9 | Na uitloggen wordt nog steeds een schema getoond. Bij uitloggen: schema-d
 
 ⚙️ B — Instellingen
 --------------------
-B12 | Alle gebruikersinstellingen koppelen aan e-mailadres | 🔴
+✓ B12 | Alle gebruikersinstellingen koppelen aan e-mailadres | 🔴
 B14 | Google Drive bestandsselector via Picker API | 🟡
 B17 | Bij ontkoppelen: optie om sheet ook uit Drive te verwijderen (Drive API files.trash, alleen app-aangemaakte sheets, vereist drive.file scope) | 🟡
 
@@ -23,7 +23,7 @@ B17 | Bij ontkoppelen: optie om sheet ook uit Drive te verwijderen (Drive API fi
 -----------------------------------
 ✓ C60 | Nieuw schema sheetnaam: "runyo schema DD-MM-YYYY" | 🟢
 ✓ C61 | Geïmporteerd schema sheetnaam: "runyo schema <titel of bestandsnaam> DD-MM-YYYY" | 🟢
-C62 | Meerdere activiteittypes toevoegen: zwemmen, fietsen, gym (emoji + kleur, verwerk in kalender/vandaag/training/bot) | 🟡
+✓ C62 | Meerdere activiteittypes toevoegen: zwemmen, fietsen, gym (emoji + kleur, verwerk in kalender/vandaag/training/bot) | 🟡
 ✓ C64 | Bij meenemen races naar nieuw schema: fase kolom leegmaken voor die rijen | 🟢
 
 ---
@@ -74,8 +74,8 @@ T3 | Telegram koppeling upgraden naar token-gebaseerd systeem voor multi-user (a
 
 📊 Import log
 -------------
-G16b | Bij import: sheet wegschrijven naar zowel gebruikers Drive als runyo Drive. Link naar beide sheets tonen in import log | 🔴
-G17  | Import logging eerder starten: log aanmaken bij start van import, ook bij halverwege mislukken | 🟡
+✓ G16b | Bij import: sheet wegschrijven naar zowel gebruikers Drive als runyo Drive. Link naar beide sheets tonen in import log | 🔴
+✓ G17  | Import logging eerder starten: log aanmaken bij start van import, ook bij halverwege mislukken | 🟡
 ✓ G18  | Import log: geschatte kosten in euro tonen naast tokengebruik (input €3/1M, output €15/1M tokens) | 🟢
 
 ---
