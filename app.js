@@ -708,8 +708,7 @@ function renderTopbarAuth(){
   const initials=email?email[0].toUpperCase():'?';
   const btnHtml=loggedIn
     ?`<button id="avatarBtn" onclick="toggleAvatarMenu(this)" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:none;font-family:var(--font-d);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</button>`
-    :`<button onclick="switchTab('settings')" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center">${gearSvg}</button>
-      <button onclick="oauthConnectFlow()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:6px 14px;font-family:var(--font-d);font-size:13px;font-weight:500;letter-spacing:-0.01em;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px">${googleSvg}Inloggen</button>`;
+    :`<button onclick="oauthConnectFlow()" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:6px 14px;font-family:var(--font-d);font-size:13px;font-weight:500;letter-spacing:-0.01em;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:6px">${googleSvg}Inloggen</button>`;
   const el=document.getElementById('topbarAuth');
   const el2=document.getElementById('topbarAuthDesktop');
   if(el)el.innerHTML=btnHtml;
@@ -3623,6 +3622,11 @@ function setLang(lang){
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 function switchTab(tab){
+  // Settings alleen zichtbaar als ingelogd
+  if(tab==='settings'){
+    const _li=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+    if(!_li){tab='today';}
+  }
   state.currentTab=tab;state.selectedRating=0;
   document.querySelectorAll('#bottomNav .bn-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+tab));
