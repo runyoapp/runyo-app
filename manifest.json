@@ -2,13 +2,15 @@
   "name": "runyo",
   "short_name": "runyo",
   "description": "Train · Race · Repeat",
-  "start_url": "/XApp/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0E1F1A",
   "theme_color": "#0E1F1A",
   "orientation": "portrait",
   "icons": [
+    { "src": "icon-192.svg", "sizes": "any", "type": "image/svg+xml" },
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.svg", "sizes": "any", "type": "image/svg+xml" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
