@@ -1150,7 +1150,7 @@ function renderWeek(){
       ondrop="weekDropOnDay(event,'${date}');this.classList.remove('wdr-drop-target')">
       <div class="tdb-day">${DAYS_NL[i]}</div>
       <div class="tdb-num">${d.getDate()}</div>
-      ${wx?`<div class="tdb-weather">${wx.emoji}</div>`:`<div class="tdb-dot" style="background:${dotColor}"></div>`}
+      ${wx?`<div class="tdb-weather">${wx.emoji}${tr?`<div class="tdb-dot" style="background:${dotColor};margin:2px auto 0"></div>`:'<div style="height:6px"></div>'}</div>`:`<div class="tdb-dot" style="background:${dotColor}"></div>`}
     </div>`;
   });
   h+=`</div></div>`;
