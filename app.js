@@ -831,29 +831,43 @@ function renderToday(){
   const mf=state.lang==='en'?MONTHS_FULL_EN:MONTHS_FULL_NL;
   const d=parseDate(t);
 
-  // fase from data
-  let faseKicker='';
-  if(state.data){const tr=state.data.find(r=>r.datum===t);if(tr?.fase)faseKicker=tr.fase;}
-  // C34: if today is a race day, reflect that
-  const todayIsRace=state.data?.some(r=>r.datum===t&&r.type==='race');
-
-  const kicker=`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}${faseKicker?' · '+faseKicker:''}`;
-  let h=`<div class="page-title" id="todayPageTitle" style="touch-action:pan-y">
-    <div>
-      <div class="pt-kicker">${kicker}</div>
-      <div class="pt-h">${off===0?'Vandaag':days[dayIdx(d)]+' '+d.getDate()+' '+mf[d.getMonth()]}</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:4px">
-      <button onclick="state.dayOffset=(state.dayOffset||0)-1;renderToday()" class="day-nav-btn">‹</button>
-      <div style="display:flex;align-items:center;gap:6px">
-        ${off!==0?`<button onclick="state.dayOffset=0;renderToday()" style="background:var(--surface);border:1px solid var(--accent);padding:5px 10px;color:var(--accent);cursor:pointer;font-family:var(--font-m);font-size:9px;letter-spacing:1px;border-radius:999px;white-space:nowrap">← Vandaag</button>`:''}
-        <button onclick="openAddActivity('${t}')" style="width:32px;height:32px;border-radius:50%;background:var(--run-text);color:#fff;border:none;cursor:pointer;font-size:22px;font-weight:300;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent">+</button>
-      </div>
-      <button onclick="state.dayOffset=(state.dayOffset||0)+1;renderToday()" class="day-nav-btn">›</button>
-    </div>
+  // Week day strip — Mon..Sun of the displayed week
+  const todayDate=new Date();todayDate.setHours(12,0,0,0);
+  const weekDow=(tDate.getDay()+6)%7;
+  const weekStart=new Date(tDate);weekStart.setDate(tDate.getDate()-weekDow);
+  let stripH=`<div class="today-day-strip">
+    <button class="tds-nav" onclick="state.dayOffset=(state.dayOffset||0)-7;renderToday()">‹</button>
+    <div class="tds-days">`;
+  for(let i=0;i<7;i++){
+    const wDay=new Date(weekStart);wDay.setDate(weekStart.getDate()+i);
+    const wStr=`${wDay.getFullYear()}-${String(wDay.getMonth()+1).padStart(2,'0')}-${String(wDay.getDate()).padStart(2,'0')}`;
+    const wOff=Math.round((wDay-todayDate)/86400000);
+    const isActive=(wOff===off);
+    const tr=state.data?.find(r=>r.datum===wStr&&r.type!=='rest');
+    const dotColor=tr?(isActive?'rgba(255,255,255,0.65)':typeOf(tr.type).text):'transparent';
+    stripH+=`<div class="today-day-block${isActive?' active':''}" onclick="state.dayOffset=${wOff};renderToday()">
+      <div class="tdb-day">${DAYS_NL[i]}</div>
+      <div class="tdb-num">${wDay.getDate()}</div>
+      <div class="tdb-dot" style="background:${dotColor}"></div>
+    </div>`;
+  }
+  stripH+=`</div>
+    <button class="tds-nav" onclick="state.dayOffset=(state.dayOffset||0)+7;renderToday()">›</button>
   </div>`;
 
-  // Weather widget — rendered from cache, refreshed async
+  // Fase kicker
+  let faseKicker='';
+  if(state.data){const tr=state.data.find(r=>r.datum===t);if(tr?.fase)faseKicker=tr.fase;}
+  const dayLabel=off===0?`${days[dayIdx(d)]} · vandaag`:`${days[dayIdx(d)]} ${d.getDate()} ${mf[d.getMonth()]}`;
+
+  let h=`<div style="height:12px"></div>`;
+  h+=stripH;
+  h+=`<div class="today-kicker">
+    <span>${dayLabel}${faseKicker?' · '+faseKicker:''}</span>
+    <button class="today-add-btn" onclick="openAddActivity('${t}')">+</button>
+  </div>`;
+
+  // Weather widget (today only)
   const _wc=JSON.parse(localStorage.getItem('weatherCache')||'null')?.data;
   if(off===0){
     h+=_wc?renderWeatherWidget():`<div id="weatherWidget"></div>`;
@@ -878,70 +892,72 @@ function renderToday(){
         <div><div class="rest-title">${T('rest_day')}</div><div class="rest-sub">${T('rest_msg')}</div></div>
       </div>
     </div>`;
-  }else{
-    // Render ALL today rows
+  } else {
     const activeRows=todayRows.filter(r=>r.type!=='rest');
     activeRows.forEach(row=>{
       const ti=typeOf(row.type);
       const isRun=hasType(row.type,'run');
-      const border=row.type==='work'?'work-border':row.type==='race'?'race-border':'';
+      const isRaceDay=hasType(row.type,'race');
       const detail=row.detail||'';
       const paceMatch=detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/);
       const hrMatch=detail.match(/<?\s*(\d+)\s*bpm/i)||detail.match(/HR\s*<?(\d+)/i);
-      h+=`<div class="card ${border}" onclick="openDayModalRow(${row.rowIndex},'${t}')" style="padding:16px 16px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div style="font-family:var(--font-m);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:${ti.text}">${T(ti.i18n)}${row.titel?' · '+esc(row.titel):''}</div>
-          <div style="width:28px;height:28px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${RXIcon(row.type?.split(',')[0].trim()||'run',16,'var(--text)','var(--accent)')}</div>
-        </div>`;
-      if(row.km&&isRun){
-        h+=`<div style="font-family:var(--font-d);font-weight:800;font-size:44px;letter-spacing:-1px;line-height:1;margin-top:10px">${esc(row.km)} KM<span style="color:var(--accent)">.</span></div>`;
-        if(paceMatch||hrMatch){
-          h+=`<div class="run-metric-row">`;
-          if(paceMatch)h+=`<div><div class="run-metric-label">PACE</div><div class="run-metric-val">${esc(paceMatch[0].replace('/km',''))}<span class="run-metric-unit">/km</span></div></div>`;
-          if(hrMatch)h+=`<div><div class="run-metric-label">HR</div><div class="run-metric-val">&lt;${esc(hrMatch[1])}<span class="run-metric-unit">bpm</span></div></div>`;
-          h+=`</div>`;
-        }
-      }else if(row.km){
-        h+=`<div style="font-family:var(--font-d);font-weight:800;font-size:36px;line-height:1;margin-top:8px">${esc(row.km)} KM</div>`;
+      const duurMatch=detail.match(/(\d+)\s*(?:min|')/i);
+      h+=`<div class="today-hero-card${isRaceDay?' race-border':''}" onclick="openDayModalRow(${row.rowIndex},'${t}')" style="-webkit-tap-highlight-color:transparent">`;
+      h+=`<div class="cat-tag">
+        <div class="cat-dot" style="background:${ti.text}"></div>
+        <span class="cat-label">${T(ti.i18n)}${row.titel?' · '+esc(row.titel):''}</span>
+      </div>`;
+      if(row.km){
+        h+=`<div class="today-hero-km"${!isRun?' style="font-size:40px"':''}>${esc(row.km)}<span class="today-hero-km-unit"> km</span></div>`;
+      } else if(duurMatch){
+        h+=`<div class="today-hero-km">${duurMatch[1]}<span class="today-hero-km-unit"> min</span></div>`;
       }
-      if(detail){h+=`<div style="font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5;padding-top:12px;border-top:1px solid var(--border)">${esc(detail)}</div>`;}
+      if(paceMatch||hrMatch){
+        h+=`<div class="today-hero-stats">`;
+        if(paceMatch)h+=`<div><div class="ths-label">pace</div><div class="ths-val">${esc(paceMatch[0])}</div></div>`;
+        if(hrMatch)h+=`<div><div class="ths-label">hr</div><div class="ths-val">&lt;${esc(hrMatch[1])} bpm</div></div>`;
+        if(duurMatch)h+=`<div><div class="ths-label">duur</div><div class="ths-val">${duurMatch[1]}′</div></div>`;
+        h+=`</div>`;
+      }
+      if(detail){h+=`<div class="today-hero-detail">${esc(detail)}</div>`;}
       if(isRun){
-        if(!row.feedback){h+=`<button class="btn-cta" onclick="event.stopPropagation();toggleTodayFeedback()">Beoordeel run →</button>`;}
-        else{h+=`<button class="btn-cta" style="background:var(--surface);border:1px solid var(--border);color:var(--muted)" onclick="event.stopPropagation();toggleTodayFeedback()">Beoordeel run →</button>`;}
+        const hasFb=!!row.feedback;
+        h+=`<button class="today-hero-cta${hasFb?' secondary':''}" onclick="event.stopPropagation();toggleTodayFeedback()">Beoordeel run <span>→</span></button>`;
       }
       h+=`</div>`;
     });
-    // Feedback hidden by default; opened via Beoordeel run button
     const fbRow=activeRows.find(r=>r.type!=='work');
     if(fbRow){const fbHtml=feedbackHtml(fbRow.datum,fbRow.feedback);const hidden=!fbRow.feedback&&!state.editingFeedback;h+=`<div id="todayFeedback" style="display:${hidden?'none':'block'}">${fbHtml}</div>`;}
   }
 
-  // Tomorrow — only show when on today
+  // Tomorrow card — only when viewing today
   if(off!==0){h+=`</div>`;el.innerHTML=h;attachStarListeners();
-  const scrollEl2=document.getElementById('scrollArea');
-  if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
-  return;}
+    const scrollEl2=document.getElementById('scrollArea');
+    if(scrollEl2&&!scrollEl2._daySwipe){scrollEl2._daySwipe=true;let sx2=0,sy2=0;scrollEl2.addEventListener('touchstart',e=>{sx2=e.touches[0].clientX;sy2=e.touches[0].clientY;},{passive:true});scrollEl2.addEventListener('touchend',e=>{if(state.currentTab!=='today')return;const dx=e.changedTouches[0].clientX-sx2,dy=e.changedTouches[0].clientY-sy2;if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){state.dayOffset=(state.dayOffset||0)+(dx<0?1:-1);renderToday();}},{passive:true});}
+    return;
+  }
   const tmrDate=new Date();tmrDate.setDate(tmrDate.getDate()+1);
-  const tmr=state.data.find(r=>r.datum===tmrDate.toISOString().split('T')[0]);
+  const tmrStr=tmrDate.toISOString().split('T')[0];
+  const tmr=state.data?.find(r=>r.datum===tmrStr&&r.type!=='rest');
   if(tmr){
-    h+=`<div class="card" style="padding:14px 16px">
-      <div style="font-family:var(--font-m);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;margin-bottom:6px">${T('tomorrow')} · ${days[dayIdx(tmrDate)]} ${tmrDate.getDate()}</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:28px;height:28px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">${RXIcon(tmr.type?.split(',')[0].trim()||'rust',14,'var(--muted)','var(--accent)')}</div>
-        <div style="font-family:var(--font-d);font-weight:700;font-size:16px;flex:1">${esc(tmr.titel||'')}</div>
-        ${tmr.km?`<div style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(tmr.km)} km</div>`:''}
+    const tmrTi=typeOf(tmr.type);
+    h+=`<div class="today-tmr-card" onclick="state.dayOffset=1;renderToday()" style="-webkit-tap-highlight-color:transparent">
+      <div class="today-tmr-bar" style="background:${tmrTi.text}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="today-tmr-label">${T('tomorrow')} · ${days[dayIdx(tmrDate)]} ${tmrDate.getDate()}</div>
+        <div class="today-tmr-title">${esc(tmr.titel||T(tmrTi.i18n))}${tmr.km?' · '+esc(tmr.km)+' km':''}</div>
       </div>
+      <div class="today-tmr-chevron">›</div>
     </div>`;
   }
 
-  if(!row||row?.type==='mobility'){
+  if(!row||isMob(row.type)){
     h+=`<div class="mob-reminder"><div class="mob-title">${T('mob_reminder')}</div><div class="mob-text">${T('mob_text')}</div></div>`;
   }
 
   h+=`</div>`;
   el.innerHTML=h;
   attachStarListeners();
-  // C53: swipe left/right to change day
   const scrollEl=document.getElementById('scrollArea');
   if(scrollEl&&!scrollEl._daySwipe){
     scrollEl._daySwipe=true;
