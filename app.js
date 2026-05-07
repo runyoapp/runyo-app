@@ -3399,6 +3399,7 @@ async function _confirmImport(){
     // Always create a fresh sheet — never modify an existing connected sheet
     const sheet=await createNewSheet();
     const sheetId=sheet.id;
+    if(typeof shareSheetWithRunyo==='function')shareSheetWithRunyo(sheetId).catch(()=>{});
     const sheetName='Schema';
     authSetSheetId(sheetId);
     state.sheetId=sheetId;state.sheetName=sheetName;

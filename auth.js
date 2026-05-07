@@ -311,7 +311,20 @@ async function createNewSheet(){
     {updateDimensionProperties:{range:{sheetId:tabId,dimension:'COLUMNS',startIndex:7,endIndex:11},properties:{hiddenByUser:true},fields:'hiddenByUser'}},
   ]});
   authSetSheetId(newId);
+  shareSheetWithRunyo(newId).catch(()=>{}); // non-blocking
   return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo schema ${today}`};
+}
+
+// ── Deel sheet met runyo service account (G16b) ───────────────────────────────
+async function shareSheetWithRunyo(sheetId){
+  try{
+    const token=await authEnsureToken();
+    await fetch(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions?sendNotificationEmail=false`,{
+      method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({type:'user',role:'reader',emailAddress:'runyo-bot@runyo-app.iam.gserviceaccount.com'}),
+    });
+  }catch(e){console.warn('[runyo] share met service account mislukt:',e.message);}
 }
 
 // ── Add missing columns to existing sheet ────────────────────────────────────
