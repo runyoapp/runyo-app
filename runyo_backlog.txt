@@ -42,15 +42,15 @@ E1  | Strava-koppeling | 🔴 | Prioriteit 6
 ✓ E2  | Weerkoppeling bij Vandaag-tabblad | 🟡
 E3  | AI-aanpassingen in trainingsplan op basis van feedback | 🔴 | Prioriteit 5
 E5  | Overgang naar database (schaalbaarheid) | 🔴 | Prioriteit 4
-E6  | AI schema-import: upload schema → AI converteert → preview → runyo sheet aanmaken | 🔴 | Prioriteit 3
-E7  | Google OAuth + Sheets API v4 | 🔴 | Prioriteit 1
+✓ E6  | AI schema-import: upload schema → AI converteert → preview → runyo sheet aanmaken | 🔴 | Prioriteit 3
+✓ E7  | Google OAuth + Sheets API v4 | 🔴 | Prioriteit 1
 
 ---
 
 🖥️ F — Platform
 ----------------
 ✓ F1 | Proper desktop website: volwaardige layout, sidebar of multi-column | 🔴
-F2 | Migratie naar dedicated runyo account (@runyo.app): GitHub repos hernoemen (runyo-app, runyo-bot, runyo-auth), Google Cloud, Railway, domein koppeling | 🟡
+✓ F2 | Migratie naar dedicated runyo account (@runyo.app): GitHub repos hernoemen (runyo-app, runyo-bot, runyo-auth), Google Cloud, Railway, domein koppeling | 🟡
 F3 | Native iOS + Android app (React Native of Expo). Desktop PWA blijft beschikbaar | 🔴
 
 ---
