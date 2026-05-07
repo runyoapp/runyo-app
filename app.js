@@ -717,23 +717,23 @@ function renderTopbarAuth(){
   let menu=document.getElementById('avatarDropdown');
   if(loggedIn){
     if(!menu){menu=document.createElement('div');menu.id='avatarDropdown';document.body.appendChild(menu);}
-    menu.style.cssText='display:none;position:fixed;z-index:9000;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.5);overflow:hidden';
+    menu.style.cssText='display:none;position:fixed;z-index:9000;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:220px;box-shadow:0 12px 32px rgba(14,31,26,0.18);overflow:hidden';
+    const _item=(onclick,label,svg,danger=false)=>
+      `<button onclick="${onclick}" class="av-item${danger?' av-item-danger':''}">${svg}<span>${label}</span></button>`;
     menu.innerHTML=`
-      <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
-        <div style="font-family:var(--font-m);font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(email)}</div>
+      <div class="av-header">
+        <div class="av-email">${esc(email)}</div>
       </div>
-      <button onclick="_closeAvatarMenu();openStats()" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="4" width="4" height="17" rx="1"/></svg> Stats
-      </button>
-      <button onclick="_closeAvatarMenu();openStats();setTimeout(openPrEditor,300)" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 14.5h-2v-2h2v2zm0-4h-2V7h2v5.5z" opacity=".3"/><path d="M11 7h2v5.5h-2zm0 7.5h2v2h-2zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg> Mijn PR's
-      </button>
-      <button onclick="_closeAvatarMenu();switchTab('settings')" style="width:100%;background:none;border:none;padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='none'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Instellingen
-      </button>
-      <button onclick="_closeAvatarMenu();authSignOut()" style="width:100%;background:none;border:none;border-top:1px solid var(--border);padding:11px 14px;text-align:left;font-family:var(--font-m);font-size:11px;color:var(--race-text);cursor:pointer;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='rgba(244,67,54,0.06)'" onmouseout="this.style.background='none'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Uitloggen
-      </button>`;
+      ${_item('_closeAvatarMenu();openStats()','Stats',
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="14" width="4" height="7" rx="1"/><rect x="10" y="9" width="4" height="12" rx="1"/><rect x="17" y="4" width="4" height="17" rx="1"/></svg>')}
+      ${_item('_closeAvatarMenu();openStats();setTimeout(openPrEditor,300)','Mijn PR\'s',
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M9 12l-2 8 5-3 5 3-2-8"/></svg>')}
+      ${_item('_closeAvatarMenu();switchTab(\'settings\')','Instellingen',
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9"/></svg>')}
+      <div class="av-divider"></div>
+      ${_item('_closeAvatarMenu();authSignOut()','Uitloggen',
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+        true)}`;
   }else if(menu){
     menu.remove();
   }
