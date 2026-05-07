@@ -1182,7 +1182,7 @@ function renderPlan(){
     const activeFase=state.currentFase;
 
     // Vertical phase list
-    phaseTabs.style.cssText='padding:8px 16px 0;margin-top:0';
+    phaseTabs.style.cssText='padding:8px 16px 0;margin-top:0;display:block;overflow-x:visible';
     phaseTabs.innerHTML=faseValues.map((f,i)=>{
       const fRows=allRows.filter(r=>r.fase===f&&r.datum);
       const fEnd=fRows[fRows.length-1]?.datum,fStart=fRows[0]?.datum;
