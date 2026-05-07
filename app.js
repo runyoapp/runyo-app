@@ -685,7 +685,7 @@ function renderSidebarPlanInfo(){
   const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
   const email=loggedIn&&typeof authEmail==='function'?authEmail():'';
   const initials=email?email[0].toUpperCase():'?';
-  const name=localStorage.getItem('userName')||email.split('@')[0]||'—';
+  const name=email.split('@')[0]||'—';
   const avatarEl=document.getElementById('sbAvatarBtn');
   const nameEl=document.getElementById('sbUserName');
   const subEl=document.getElementById('sbUserSub');
@@ -695,8 +695,6 @@ function renderSidebarPlanInfo(){
 }
 
 function renderHeader(){
-  const name=localStorage.getItem('userName')||'';
-  const tn=document.getElementById('topbarName');if(tn)tn.textContent=name;
   renderRacesBar();
   renderSidebarPlanInfo();
   renderTopbarAuth();
@@ -3560,7 +3558,6 @@ function renderSettingsFields(){
   // C26/C30: connect section is fully dynamic
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
-  const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
   renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
   // Weather location
   const loc=getWeatherLocation();
@@ -3585,6 +3582,7 @@ async function saveWeatherCity(){
 }
 
 function saveSettingsName(){
+  // Naam-veld verwijderd — no-op voor backward compat
   localStorage.setItem('userName',document.getElementById('settingsName')?.value||'');
   renderHeader();showToast(T('saved'));
 }

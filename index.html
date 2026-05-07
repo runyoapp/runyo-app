@@ -165,48 +165,45 @@
       </div>
 
       <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_profile"></div>
-        <div class="settings-section">
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="your_name"></label>
-            <input type="text" class="settings-input" id="settingsName" oninput="saveSettingsName()">
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-group">
         <div class="settings-group-title">Trainingsschema</div>
+        <div class="settings-hint" style="padding:0 2px 10px">Koppel je Google Sheets trainingsplan. runyo leest je schema en toont dagelijks wat er op het programma staat.</div>
         <div class="settings-section" id="connectSection"></div>
       </div>
 
       <div class="settings-group">
-        <div class="settings-group-title" data-i18n="sg_notif"></div>
+        <div class="settings-group-title">Notificaties</div>
+        <div class="settings-hint" style="padding:0 2px 10px">Ontvang je dagelijkse training via Telegram. Download de app en koppel je account hieronder.</div>
         <div class="settings-section">
-          <div class="settings-title" data-i18n="notif_telegram_title"></div>
-          <div class="settings-field">
-            <label class="settings-label" data-i18n="notif_telegram"></label>
-            <input type="text" class="settings-input" id="telegramUser" placeholder="@gebruikersnaam" oninput="saveTelegram()">
-            <div class="settings-hint" data-i18n="notif_hint"></div>
+          <div class="settings-field" style="margin-bottom:16px">
+            <label class="settings-label">Telegram gebruikersnaam</label>
+            <input type="text" class="settings-input" id="telegramUser" placeholder="@gebruikersnaam" oninput="saveTelegram()" autocomplete="off" autocapitalize="none">
+            <div class="settings-hint" style="margin-top:6px">Vul je @gebruikersnaam in zoals die in je Telegram-profiel staat.</div>
           </div>
-          <div class="telegram-status" id="telegramStatus">
+          <div class="telegram-status" id="telegramStatus" style="margin-bottom:14px">
             <div class="tg-dot" id="tgDot"></div>
             <span id="tgStatusText" data-i18n="tg_not_linked"></span>
           </div>
-          <button class="btn-save" style="margin-top:10px" onclick="verifyTelegram()" id="tgVerifyBtn" data-i18n="tg_verify"></button>
-          <div class="settings-hint" style="margin-top:8px" id="tgHint">Stuur na het klikken <strong>/start</strong> naar @runyo_appbot in Telegram. De status hierboven werkt bij zodra de koppeling actief is.</div>
-          <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
-            <div class="settings-title" style="margin-bottom:10px">Meldingen</div>
-            <label style="display:flex;align-items:center;gap:10px;margin-bottom:4px;cursor:pointer">
-              <input type="checkbox" id="notifDaily" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
-              <span><span style="display:block;font-size:12px;color:var(--text)">Dagelijks schema</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--muted)">Dagelijks bericht met je trainingsplan</span></span>
-            </label>
-            <div id="notifDailyTimes" style="display:none;padding-left:26px;margin-bottom:12px"></div>
-            <label style="display:flex;align-items:center;gap:10px;margin-bottom:4px;cursor:pointer">
-              <input type="checkbox" id="notifFeedback" onchange="saveNotifPrefs()" style="width:16px;height:16px;accent-color:var(--accent)">
-              <span><span style="display:block;font-size:12px;color:var(--text)">Feedback verzoeken</span><span style="display:block;font-family:var(--font-m);font-size:10px;color:var(--muted)">Bericht na actieve training om te beoordelen</span></span>
-            </label>
-            <div id="notifFeedbackTimes" style="display:none;padding-left:26px"></div>
-          </div>
+          <button class="btn-primary" onclick="verifyTelegram()" id="tgVerifyBtn">Koppeling starten</button>
+          <div class="settings-hint" style="margin-top:10px" id="tgHint">Na het klikken: open Telegram en stuur <strong>/start</strong> naar <strong>@runyo_appbot</strong>. De status hierboven werkt automatisch bij zodra de koppeling actief is.</div>
+        </div>
+        <div class="settings-section" style="margin-top:8px">
+          <div class="settings-title" style="margin-bottom:14px">Meldingen instellen</div>
+          <label style="display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+            <input type="checkbox" id="notifDaily" onchange="saveNotifPrefs()" style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0">
+            <span>
+              <span style="display:block;font-family:var(--font-d);font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em">Dagelijks schema</span>
+              <span style="display:block;font-family:var(--font-d);font-size:12px;color:var(--muted);margin-top:2px">Ontvang elke ochtend een bericht met je training van de dag</span>
+            </span>
+          </label>
+          <div id="notifDailyTimes" style="display:none;padding-left:30px;margin-bottom:4px"></div>
+          <label style="display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+            <input type="checkbox" id="notifFeedback" onchange="saveNotifPrefs()" style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0">
+            <span>
+              <span style="display:block;font-family:var(--font-d);font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em">Feedback verzoeken</span>
+              <span style="display:block;font-family:var(--font-d);font-size:12px;color:var(--muted);margin-top:2px">Ontvang een bericht na je training om te beoordelen hoe het ging</span>
+            </span>
+          </label>
+          <div id="notifFeedbackTimes" style="display:none;padding-left:30px"></div>
         </div>
       </div>
 
