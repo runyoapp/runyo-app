@@ -131,6 +131,7 @@ async function _checkOauthRedirectReturn(){
     const em=typeof authEmail==='function'?authEmail():'';
     if(em&&typeof _restoreSettingsFromAccount==='function')_restoreSettingsFromAccount(em);
     if(typeof renderHeader==='function')renderHeader();
+    if(typeof _resumePendingImport==='function'&&_resumePendingImport())return;
     if(authSheetId()){
       if(typeof switchTab==='function')switchTab('today');
       if(typeof fetchData==='function')fetchData();
@@ -554,8 +555,9 @@ async function oauthConnectFlow(){
     await authSignIn();
     if(btn){btn.disabled=false;btn.textContent='Koppel met Google';}
     const _em2=typeof authEmail==='function'?authEmail():'';
-    // Always restore — picks up schema list + settings from Drive on any device
     if(_em2&&typeof _restoreSettingsFromAccount==='function')_restoreSettingsFromAccount(_em2);
+    // Herstel pending import als gebruiker eerst importeerde, daarna inlogde
+    if(typeof _resumePendingImport==='function'&&_resumePendingImport())return;
     if(authSheetId()){
       showToast('✓ Ingelogd');
       if(typeof renderHeader==='function')renderHeader();

@@ -1027,16 +1027,16 @@ function noSchemaHint(){
   }
   return `<div style="padding:32px 20px">
     <div style="font-family:var(--font-d);font-weight:700;font-size:24px;letter-spacing:-0.03em;margin-bottom:8px">Breng je schema mee</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5">Importeer je trainingsschema en ontvang elke dag wat er op het programma staat.</div>
-    <button class="connect-tile primary" onclick="oauthConnectFlow()" style="margin-bottom:10px;border:none">
+    <div style="font-family:var(--font-d);font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Importeer je trainingsschema en ontvang elke dag wat er op het programma staat.</div>
+    <button class="connect-tile primary" onclick="openImportModal('all')" style="margin-bottom:10px;border:none">
       <div class="connect-tile-icon">${importSvg}</div>
       <div class="connect-tile-body">
-        <div class="connect-tile-title">Schema importeren</div>
-        <div class="connect-tile-sub">PDF, Excel, foto of van je coach</div>
+        <div class="connect-tile-title">Importeer eigen schema <span style="background:rgba(255,255,255,0.25);font-size:10px;padding:1px 7px;border-radius:999px;font-family:var(--font-d);font-weight:700;vertical-align:middle;margin-left:4px">Aanbevolen</span></div>
+        <div class="connect-tile-sub">PDF, Excel, foto of van je coach — gratis proberen</div>
       </div>
       ${chevronSvg}
     </button>
-    <button class="btn-google" onclick="oauthConnectFlow()">${googleSvg}Login met Google</button>
+    <button class="btn-google" onclick="oauthConnectFlow()">${googleSvg}Inloggen met Google</button>
     <div style="text-align:center;font-size:11px;color:var(--faint);margin-top:10px;line-height:1.5">Door verder te gaan ga je akkoord met onze voorwaarden.</div>
   </div>`;
 }
@@ -2971,6 +2971,39 @@ state.importData={};
 
 const _IMP_DAYS=['Ma','Di','Wo','Do','Vr','Za','Zo'];
 
+function _importConfirmOrLogin(){
+  const loggedIn=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+  if(loggedIn){state.importStep=4;_renderImportModal();return;}
+  // Bewaar preview in sessionStorage voor na de OAuth-redirect
+  try{
+    sessionStorage.setItem('pendingImport',JSON.stringify({
+      type:state.importData.type,
+      fileName:state.importData.fileName,
+      startDate:state.importData.startDate,
+      runDays:state.importData.runDays,
+      keepRest:state.importData.keepRest,
+      preview:state.importData.preview,
+      rapport:state.importData.rapport,
+    }));
+  }catch{}
+  oauthConnectFlow();
+}
+
+function _resumePendingImport(){
+  const saved=sessionStorage.getItem('pendingImport');
+  if(!saved)return false;
+  try{
+    const d=JSON.parse(saved);
+    if(!d?.preview?.length)return false;
+    sessionStorage.removeItem('pendingImport');
+    Object.assign(state.importData,d);
+    state.importStep=4;
+    document.getElementById('dayModal')?.classList.add('open');
+    _renderImportModal();
+    return true;
+  }catch{return false;}
+}
+
 function openImportModal(type){
   state.importStep=1;
   state.importData={type,file:null,fileName:'',startDate:todayStr(),runDays:[0,2,4],keepRest:true,preview:null,error:null,loading:false};
@@ -3129,7 +3162,15 @@ function _renderImportModal(){
         ${weekBars}
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">${legend}</div>
-      <button class="btn-primary" onclick="state.importStep=4;_renderImportModal()">Klopt. ga verder →</button>
+      ${(()=>{
+        const _li=typeof authGetToken==='function'&&authGetToken()&&!authIsExpired();
+        return _li
+          ?`<button class="btn-primary" onclick="state.importStep=4;_renderImportModal()">Klopt, ga verder →</button>`
+          :`<button class="btn-primary" onclick="_importConfirmOrLogin()">
+              Opslaan in runyo — inloggen met Google →
+            </button>
+            <div style="font-family:var(--font-d);font-size:12px;color:var(--muted);text-align:center;margin-top:8px">Je schema wordt bewaard. Inloggen is gratis.</div>`;
+      })()}
       <div style="text-align:center;margin-top:10px">
         <button onclick="state.importStep=2;_renderImportModal()" style="background:none;border:none;color:var(--muted);font-family:var(--font-d);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:2px">Iets aanpassen</button>
       </div>
