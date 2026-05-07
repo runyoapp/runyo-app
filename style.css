@@ -914,8 +914,10 @@ a{color:inherit;text-decoration:none}
   /* Phase strip */
   .phase-strip{padding:0 !important}
 
-  /* Calendar: begrens tot mobiele breedte op desktop */
-  #calContent{max-width:380px;}
+  /* Alle tabs: gecentreerd op desktop */
+  #todayContent,#weekContent,#planPageTitle,#phaseTabs,#planContent,#calContent{
+    max-width:760px;margin-left:auto;margin-right:auto;
+  }
 
   /* Stats overlay sheet */
   .stats-sheet{border-radius:var(--r-lg) var(--r-lg) 0 0;padding:20px 24px calc(var(--sb) + 28px)}
