@@ -1134,7 +1134,11 @@ function renderWeek(){
     const tr=rows.find(r=>r.type!=='rest'&&r.type!=='work');
     const dotColor=tr?(isT?'rgba(255,255,255,0.65)':typeOf(tr.type).text):'transparent';
     const d=parseDate(date);
-    h+=`<div class="today-day-block${isT?' active':''}" onclick="weekScrollToDay('${date}')">
+    h+=`<div class="today-day-block${isT?' active':''}"
+      onclick="weekScrollToDay('${date}')"
+      ondragover="event.preventDefault();this.classList.add('wdr-drop-target')"
+      ondragleave="this.classList.remove('wdr-drop-target')"
+      ondrop="weekDropOnDay(event,'${date}');this.classList.remove('wdr-drop-target')">
       <div class="tdb-day">${DAYS_NL[i]}</div>
       <div class="tdb-num">${d.getDate()}</div>
       <div class="tdb-dot" style="background:${dotColor}"></div>
@@ -1151,15 +1155,20 @@ function renderWeek(){
       const isTdy=date===t,isPast=date<t,d=parseDate(date);
       activeRows.forEach((row,i)=>{
         const ti=typeOf(row.type);
-        h+=`<div data-upcoming-date="${date}" onclick="openDayModalRow(${row.rowIndex},'${date}')"
+        h+=`<div data-upcoming-date="${date}" data-row-index="${row.rowIndex||''}" data-row-date="${date}"
+          draggable="true"
+          onclick="openDayModalRow(${row.rowIndex},'${date}')"
+          ondragstart="weekDragStart(event,${row.rowIndex||'null'},'${date}')"
+          ondragend="weekDragEnd(event)"
           class="week-day-row${isTdy?' today':isPast?' past':''}"
-          style="${i>0?'margin-top:4px':''};-webkit-tap-highlight-color:transparent">
+          style="${i>0?'margin-top:4px':''};-webkit-tap-highlight-color:transparent;cursor:grab">
           <div class="wdr-bar" style="background:${ti.text}"></div>
           <div style="flex:1;min-width:0">
             <div class="wdr-label">${days[dayIdx(d)]} · ${T(ti.i18n)}</div>
             <div class="wdr-title">${esc(row.titel||'')}</div>
           </div>
           ${row.km?`<div class="wdr-km">${esc(row.km)} km</div>`:''}
+          <div class="wdr-handle" title="Slepen om te verplaatsen">⠿</div>
         </div>`;
       });
     });
@@ -1609,6 +1618,10 @@ function openDayModal(dateStr,targetRowIndex){
       <button onclick="document.getElementById('editFields').style.display=document.getElementById('editFields').style.display==='none'?'block':'none'" style="background:none;border:none;color:var(--muted);font-family:var(--font-m);font-size:10px;letter-spacing:1px;cursor:pointer;padding:0;text-transform:uppercase;width:100%;text-align:left;margin-bottom:6px">› Activiteit bewerken</button>
       <div id="editFields" style="display:none">
         <div style="margin-bottom:8px">
+          <label class="settings-label">Dag</label>
+          <input class="plan-edit-field" id="edit-datum" type="date" value="${esc(dateStr||'')}" style="width:100%;padding:8px 10px">
+        </div>
+        <div style="margin-bottom:8px">
           <label class="settings-label">${T('field_titel')}</label>
           <input class="plan-edit-field" id="edit-titel" value="${esc(row?.titel||'')}" placeholder="${T('field_titel')}">
         </div>
@@ -1716,13 +1729,15 @@ async function saveModalNote(datum){
 }
 
 async function saveDayEdit(datum){
+  const newDatum=document.getElementById('edit-datum')?.value||datum;
   const titel=document.getElementById('edit-titel')?.value.trim()||'';
   const typeRaw=document.getElementById('edit-type')?.value.trim()||'';
   const type=toSheetType(typeRaw)||typeRaw;
   const km=document.getElementById('edit-km')?.value.trim()||'';
   const detail=document.getElementById('edit-detail')?.value.trim()||'';
   const race_type=document.getElementById('edit-race-type')?.value||'';
-  const fase=getFaseForDate(datum);
+  const fase=getFaseForDate(newDatum)||getFaseForDate(datum);
+  datum=newDatum;
   const fields={datum,titel,type,km,detail,fase,...(race_type?{race_type}:{})};
 
   // Use only the explicitly set editingRowIndex — never infer from datum
@@ -1939,6 +1954,37 @@ function initWeekSwipe(){
 function weekScrollToDay(date){
   const row=document.querySelector(`[data-upcoming-date="${date}"]`);
   if(row){row.scrollIntoView({behavior:'smooth',block:'nearest'});row.style.outline='2px solid var(--accent)';setTimeout(()=>row.style.outline='',1200);}
+}
+
+function weekDragStart(e,rowIndex,date){
+  e.dataTransfer.setData('rowIndex',rowIndex);
+  e.dataTransfer.setData('date',date);
+  e.dataTransfer.effectAllowed='move';
+  e.currentTarget.style.opacity='0.4';
+}
+
+function weekDragEnd(e){
+  e.currentTarget.style.opacity='';
+  document.querySelectorAll('.wdr-drop-target').forEach(el=>el.classList.remove('wdr-drop-target'));
+}
+
+async function weekDropOnDay(e,newDate){
+  e.preventDefault();
+  const rowIndex=parseInt(e.dataTransfer.getData('rowIndex'));
+  const oldDate=e.dataTransfer.getData('date');
+  if(!oldDate||newDate===oldDate)return;
+  const row=state.data?.find(r=>r.rowIndex===rowIndex||(r.datum===oldDate));
+  if(!row)return;
+  showToast('Verplaatsen…');
+  const fase=getFaseForDate(newDate)||row.fase||'';
+  const fields={...row,datum:newDate,fase};
+  try{
+    if(rowIndex&&state.scriptUrl)await updateActivity(rowIndex,fields);
+    else if(rowIndex)await oauthUpdateRow(rowIndex,fields);
+    row.datum=newDate;row.fase=fase;
+    showToast('✓ Verplaatst naar '+newDate.slice(8)+' '+['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][parseInt(newDate.slice(5,7))-1]);
+    renderWeek();
+  }catch(err){showToast('❌ '+err.message);}
 }
 
 function weekTileClick(date){
