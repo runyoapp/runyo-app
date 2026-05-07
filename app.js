@@ -71,6 +71,75 @@ function humanError(e){
   return m;
 }
 
+// ── WEATHER ───────────────────────────────────────────────────────────────────
+const WMO_EMOJI={
+  0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
+  45:'🌫️',48:'🌫️',
+  51:'🌦️',53:'🌦️',55:'🌧️',
+  61:'🌧️',63:'🌧️',65:'🌧️',
+  71:'❄️',73:'❄️',75:'❄️',77:'❄️',
+  80:'🌧️',81:'🌧️',82:'⛈️',
+  95:'⛈️',96:'⛈️',99:'⛈️',
+};
+function weatherEmoji(code){return WMO_EMOJI[code]||'🌡️';}
+
+async function fetchLocationByIP(){
+  try{
+    const r=await fetch('https://ipapi.co/json/');
+    const d=await r.json();
+    if(!d.latitude)return null;
+    return{lat:d.latitude,lon:d.longitude,city:d.city||d.region||'',source:'ip'};
+  }catch{return null;}
+}
+
+async function geocodeCity(city){
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,{headers:{'Accept-Language':'nl'}});
+    const d=await r.json();
+    if(!d[0])return null;
+    return{lat:parseFloat(d[0].lat),lon:parseFloat(d[0].lon),city,source:'manual'};
+  }catch{return null;}
+}
+
+function getWeatherLocation(){
+  try{return JSON.parse(localStorage.getItem('weatherLocation')||'null');}catch{return null;}
+}
+function setWeatherLocation(loc){localStorage.setItem('weatherLocation',JSON.stringify(loc));}
+
+async function ensureWeatherLocation(){
+  const saved=getWeatherLocation();
+  if(saved?.lat)return saved;
+  const loc=await fetchLocationByIP();
+  if(loc){setWeatherLocation(loc);}
+  return loc;
+}
+
+async function fetchWeather(){
+  const loc=await ensureWeatherLocation();
+  if(!loc)return null;
+  const cache=JSON.parse(localStorage.getItem('weatherCache')||'null');
+  if(cache&&cache.loc===`${loc.lat},${loc.lon}`&&Date.now()-cache.ts<3600000)return cache.data;
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=weather_code,temperature_2m,precipitation`);
+    const d=await r.json();
+    const data={code:d.current.weather_code,temp:Math.round(d.current.temperature_2m),precip:d.current.precipitation,city:loc.city};
+    localStorage.setItem('weatherCache',JSON.stringify({loc:`${loc.lat},${loc.lon}`,ts:Date.now(),data}));
+    return data;
+  }catch{return null;}
+}
+
+function renderWeatherWidget(){
+  const w=JSON.parse(localStorage.getItem('weatherCache')||'null')?.data;
+  if(!w)return'';
+  return`<div class="weather-widget">${weatherEmoji(w.code)} <span>${w.temp}°C</span><span class="weather-city">${w.city}</span></div>`;
+}
+
+async function initWeather(){
+  await fetchWeather();
+  const el=document.getElementById('weatherWidget');
+  if(el)el.outerHTML=renderWeatherWidget()||'';
+}
+
 // Activity options for dropdowns — value=canonical English, sheet writes remapped
 const ACTIVITY_OPTIONS=[
   {value:'run',      sheet:'run',        nl:'Hardlopen'},
@@ -783,6 +852,13 @@ function renderToday(){
       <button onclick="state.dayOffset=(state.dayOffset||0)+1;renderToday()" class="day-nav-btn">›</button>
     </div>
   </div>`;
+
+  // Weather widget — rendered from cache, refreshed async
+  const _wc=JSON.parse(localStorage.getItem('weatherCache')||'null')?.data;
+  if(off===0){
+    h+=_wc?renderWeatherWidget():`<div id="weatherWidget"></div>`;
+    if(!_wc)initWeather();
+  }
 
   if(!state.data){
     h+=`<div style="padding:0 16px">`;
@@ -3298,6 +3374,26 @@ function renderSettingsFields(){
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   const nameEl=document.getElementById('settingsName');if(nameEl)nameEl.value=localStorage.getItem('userName')||'';
   renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
+  // Weather location
+  const loc=getWeatherLocation();
+  const cityEl=document.getElementById('weatherCityInput');
+  const hint=document.getElementById('weatherLocationHint');
+  if(cityEl&&loc?.city)cityEl.value=loc.city;
+  if(hint&&loc)hint.textContent=loc.source==='manual'?'Handmatig ingesteld.':'Automatisch bepaald via IP. Vul handmatig in om te overschrijven.';
+}
+
+async function saveWeatherCity(){
+  const city=document.getElementById('weatherCityInput')?.value.trim();
+  if(!city)return;
+  showToast('Locatie opzoeken…');
+  const loc=await geocodeCity(city);
+  if(!loc){showToast('Stad niet gevonden.');return;}
+  setWeatherLocation(loc);
+  localStorage.removeItem('weatherCache');
+  await fetchWeather();
+  showToast('✓ Locatie opgeslagen');
+  renderSettingsFields();
+  if(state.currentTab==='today')renderToday();
 }
 
 function saveSettingsName(){
