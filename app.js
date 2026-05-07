@@ -1173,42 +1173,90 @@ function renderPlan(){
   if(!allRows.length){el.innerHTML=`<div class="no-data">${T('no_data')}</div>`;phaseTabs.innerHTML='';return;}
 
   const faseValues=[...new Set(allRows.map(r=>r.fase||'').filter(Boolean))];
+  phaseTabs.innerHTML='';
 
   if(faseValues.length>0){
-    // Auto-select current fase on first load
-    if(!state.currentFase||!faseValues.includes(state.currentFase)){
-      state.currentFase=faseValues.find(f=>allRows.filter(r=>r.fase===f).some(r=>r.datum>=t))||faseValues[faseValues.length-1];
+    // Auto-open current fase
+    if(!state.openFase||!faseValues.includes(state.openFase)){
+      state.openFase=faseValues.find(f=>allRows.filter(r=>r.fase===f).some(r=>r.datum>=t))||faseValues[faseValues.length-1];
     }
-    const activeFase=state.currentFase;
 
-    // Vertical phase list
-    phaseTabs.style.cssText='padding:8px 16px 0;margin-top:0;display:block;overflow-x:visible';
-    phaseTabs.innerHTML=faseValues.map((f,i)=>{
+    let h='<div style="padding:8px 16px 0">';
+    faseValues.forEach((f,i)=>{
       const fRows=allRows.filter(r=>r.fase===f&&r.datum);
       const fEnd=fRows[fRows.length-1]?.datum,fStart=fRows[0]?.datum;
       const allPast=fEnd&&fEnd<t;
       const hasFuture=fStart&&fStart>t;
       const isCurrent=!allPast&&!hasFuture;
-      const isActive=f===activeFase;
+      const isOpen=f===state.openFase;
       const shortName=f.replace(/^Fase\s*\d+\s*[·–-]\s*/i,'').trim()||f;
       const num=String(f.match(/\d+/)?.[0]||i+1).padStart(2,'0');
       const wks=fStart&&fEnd?Math.max(1,Math.ceil((parseDate(fEnd)-parseDate(fStart))/604800000+1)):'';
-      const cls=`plan-fase-row${isActive?' is-active':''}${isCurrent?' is-current':allPast?' is-done':''}`;
-      return `<div class="${cls}" onclick="selectFase(this,'${esc(f)}')" data-fase="${esc(f)}">
-        <div class="pfr-num">${num}</div>
-        <div style="flex:1;min-width:0"><div class="pfr-name">${esc(shortName)}</div></div>
-        ${wks?`<div class="pfr-weeks">${wks}w</div>`:''}
-        <div class="pfr-icon">${allPast?'✓':isCurrent?'→':''}</div>
-      </div>`;
-    }).join('');
+      const cls=`plan-fase-row${isCurrent?' is-current':allPast?' is-done':''}`;
 
-    const _tf=state.planTypeFilters||[];
-    const rows=_tf.length?allRows.filter(r=>r.fase===activeFase&&_tf.some(f=>hasType(r.type,f))):allRows.filter(r=>r.fase===activeFase);
-    renderPlanRows(rows,t,'');
+      h+=`<div class="plan-fase-block">
+        <div class="${cls}" onclick="togglePlanFase('${esc(f)}')" style="-webkit-tap-highlight-color:transparent">
+          <div class="pfr-num">${num}</div>
+          <div style="flex:1;min-width:0"><div class="pfr-name">${esc(shortName)}</div></div>
+          ${wks?`<div class="pfr-weeks">${wks}w</div>`:''}
+          <div class="pfr-status">${allPast?'✓':isCurrent?'→':''}</div>
+          <div class="pfr-chevron${isOpen?' open':''}" style="font-size:14px;color:var(--muted);transition:transform .2s">›</div>
+        </div>
+        ${isOpen?`<div class="plan-fase-rows"><div class="plan-table" style="margin-top:6px">${planRowsHtml(fRows,t)}</div></div>`:''}
+      </div>`;
+    });
+    h+='</div>';
+    el.innerHTML=h;
+    requestAnimationFrame(()=>{
+      el.querySelector('.is-today')?.scrollIntoView({behavior:'smooth',block:'center'});
+      initPlanSwipe();
+    });
   }else{
-    phaseTabs.innerHTML='';
     renderPlanRows(allRows,t,'');
   }
+}
+
+function togglePlanFase(fase){
+  state.openFase=state.openFase===fase?null:fase;
+  renderPlan();
+}
+
+function planRowsHtml(rows,t){
+  if(!rows.length)return`<div class="no-data">${T('no_data')}</div>`;
+  const byDate=[];
+  rows.forEach(row=>{const last=byDate[byDate.length-1];if(last&&last.datum===row.datum)last.rows.push(row);else byDate.push({datum:row.datum,rows:[row]});});
+  let h='';
+  byDate.forEach(({datum:rowDatum,rows:dayRows})=>{
+    const isPast=rowDatum<t,isTdy=rowDatum===t;
+    const parts=fmtDate(rowDatum).split(' ');
+    const rowId='pr-'+rowDatum;
+    const row=dayRows[0];
+    const work=dayRows.every(r=>r.type==='work');
+    h+=`<div>
+      <div class="plan-row${isPast?' is-past':''}${isTdy?' is-today':''}${work?' is-work':''}" onclick="togglePlanRow('${rowId}')">
+        <div class="plan-row-date"><strong>${parts[0]} ${parts[1]}</strong>${parts[2]}</div>
+        <div class="plan-row-emoji">${RXIcon(row.type||'rest',16,'var(--muted)','var(--accent)')}</div>
+        <div class="plan-row-body"><div class="plan-row-title">${dayRows.map(r=>esc(r.title||r.titel||'—')).join(' · ')}</div></div>
+        <div class="plan-row-km">${dayRows.map(r=>r.km||r.distance).filter(Boolean).map(k=>k+'km').join('+')}</div>
+        ${dayRows.some(r=>r.feedback)?'<div class="plan-row-feedback"></div>':''}
+      </div>
+      <div class="plan-row-detail" id="${rowId}">
+        ${dayRows.map(r=>{const rti=typeOf(r.type);return`
+          <div style="padding:8px 0;${dayRows.length>1?'border-bottom:1px solid var(--border)':''}">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              ${RXIcon(r.type,14,'var(--muted)','var(--accent)')}
+              <span class="badge" style="background:${rti.bg};color:${rti.text}">${T(rti.i18n)}</span>
+              ${r.km||r.distance?`<span style="font-family:var(--font-m);font-size:10px;color:var(--accent)">${esc(r.km||r.distance)}km</span>`:''}
+            </div>
+            <div style="font-family:var(--font-d);font-weight:700;font-size:14px">${esc(r.title||r.titel||'')}</div>
+            ${r.details||r.detail?`<div style="font-family:var(--font-m);font-size:12px;color:var(--muted);margin-top:2px">${esc(r.details||r.detail)}</div>`:''}
+            ${r.feedback?`<div class="plan-feedback-text">✓ ${esc(r.feedback)}</div>`:''}
+            <button style="margin-top:6px;background:none;border:1px solid var(--border);padding:4px 10px;color:var(--muted);font-family:var(--font-m);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer" onclick="openDayModalRow(${r.rowIndex},'${rowDatum}');event.stopPropagation()">Bewerken</button>
+          </div>`;}).join('')}
+      </div>
+    </div>`;
+  });
+  return h;
 }
 
 function buildPhaseTabs(values){
