@@ -104,8 +104,8 @@
         <span id="sbPctLabel" class="sb-plan-pct"></span>
       </div>
     </div>
-    <div class="sb-user-row" id="sbUserRow">
-      <button id="sbAvatarBtn" class="sb-user-avatar" onclick="toggleAvatarMenu(this)">?</button>
+    <div class="sb-user-row" id="sbUserRow" onclick="toggleAvatarMenu(this)">
+      <button id="sbAvatarBtn" class="sb-user-avatar" onclick="event.stopPropagation();toggleAvatarMenu(document.getElementById('sbUserRow'))">?</button>
       <div style="flex:1;min-width:0">
         <div id="sbUserName" class="sb-user-name">—</div>
         <div id="sbUserSub" class="sb-user-sub">runyo</div>
