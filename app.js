@@ -1134,7 +1134,7 @@ function renderWeek(){
     const tr=rows.find(r=>r.type!=='rest'&&r.type!=='work');
     const dotColor=tr?(isT?'rgba(255,255,255,0.65)':typeOf(tr.type).text):'transparent';
     const d=parseDate(date);
-    h+=`<div class="today-day-block${isT?' active':''}"
+    h+=`<div class="today-day-block${isT?' active':''}" data-date="${date}"
       onclick="weekScrollToDay('${date}')"
       ondragover="event.preventDefault();this.classList.add('wdr-drop-target')"
       ondragleave="this.classList.remove('wdr-drop-target')"
@@ -1175,7 +1175,63 @@ function renderWeek(){
   }
   h+=`</div>`;
   el.innerHTML=h;
-  requestAnimationFrame(()=>initWeekSwipe());
+  requestAnimationFrame(()=>{initWeekSwipe();initWeekTouchDrag();});
+}
+
+function initWeekTouchDrag(){
+  const rows=document.querySelectorAll('#weekSwipeWrap .week-day-row[data-row-date]');
+  const dayBlocks=()=>document.querySelectorAll('#weekContent .today-day-block[data-date]');
+  let drag=null;
+
+  rows.forEach(row=>{
+    const rowIndex=parseInt(row.dataset.rowIndex)||null;
+    const date=row.dataset.rowDate;
+
+    row.addEventListener('touchstart',e=>{
+      drag={rowIndex,date,el:row,
+        sx:e.touches[0].clientX,sy:e.touches[0].clientY,
+        active:false,ghost:null,
+        timer:setTimeout(()=>{
+          drag.active=true;
+          row.style.opacity='0.4';
+          const rect=row.getBoundingClientRect();
+          const g=document.createElement('div');
+          g.className='wdr-ghost';
+          g.style.cssText=`position:fixed;pointer-events:none;z-index:9999;width:${rect.width}px;left:${rect.left}px;top:${rect.top}px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(14,31,26,0.25);`;
+          g.innerHTML=row.outerHTML.replace(/draggable="true"/,'').replace(/ondrag\w+="[^"]*"/g,'');
+          document.body.appendChild(g);
+          drag.ghost=g;
+          dayBlocks().forEach(b=>b.classList.add('wdr-droppable'));
+        },350)};
+    },{passive:true});
+
+    row.addEventListener('touchmove',e=>{
+      if(!drag)return;
+      const t=e.touches[0];
+      if(!drag.active){
+        if(Math.abs(t.clientX-drag.sx)>8||Math.abs(t.clientY-drag.sy)>8){clearTimeout(drag.timer);drag=null;}
+        return;
+      }
+      e.preventDefault();
+      if(drag.ghost){drag.ghost.style.left=(t.clientX-drag.ghost.offsetWidth/2)+'px';drag.ghost.style.top=(t.clientY-50)+'px';}
+      const target=document.elementFromPoint(t.clientX,t.clientY)?.closest('.today-day-block[data-date]');
+      dayBlocks().forEach(b=>b.classList.toggle('wdr-drop-target',b===target));
+    },{passive:false});
+
+    row.addEventListener('touchend',e=>{
+      if(!drag)return;
+      clearTimeout(drag.timer);
+      if(drag.active){
+        const t=e.changedTouches[0];
+        const target=document.elementFromPoint(t.clientX,t.clientY)?.closest('.today-day-block[data-date]');
+        if(target?.dataset.date)doReschedule(drag.rowIndex,drag.date,target.dataset.date);
+        drag.el.style.opacity='';
+        drag.ghost?.remove();
+        dayBlocks().forEach(b=>b.classList.remove('wdr-drop-target','wdr-droppable'));
+      }
+      drag=null;
+    },{passive:true});
+  });
 }
 
 // ── PLAN ──────────────────────────────────────────────────────────────────────
@@ -1968,12 +2024,9 @@ function weekDragEnd(e){
   document.querySelectorAll('.wdr-drop-target').forEach(el=>el.classList.remove('wdr-drop-target'));
 }
 
-async function weekDropOnDay(e,newDate){
-  e.preventDefault();
-  const rowIndex=parseInt(e.dataTransfer.getData('rowIndex'));
-  const oldDate=e.dataTransfer.getData('date');
-  if(!oldDate||newDate===oldDate)return;
-  const row=state.data?.find(r=>r.rowIndex===rowIndex||(r.datum===oldDate));
+async function doReschedule(rowIndex,oldDate,newDate){
+  if(!oldDate||!newDate||newDate===oldDate)return;
+  const row=state.data?.find(r=>r.rowIndex===rowIndex||r.datum===oldDate);
   if(!row)return;
   showToast('Verplaatsen…');
   const fase=getFaseForDate(newDate)||row.fase||'';
@@ -1982,9 +2035,17 @@ async function weekDropOnDay(e,newDate){
     if(rowIndex&&state.scriptUrl)await updateActivity(rowIndex,fields);
     else if(rowIndex)await oauthUpdateRow(rowIndex,fields);
     row.datum=newDate;row.fase=fase;
-    showToast('✓ Verplaatst naar '+newDate.slice(8)+' '+['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][parseInt(newDate.slice(5,7))-1]);
+    const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+    showToast('✓ Verplaatst naar '+newDate.slice(8)+' '+mn[parseInt(newDate.slice(5,7))-1]);
     renderWeek();
   }catch(err){showToast('❌ '+err.message);}
+}
+
+function weekDropOnDay(e,newDate){
+  e.preventDefault();
+  const rowIndex=parseInt(e.dataTransfer.getData('rowIndex'))||null;
+  const oldDate=e.dataTransfer.getData('date');
+  doReschedule(rowIndex,oldDate,newDate);
 }
 
 function weekTileClick(date){

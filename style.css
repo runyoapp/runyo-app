@@ -424,6 +424,8 @@ a{color:inherit;text-decoration:none}
 .wdr-handle{color:var(--border);font-size:16px;margin-left:6px;flex-shrink:0;cursor:grab;user-select:none;}
 .week-day-row:hover .wdr-handle{color:var(--muted);}
 .today-day-block.wdr-drop-target{background:var(--accent-glow);border-color:var(--accent);transform:scale(1.08);transition:transform 0.1s;}
+.today-day-block.wdr-droppable{border-color:var(--accent);opacity:0.8;}
+.wdr-ghost{background:var(--surface);border:1px solid var(--border);}
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-primary{
