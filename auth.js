@@ -578,6 +578,7 @@ async function oauthPickExisting(){
 }
 
 async function oauthSelectSheet(sheetId,name){
+  if(typeof showLoading==='function')showLoading();
   // C63: capture future races from current schema BEFORE clearing state
   const _curSheetId=authSheetId();
   if(_curSheetId&&_curSheetId!==sheetId&&typeof state!=='undefined'&&state.data){
@@ -720,7 +721,6 @@ async function _finalizeOAuthSheet(sheetId,name,url){
   if(typeof renderHeader==='function')renderHeader();
   if(typeof renderConnectSection==='function')renderConnectSection();
   showToast('✓ Schema gekoppeld');
-  if(typeof showLoading==='function')showLoading();
   await fetchData();
   // C63: offer to copy races from previous schema
   if(typeof _offerRacesCopy==='function')_offerRacesCopy(sheetId);

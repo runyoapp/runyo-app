@@ -3403,13 +3403,19 @@ function oauthDisconnect(){
   showToast('Uitgelogd');
 }
 function disconnectSheet(){
-  // Disconnect current sheet but keep it in the schema history list
   state.scriptUrl='';state.sheetName='';state.sheetId='';
   localStorage.removeItem('scriptUrl');localStorage.removeItem('sheetName');
-  if(typeof authSetSheetId==='function')authSetSheetId('');
   localStorage.removeItem('oauth_sheetId');
-  renderConnectSection();
-  renderHeader();
+  if(typeof authSetSheetId==='function')authSetSheetId('');
+  // Wis ook de email-gebaseerde fallback zodat authSheetId() niet herverbindt
+  const _em=typeof authEmail==='function'?authEmail():'';
+  if(_em){
+    localStorage.removeItem('sheetId_'+_em);
+    localStorage.removeItem('sheetTabName_'+_em);
+    localStorage.removeItem('sheetName_'+_em);
+  }
+  state.data=null;
+  renderActiveView();renderConnectSection();renderHeader();
   showToast('Schema ontkoppeld');
 }
 
