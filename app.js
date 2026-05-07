@@ -120,12 +120,21 @@ async function fetchWeather(){
   const cache=JSON.parse(localStorage.getItem('weatherCache')||'null');
   if(cache&&cache.loc===`${loc.lat},${loc.lon}`&&Date.now()-cache.ts<3600000)return cache.data;
   try{
-    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=weather_code,temperature_2m,precipitation`);
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=weather_code,temperature_2m,precipitation&daily=weather_code,temperature_2m_max&timezone=auto&forecast_days=7`);
     const d=await r.json();
-    const data={code:d.current.weather_code,temp:Math.round(d.current.temperature_2m),precip:d.current.precipitation,city:loc.city};
+    const daily=d.daily?{dates:d.daily.time,codes:d.daily.weather_code,maxTemps:d.daily.temperature_2m_max}:null;
+    const data={code:d.current.weather_code,temp:Math.round(d.current.temperature_2m),precip:d.current.precipitation,city:loc.city,daily};
     localStorage.setItem('weatherCache',JSON.stringify({loc:`${loc.lat},${loc.lon}`,ts:Date.now(),data}));
     return data;
   }catch{return null;}
+}
+
+function getWeatherForDate(dateStr){
+  const w=JSON.parse(localStorage.getItem('weatherCache')||'null')?.data;
+  if(!w?.daily)return null;
+  const idx=w.daily.dates.indexOf(dateStr);
+  if(idx<0)return null;
+  return{emoji:weatherEmoji(w.daily.codes[idx]),temp:Math.round(w.daily.maxTemps[idx])};
 }
 
 function renderWeatherWidget(){
@@ -1127,22 +1136,28 @@ function renderWeek(){
   h+=`<div style="height:14px"></div>
   <div class="today-day-strip">
     <div class="tds-days">`;
+  const showWeekWeather=localStorage.getItem('weekWeather')==='1';
   wd.forEach(({date,rows},i)=>{
     const isT=date===t;
     const tr=rows.find(r=>r.type!=='rest'&&r.type!=='work');
     const dotColor=tr?(isT?'rgba(255,255,255,0.65)':typeOf(tr.type).text):'transparent';
     const d=parseDate(date);
-    h+=`<div class="today-day-block${isT?' active':''}" data-date="${date}"
+    const wx=showWeekWeather?getWeatherForDate(date):null;
+    h+=`<div class="today-day-block${isT?' active':''}${wx?' has-weather':''}" data-date="${date}"
       onclick="weekScrollToDay('${date}')"
       ondragover="event.preventDefault();this.classList.add('wdr-drop-target')"
       ondragleave="this.classList.remove('wdr-drop-target')"
       ondrop="weekDropOnDay(event,'${date}');this.classList.remove('wdr-drop-target')">
       <div class="tdb-day">${DAYS_NL[i]}</div>
       <div class="tdb-num">${d.getDate()}</div>
-      <div class="tdb-dot" style="background:${dotColor}"></div>
+      ${wx?`<div class="tdb-weather">${wx.emoji}</div>`:`<div class="tdb-dot" style="background:${dotColor}"></div>`}
     </div>`;
   });
   h+=`</div></div>`;
+  // Fetch weather in background als week-weer aanstaat maar cache leeg is
+  if(showWeekWeather&&!JSON.parse(localStorage.getItem('weatherCache')||'null')?.data?.daily){
+    fetchWeather().then(()=>renderWeek());
+  }
 
   // Day rows
   h+=`<div id="weekSwipeWrap" style="padding:14px 16px 0">`;
@@ -3554,17 +3569,23 @@ function renderPrFields(){
     </div>`).join('');
 }
 
+function saveWeekWeatherPref(){
+  const on=!!document.getElementById('weekWeatherToggle')?.checked;
+  localStorage.setItem('weekWeather',on?'1':'0');
+  if(state.currentTab==='week')renderWeek();
+}
+
 function renderSettingsFields(){
-  // C26/C30: connect section is fully dynamic
   renderConnectSection();
   const tgEl=document.getElementById('telegramUser');if(tgEl)tgEl.value=localStorage.getItem('telegramUser')||'';
   renderAccountSection();updateTelegramStatus();applyNotifPrefs();applyI18n();
-  // Weather location
   const loc=getWeatherLocation();
   const cityEl=document.getElementById('weatherCityInput');
   const hint=document.getElementById('weatherLocationHint');
   if(cityEl&&loc?.city)cityEl.value=loc.city;
   if(hint&&loc)hint.textContent=loc.source==='manual'?'Handmatig ingesteld.':'Automatisch bepaald via IP. Vul handmatig in om te overschrijven.';
+  const wwToggle=document.getElementById('weekWeatherToggle');
+  if(wwToggle)wwToggle.checked=localStorage.getItem('weekWeather')==='1';
 }
 
 async function saveWeatherCity(){

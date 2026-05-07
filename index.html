@@ -210,14 +210,21 @@
       <div class="settings-group">
         <div class="settings-group-title">Locatie & Weer</div>
         <div class="settings-section">
-          <div class="settings-field">
-            <label class="settings-label">Mijn locatie (voor weersvoorspelling)</label>
+          <div class="settings-field" style="margin-bottom:16px">
+            <label class="settings-label">Mijn locatie</label>
             <div style="display:flex;gap:8px;align-items:center">
               <input type="text" class="settings-input" id="weatherCityInput" placeholder="Bijv. Utrecht" style="flex:1">
-              <button class="btn-save" onclick="saveWeatherCity()" style="white-space:nowrap">Opslaan</button>
+              <button class="btn-save" onclick="saveWeatherCity()" style="white-space:nowrap;font-size:13px;padding:8px 14px">Opslaan</button>
             </div>
             <div class="settings-hint" id="weatherLocationHint">Automatisch bepaald via IP. Vul handmatig in om te overschrijven.</div>
           </div>
+          <label style="display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+            <input type="checkbox" id="weekWeatherToggle" onchange="saveWeekWeatherPref()" style="width:18px;height:18px;accent-color:var(--accent);flex-shrink:0">
+            <span>
+              <span style="display:block;font-family:var(--font-d);font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em">Weer in weekoverzicht</span>
+              <span style="display:block;font-family:var(--font-d);font-size:12px;color:var(--muted);margin-top:2px">Toon weersverwachting per dag in de dagslider</span>
+            </span>
+          </label>
         </div>
       </div>
 
