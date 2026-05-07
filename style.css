@@ -850,7 +850,7 @@ a{color:inherit;text-decoration:none}
   /* Hide avatar from desktop topbar (moved to sidebar) */
   #topbarAuthDesktop{display:none !important;}
   .weather-widget{font-size:15px;}
-  .sb-user-row{cursor:pointer;}
+  .sb-user-row{cursor:pointer;user-select:none;-webkit-user-select:none;}
 
   #sidebarPlanInfo{display:block !important}
   .bottom-nav::after{display:none !important}
