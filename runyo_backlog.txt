@@ -15,7 +15,7 @@ BUG9 | Na uitloggen wordt nog steeds een schema getoond. Bij uitloggen: schema-d
 --------------------
 ✓ B12 | Alle gebruikersinstellingen koppelen aan e-mailadres | 🔴
 B14 | Google Drive bestandsselector via Picker API | 🟡
-B17 | Bij ontkoppelen: optie om sheet ook uit Drive te verwijderen (Drive API files.trash, alleen app-aangemaakte sheets, vereist drive.file scope) | 🟡
+✓ B17 | Bij ontkoppelen: optie om sheet ook uit Drive te verwijderen (Drive API files.trash, alleen app-aangemaakte sheets, vereist drive.file scope) | 🟡
 
 ---
 
