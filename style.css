@@ -127,13 +127,13 @@ a{color:inherit;text-decoration:none}
 /* ── Loading ──────────────────────────────────────────────────────────────── */
 .loading-overlay{
   position:fixed;inset:0;z-index:9000;
-  background:rgba(241,238,230,0.80);
+  background:rgba(241,238,230,0.40);
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:18px;transition:opacity 0.35s;
 }
 [data-theme="dark"] .loading-overlay{
-  background:rgba(11,23,20,0.80);
+  background:rgba(11,23,20,0.40);
 }
 .loading-overlay.hidden{opacity:0;pointer-events:none}
 .loading-logo{
