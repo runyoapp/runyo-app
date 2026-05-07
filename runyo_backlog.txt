@@ -21,10 +21,10 @@ B17 | Bij ontkoppelen: optie om sheet ook uit Drive te verwijderen (Drive API fi
 
 📅 C — Kalender, Training & Races
 -----------------------------------
-C60 | Nieuw schema sheetnaam: "runyo schema DD-MM-YYYY" | 🟢
-C61 | Geïmporteerd schema sheetnaam: "runyo schema <titel of bestandsnaam> DD-MM-YYYY" | 🟢
+✓ C60 | Nieuw schema sheetnaam: "runyo schema DD-MM-YYYY" | 🟢
+✓ C61 | Geïmporteerd schema sheetnaam: "runyo schema <titel of bestandsnaam> DD-MM-YYYY" | 🟢
 C62 | Meerdere activiteittypes toevoegen: zwemmen, fietsen, gym (emoji + kleur, verwerk in kalender/vandaag/training/bot) | 🟡
-C64 | Bij meenemen races naar nieuw schema: fase kolom leegmaken voor die rijen | 🟢
+✓ C64 | Bij meenemen races naar nieuw schema: fase kolom leegmaken voor die rijen | 🟢
 
 ---
 
@@ -49,7 +49,7 @@ E7  | Google OAuth + Sheets API v4 | 🔴 | Prioriteit 1
 
 🖥️ F — Platform
 ----------------
-F1 | Proper desktop website: volwaardige layout, sidebar of multi-column | 🔴
+✓ F1 | Proper desktop website: volwaardige layout, sidebar of multi-column | 🔴
 F2 | Migratie naar dedicated runyo account (@runyo.app): GitHub repos hernoemen (runyo-app, runyo-bot, runyo-auth), Google Cloud, Railway, domein koppeling | 🟡
 F3 | Native iOS + Android app (React Native of Expo). Desktop PWA blijft beschikbaar | 🔴
 
@@ -57,18 +57,18 @@ F3 | Native iOS + Android app (React Native of Expo). Desktop PWA blijft beschik
 
 🔧 T — Technisch
 ----------------
-T2 | Claude Code setup op Windows | 🟢
+✗ T2 | Claude Code setup op Windows | 🟢
 T3 | Telegram koppeling upgraden naar token-gebaseerd systeem voor multi-user (app genereert eenmalige code, bot vraagt om die code) | 🟡
 
 ---
 
 🎨 U — UX/UI
 -------------
-U1  | Onboarding als dimmed overlay over de app, licht wegklikbaar | 🟡
-U26 | Training-tab: trainingsblokken smaller (max 480px) + centreren op pagina | 🟢
-U27 | Import rapportage leesbaarder: max 5 zinnen, geen technische velden, witregels tussen secties | 🟢
-U28 | (i) tooltip bij "Rustdagen uit schema behouden" in import stap 2, tap-vriendelijk op mobile (niet hover) | 🟢
-U33 | Instellingen: knoppen smaller als niet ingelogd (max-breedte 200px) | 🟢
+✓ U1  | Onboarding als dimmed overlay over de app, licht wegklikbaar | 🟡
+✓ U26 | Training-tab: trainingsblokken smaller (max 480px) + centreren op pagina | 🟢
+✓ U27 | Import rapportage leesbaarder: max 5 zinnen, geen technische velden, witregels tussen secties | 🟢
+✓ U28 | (i) tooltip bij "Rustdagen uit schema behouden" in import stap 2, tap-vriendelijk op mobile (niet hover) | 🟢
+✓ U33 | Instellingen: knoppen smaller als niet ingelogd (max-breedte 200px) | 🟢
 
 ---
 
@@ -76,7 +76,7 @@ U33 | Instellingen: knoppen smaller als niet ingelogd (max-breedte 200px) | 🟢
 -------------
 G16b | Bij import: sheet wegschrijven naar zowel gebruikers Drive als runyo Drive. Link naar beide sheets tonen in import log | 🔴
 G17  | Import logging eerder starten: log aanmaken bij start van import, ook bij halverwege mislukken | 🟡
-G18  | Import log: geschatte kosten in euro tonen naast tokengebruik (input €3/1M, output €15/1M tokens) | 🟢
+✓ G18  | Import log: geschatte kosten in euro tonen naast tokengebruik (input €3/1M, output €15/1M tokens) | 🟢
 
 ---
 
@@ -88,7 +88,7 @@ G11c | Social media: Instagram + TikTok account aanmaken, contentstrategie | �
 G11d | Advertentiecampagne: Meta Ads gericht op recreatieve hardlopers NL/BE | 🟡
 G11e | Influencer onderzoek: NL/BE hardloop-creators 5k-100k volgers, DM-template | 🟡
 G11f | Hardloopgemeenschappen: Strava clubs, Reddit, Facebook groepen — organische introductie | 🟢
-G11g | Early access lijst: e-mailcollectie via landingspagina, waitlist tool | 🟢
+✓ G11g | Early access lijst: e-mailcollectie via landingspagina, waitlist tool | 🟢
 G11h | Partnerships: hardloopwinkels, evenementen (Big10, Bijlmerrun) voor co-promotie | 🟡
 G12  | Kostenplaatje & groeimodel: overzicht kosten per fase afgezet tegen gebruikersaantallen | 🟡
 G13  | Monetisatie model: subscription of pay-per-use (per AI-import). Betalingsinfra, free tier, implementatie | 🔴
