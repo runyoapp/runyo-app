@@ -727,6 +727,7 @@ function renderTopbarAuth(){
     menu.style.cssText='display:none;position:fixed;z-index:9000;background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:220px;box-shadow:0 12px 32px rgba(14,31,26,0.18);overflow:hidden';
     const _item=(onclick,label,svg,danger=false)=>
       `<button onclick="${onclick}" class="av-item${danger?' av-item-danger':''}">${svg}<span>${label}</span></button>`;
+    const isAdmin=email==='info@runyo.app';
     menu.innerHTML=`
       <div class="av-header">
         <div class="av-email">${esc(email)}</div>
@@ -737,12 +738,48 @@ function renderTopbarAuth(){
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M9 12l-2 8 5-3 5 3-2-8"/></svg>')}
       ${_item('_closeAvatarMenu();switchTab(\'settings\')','Instellingen',
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9"/></svg>')}
+      ${isAdmin?_item('_closeAvatarMenu();openImportLog()','Import log','<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'):''}
       <div class="av-divider"></div>
       ${_item('_closeAvatarMenu();authSignOut()','Uitloggen',
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
         true)}`;
   }else if(menu){
     menu.remove();
+  }
+}
+
+async function openImportLog(){
+  const modal=document.getElementById('dayModal');
+  const el=document.getElementById('dayModalContent');
+  modal.classList.add('open');
+  el.innerHTML=`<div class="modal-title">Import log</div><div style="font-family:var(--font-d);font-size:13px;color:var(--muted)">Laden…</div>`;
+  try{
+    const r=await fetch('https://runyo-auth-production.up.railway.app/ai/debug-log');
+    const data=await r.json();
+    if(!data.length){el.innerHTML=`<div class="modal-title">Import log</div><div style="font-family:var(--font-d);font-size:13px;color:var(--muted)">Geen entries.</div>`;return;}
+    const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+    el.innerHTML=`<div class="modal-title">Import log</div>
+      <div style="font-family:var(--font-d);font-size:13px;color:var(--muted);margin-bottom:14px">${data.length} entries</div>
+      ${data.map(e=>{
+        const ok=!e.error;
+        const ts=e.ts?new Date(e.ts):new Date(e._received||Date.now());
+        const dateStr=`${ts.getDate()} ${mn[ts.getMonth()]} ${ts.getHours()}:${String(ts.getMinutes()).padStart(2,'0')}`;
+        return`<div style="background:var(--surface);border:1px solid ${ok?'var(--border)':'rgba(200,51,107,0.3)'};border-radius:10px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-family:var(--font-d);font-size:11px;font-weight:700;color:${ok?'var(--accent)':'var(--cat-race)'};background:${ok?'rgba(0,185,142,0.1)':'rgba(200,51,107,0.1)'};padding:2px 8px;border-radius:999px">${ok?'OK':'FOUT'}</span>
+            <span style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.fileName||'—')}</span>
+            <span style="font-family:var(--font-d);font-size:12px;color:var(--muted)">${dateStr}</span>
+          </div>
+          ${e.error?`<div style="font-family:var(--font-m);font-size:11px;color:var(--cat-race);margin-bottom:4px">${esc(e.error)}</div>`:''}
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            ${e.inputTokens?`<span style="font-family:var(--font-d);font-size:12px;color:var(--muted)">In: <strong style="color:var(--text2)">${e.inputTokens}</strong></span>`:''}
+            ${e.outputTokens?`<span style="font-family:var(--font-d);font-size:12px;color:var(--muted)">Out: <strong style="color:var(--text2)">${e.outputTokens}</strong></span>`:''}
+            ${e.rows?`<span style="font-family:var(--font-d);font-size:12px;color:var(--muted)">Rijen: <strong style="color:var(--accent)">${e.rows}</strong></span>`:''}
+          </div>
+        </div>`;
+      }).join('')}`;
+  }catch(err){
+    el.innerHTML=`<div class="modal-title">Import log</div><div style="color:var(--cat-race);font-size:13px">${esc(err.message)}</div>`;
   }
 }
 
