@@ -353,6 +353,28 @@ async function createNewSheet(){
   return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo schema ${today}`};
 }
 
+// ── Calendar (calendar.events scope) ─────────────────────────────────────────
+async function addToCalendar(title, dateStr, description){
+  const token=await authEnsureToken();
+  const body={
+    summary: title,
+    description: description||'',
+    start:{date:dateStr},
+    end:{date:dateStr},
+  };
+  const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  if(!res.ok){
+    const e=await res.json();
+    if(res.status===401||res.status===403)throw new Error('Log opnieuw in om Agenda-toegang te verlenen');
+    throw new Error(e.error?.message||'Agenda fout');
+  }
+  return res.json();
+}
+
 // ── Gmail send (gmail.send scope) ────────────────────────────────────────────
 async function sendGmail(subject, htmlBody){
   const token=await authEnsureToken();

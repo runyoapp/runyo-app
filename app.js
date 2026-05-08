@@ -1706,6 +1706,7 @@ function openDayModal(dateStr,targetRowIndex){
             <div style="font-family:var(--font-d);font-weight:800;font-size:20px;line-height:1">${esc(r.titel||'Training')}</div>
           </div>
           ${r.km?`<div style="font-family:var(--font-d);font-weight:800;font-size:22px;color:${isRaceRow?'var(--race-text)':'var(--accent)'};flex-shrink:0">${esc(r.km)}<span style="font-size:12px;color:var(--muted)">km</span></div>`:''}
+          <button onclick="event.stopPropagation();addRowToCalendar(${r.rowIndex},'${dateStr}').then(()=>showToast('✓ Toegevoegd aan agenda')).catch(e=>showToast('❌ '+e.message))" title="Toevoegen aan agenda" style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 7px;cursor:pointer;color:var(--muted);flex-shrink:0;display:flex;align-items:center;-webkit-tap-highlight-color:transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>
         </div>
         ${r.detail?`<div style="font-family:var(--font-m);font-size:12px;color:var(--muted);line-height:1.6;padding-top:10px;border-top:1px solid var(--border)">${esc(r.detail)}</div>`:''}
       </div>`;
@@ -3718,6 +3719,15 @@ function buildTrainingEmailHtml(dateStr, rows){
       </div>
     </div>
   </body></html>`;
+}
+
+async function addRowToCalendar(rowIndex, dateStr){
+  const row=state.data?.find(r=>r.rowIndex===rowIndex);
+  if(!row)throw new Error('Training niet gevonden');
+  const title=`${row.titel||T(typeOf(row.type).i18n)}${row.km?' · '+row.km+' km':''}`;
+  const desc=row.detail||'';
+  if(typeof addToCalendar!=='function')throw new Error('Agenda niet beschikbaar');
+  await addToCalendar(title,dateStr,desc);
 }
 
 async function sendTrainingSummaryEmail(){
