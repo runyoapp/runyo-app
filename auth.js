@@ -360,15 +360,16 @@ async function sendGmail(subject, htmlBody){
   const to=authEmail();
   const mime=[
     `To: ${to}`,
-    `From: runyo <${to}>`,
-    `Subject: ${subject}`,
+    `From: ${to}`,
+    `Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=utf-8',
     '',
     htmlBody,
   ].join('\r\n');
-  const encoded=btoa(unescape(encodeURIComponent(mime)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const bytes=new TextEncoder().encode(mime);
+  const bin=Array.from(bytes,b=>String.fromCharCode(b)).join('');
+  const encoded=btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
     method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},

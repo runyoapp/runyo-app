@@ -214,7 +214,7 @@
               <span style="display:block;font-family:var(--font-d);font-size:12px;color:var(--muted);margin-top:2px">Ontvang een e-mail met je training van de dag via je Google-account</span>
             </span>
           </label>
-          <button class="btn-primary" onclick="sendTrainingSummaryEmail().then(()=>showToast('E-mail verzonden ✓')).catch(e=>showToast(e.message||'Fout bij verzenden','error'))" id="testEmailBtn" style="font-size:13px;padding:10px 18px">Stuur test e-mail</button>
+          <button class="btn-primary" onclick="sendTrainingSummaryEmail().then(()=>showToast('✓ E-mail verzonden')).catch(e=>showToast('❌ '+(e.message||'Fout bij verzenden')))" id="testEmailBtn" style="font-size:13px;padding:10px 18px">Stuur test e-mail</button>
         </div>
       </div>
 

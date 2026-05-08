@@ -3726,11 +3726,8 @@ async function sendTrainingSummaryEmail(){
   const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
   const d=parseDate(t);
   const subject=`runyo · ${d.getDate()} ${mn[d.getMonth()]} — ${rows.filter(r=>r.type!=='rest'&&r.type!=='work').map(r=>r.titel||T(typeOf(r.type).i18n)).join(', ')||'Rustdag'}`;
-  try{
-    if(typeof sendGmail!=='function')throw new Error('Gmail niet beschikbaar');
-    await sendGmail(subject,html);
-    showToast('✓ E-mail verstuurd');
-  }catch(e){showToast('❌ '+e.message);}
+  if(typeof sendGmail!=='function')throw new Error('Gmail niet beschikbaar');
+  await sendGmail(subject,html);
 }
 
 function saveWeekWeatherPref(){
