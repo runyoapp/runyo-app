@@ -213,11 +213,8 @@ function showOAuthExpiredBanner(){
 function authSignOut(){
   authClear();
   localStorage.removeItem(GAUTH.SHEET_ID_KEY);
-  if(typeof state!=='undefined'){state.data=null;state.sheetId='';state.sheetName='';}
-  if(typeof renderAccountSection==='function')renderAccountSection();
-  if(typeof renderConnectSection==='function')renderConnectSection();
-  if(typeof renderHeader==='function')renderHeader();
-  if(typeof renderActiveView==='function')renderActiveView();
+  if(typeof state!=='undefined'){state.data=null;state.sheetId='';state.sheetName='';state.currentFase=null;}
+  if(typeof onSignOut==='function')onSignOut();
   showToast('Uitgelogd');
 }
 

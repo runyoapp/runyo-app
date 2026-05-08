@@ -2533,6 +2533,34 @@ function logoutAccount(){
   renderAccountSection();
 }
 
+function onSignOut(){
+  // Clear per-account localStorage
+  localStorage.removeItem('notifPrefs');
+  localStorage.removeItem('telegramUser');
+  localStorage.removeItem('prs');
+  localStorage.removeItem('userRaces');
+  state._prs=null;state._races=null;
+
+  // Reset settings DOM elements
+  const els={
+    telegramUser:'',notifDaily:false,notifFeedback:false,notifEmail:false,
+    weekWeatherToggle:false,weatherCityInput:''
+  };
+  Object.entries(els).forEach(([id,def])=>{
+    const el=document.getElementById(id);if(!el)return;
+    if(typeof def==='boolean')el.checked=def;else el.value=def;
+  });
+  ['notifDailyTimes','notifFeedbackTimes'].forEach(id=>{
+    const el=document.getElementById(id);if(el){el.style.display='none';el.innerHTML='';}
+  });
+
+  // Re-render everything and jump to vandaag
+  renderAccountSection();
+  renderConnectSection();
+  renderHeader();
+  switchTab('today');
+}
+
 
 // ── C26 / E7: CONNECT SECTION — OAuth-first ─────────────────────────────────
 function renderConnectSection(){
