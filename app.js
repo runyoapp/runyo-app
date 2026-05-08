@@ -652,7 +652,16 @@ function openDayFromRacesBar(datum){
 }
 
 function renderSidebarPlanInfo(){
-  if(!state.data)return;
+  if(!state.data){
+    // Logged out — clear all sidebar elements
+    ['sbFaseLabel','sbFaseCount','sbWeekLabel','sbKmLabel','sbPctLabel','sbUserName'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.textContent='';
+    });
+    const fill=document.getElementById('sbProgressFill');if(fill)fill.style.width='0%';
+    const av=document.getElementById('sbAvatarBtn');if(av)av.textContent='?';
+    const sub=document.getElementById('sbUserSub');if(sub)sub.textContent='';
+    return;
+  }
   const t=todayStr();
   const allRows=state.data;
   const todayRow=allRows.find(r=>r.datum===t);
