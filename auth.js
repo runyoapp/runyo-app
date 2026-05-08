@@ -357,6 +357,35 @@ async function createNewSheet(){
   return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo schema ${today}`};
 }
 
+// ── Gmail send (gmail.send scope) ────────────────────────────────────────────
+async function sendGmail(subject, htmlBody){
+  const token=await authEnsureToken();
+  const to=authEmail();
+  const mime=[
+    `To: ${to}`,
+    `From: runyo <${to}>`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    htmlBody,
+  ].join('\r\n');
+  const encoded=btoa(unescape(encodeURIComponent(mime)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({raw:encoded}),
+  });
+  if(!res.ok){
+    const e=await res.json();
+    const msg=e.error?.message||'Gmail fout';
+    if(res.status===401||res.status===403)throw new Error('Log opnieuw in om Gmail-toegang te verlenen (nieuwe toestemming vereist)');
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 // ── Google Drive Picker (B14) ─────────────────────────────────────────────────
 function openDrivePicker(){
   return new Promise(async(resolve,reject)=>{
