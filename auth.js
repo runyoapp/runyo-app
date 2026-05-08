@@ -8,8 +8,11 @@ const GAUTH = {
   SCOPES: [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.readonly',
     'https://www.googleapis.com/auth/drive.appdata',
     'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/gmail.send',
   ].join(' '),
   REDIRECT_URI: window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '') + '/oauth-callback.html',
   TOKEN_KEY: 'gauth_token',
@@ -284,10 +287,39 @@ async function verifyOrFixSheet(sheetId,sheetName=''){
 }
 
 // ── Create new sheet ──────────────────────────────────────────────────────────
+async function getOrCreateRunyoFolder(){
+  const cacheKey='runyo_drive_folder_id';
+  const cached=localStorage.getItem(cacheKey);
+  if(cached)return cached;
+  const token=await authEnsureToken();
+  // Zoek bestaande runyo map (app-aangemaakt)
+  try{
+    const q=encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='runyo' and trashed=false");
+    const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&pageSize=1`,{
+      headers:{Authorization:'Bearer '+token}
+    });
+    const data=await res.json();
+    if(data.files?.[0]?.id){
+      localStorage.setItem(cacheKey,data.files[0].id);
+      return data.files[0].id;
+    }
+  }catch{}
+  // Maak nieuwe runyo map
+  const res=await fetch('https://www.googleapis.com/drive/v3/files',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({name:'runyo',mimeType:'application/vnd.google-apps.folder'}),
+  });
+  const folder=await res.json();
+  if(folder.id)localStorage.setItem(cacheKey,folder.id);
+  return folder.id||null;
+}
+
 async function createNewSheet(){
   const token=await authEnsureToken();
   const today=new Date().toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'});
   // Create spreadsheet
+  const folderId=await getOrCreateRunyoFolder().catch(()=>null);
   const res=await fetch('https://sheets.googleapis.com/v4/spreadsheets',{
     method:'POST',
     headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
@@ -314,6 +346,12 @@ async function createNewSheet(){
     {updateSheetProperties:{properties:{sheetId:tabId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}},
     {updateDimensionProperties:{range:{sheetId:tabId,dimension:'COLUMNS',startIndex:7,endIndex:11},properties:{hiddenByUser:true},fields:'hiddenByUser'}},
   ]});
+  // Verplaats naar 'runyo' map in Drive
+  if(folderId){
+    fetch(`https://www.googleapis.com/drive/v3/files/${newId}?addParents=${folderId}&removeParents=root&fields=id`,{
+      method:'PATCH',headers:{Authorization:'Bearer '+token}
+    }).catch(()=>{});
+  }
   authSetSheetId(newId);
   shareSheetWithRunyo(newId).catch(()=>{}); // non-blocking
   return{id:newId,url:`https://docs.google.com/spreadsheets/d/${newId}/edit`,title:`runyo schema ${today}`};
