@@ -3648,6 +3648,63 @@ function renderPrFields(){
     </div>`).join('');
 }
 
+function buildTrainingEmailHtml(dateStr, rows){
+  const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  const d=parseDate(dateStr);
+  const dateLabel=`${d.getDate()} ${mn[d.getMonth()]}`;
+  const dayNames=['Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag','Zondag'];
+  const dayName=dayNames[(d.getDay()+6)%7];
+  const activeRows=(rows||[]).filter(r=>r.type!=='rest'&&r.type!=='work');
+  const bodyRows=activeRows.length?activeRows.map(r=>{
+    const ti=typeOf(r.type);
+    const color=ti.text.replace('var(--cat-run)','#00B98E').replace('var(--cat-race)','#C8336B').replace('var(--cat-strength)','#D2632B').replace('var(--cat-mobility)','#B5912B').replace('var(--cat-rest)','#86968F').replace('var(--cat-swim)','#1565C0').replace('var(--cat-bike)','#FF6F00').replace('var(--cat-gym)','#5D4037').replace('var(--herstel-text)','#7A8A85').replace(/var\([^)]+\)/,'#00B98E');
+    return`<tr><td style="padding:12px 0;border-bottom:1px solid #DEDACA">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:4px;height:36px;background:${color};border-radius:2px;flex-shrink:0"></div>
+        <div>
+          <div style="font-size:11px;color:#5E6F69;margin-bottom:2px">${T(ti.i18n)}</div>
+          <div style="font-size:15px;font-weight:600;color:#0E1F1A">${esc(r.titel||'')}${r.km?' · '+r.km+' km':''}</div>
+          ${r.detail?`<div style="font-size:12px;color:#5E6F69;margin-top:3px">${esc(r.detail)}</div>`:''}
+        </div>
+      </div>
+    </td></tr>`;
+  }).join('')
+  :`<tr><td style="padding:16px 0;color:#86968F;font-size:14px">Rustdag 😴</td></tr>`;
+
+  return`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#F1EEE6;font-family:'Helvetica Neue',Arial,sans-serif">
+    <div style="max-width:520px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #DEDACA">
+      <div style="background:#0E1F1A;padding:24px 28px">
+        <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.03em">runyo</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:4px">${dayName} · ${dateLabel}</div>
+      </div>
+      <div style="padding:24px 28px">
+        <div style="font-size:13px;font-weight:600;color:#5E6F69;margin-bottom:12px;letter-spacing:-0.01em">Vandaag op het programma</div>
+        <table width="100%" cellpadding="0" cellspacing="0">${bodyRows}</table>
+        <div style="margin-top:20px">
+          <a href="https://app.runyo.app" style="display:inline-block;background:#00B98E;color:#062019;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700">Open runyo →</a>
+        </div>
+      </div>
+      <div style="padding:16px 28px;border-top:1px solid #DEDACA;font-size:11px;color:#86968F">
+        Je ontvangt deze mail omdat je e-mailnotificaties hebt ingeschakeld in runyo. <a href="https://app.runyo.app" style="color:#86968F">Instellingen aanpassen</a>
+      </div>
+    </div>
+  </body></html>`;
+}
+
+async function sendTrainingSummaryEmail(){
+  const t=todayStr();
+  const rows=state.data?.filter(r=>r.datum===t)||[];
+  const html=buildTrainingEmailHtml(t,rows);
+  const mn=['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  const d=parseDate(t);
+  const subject=`runyo · ${d.getDate()} ${mn[d.getMonth()]} — ${rows.filter(r=>r.type!=='rest'&&r.type!=='work').map(r=>r.titel||T(typeOf(r.type).i18n)).join(', ')||'Rustdag'}`;
+  try{
+    if(typeof sendGmail!=='function')throw new Error('Gmail niet beschikbaar');
+    await sendGmail(subject,html);
+    showToast('✓ E-mail verstuurd');
+  }catch(e){showToast('❌ '+e.message);}
+}
+
 function saveWeekWeatherPref(){
   const on=!!document.getElementById('weekWeatherToggle')?.checked;
   localStorage.setItem('weekWeather',on?'1':'0');
@@ -3710,8 +3767,9 @@ function saveSheetName(){
 function saveNotifPrefs(){
   const daily=!!document.getElementById('notifDaily')?.checked;
   const feedback=!!document.getElementById('notifFeedback')?.checked;
+  const email=!!document.getElementById('notifEmail')?.checked;
   const p=loadNotifPrefs();
-  p.daily=daily;p.feedback=feedback;
+  p.daily=daily;p.feedback=feedback;p.email=email;
   localStorage.setItem('notifPrefs',JSON.stringify(p));
   // Re-render to show/hide time selectors
   const dw=document.getElementById('notifDailyTimes');
@@ -3763,6 +3821,7 @@ function applyNotifPrefs(){
   const p=loadNotifPrefs();
   const d=document.getElementById('notifDaily');if(d)d.checked=!!p.daily;
   const f=document.getElementById('notifFeedback');if(f)f.checked=!!p.feedback;
+  const e=document.getElementById('notifEmail');if(e)e.checked=!!p.email;
   const dw=document.getElementById('notifDailyTimes');
   const fw=document.getElementById('notifFeedbackTimes');
   if(dw){dw.style.display=p.daily?'block':'none';_renderNotifTimes('daily');}
