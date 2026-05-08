@@ -2968,16 +2968,8 @@ async function loadSheetPickerInline(){
   if(!el)return;
   el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;padding:14px 0"><div style="width:180px;height:4px;background:var(--border);border-radius:999px;overflow:hidden"><div style="height:100%;background:var(--accent);border-radius:999px;transform:scaleX(0);transform-origin:left center;animation:loadBarFill 1.5s ease-out infinite"></div></div><span style="font-family:var(--font-d);font-size:13px;color:var(--muted)">Eerder gekoppelde schema's zoeken…</span></div>`;
   const currentId=typeof authSheetId==='function'?authSheetId():'';
-  // Use per-email schema list as source of truth
   const _em2=typeof authEmail==='function'?authEmail():'';
-  // Also add any Drive sheets we haven't seen yet (merge)
-  try{
-    const driveSheets=await listRecentSheets();
-    driveSheets.forEach(s=>{
-      const fn=localStorage.getItem('driveFileName_'+s.id)||s.name;
-      _addToSchemaList(_em2,{id:s.id,name:fn,url:`https://docs.google.com/spreadsheets/d/${s.id}/edit`,ts:Date.now()});
-    });
-  }catch{}
+  // Only show sheets explicitly added/created within runyo — no Drive-wide scan
   const deleted=_getDeletedSchemas(_em2);
   // Ensure the active schema is always in the list, even if never saved to schemaList
   if(currentId&&!deleted.includes(currentId)){

@@ -625,6 +625,7 @@ async function oauthConnectFlow(){
     if(typeof _resumePendingImport==='function'&&_resumePendingImport())return;
     if(authSheetId()){
       showToast('✓ Ingelogd');
+      if(typeof showLoading==='function')showLoading();
       if(typeof renderHeader==='function')renderHeader();
       if(typeof renderConnectSection==='function')renderConnectSection();
       if(typeof renderAccountSection==='function')renderAccountSection();
