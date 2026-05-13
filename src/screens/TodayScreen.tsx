@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
 import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -12,6 +13,7 @@ import { HeroCard, RestCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
+import { RacesBar } from '@/components/today/RacesBar'
 import { Toast } from '@/components/shared/Toast'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { signInWithGoogle } from '@/services/auth'
@@ -26,7 +28,8 @@ function buildFeedbackString(rating: number, text: string): string {
 }
 
 export function TodayScreen() {
-  const insets = useSafeAreaInsets()
+  const insets     = useSafeAreaInsets()
+  const navigation = useNavigation()
 
   // Stores
   const tokenSet    = useAuthStore(s => s.tokenSet)
@@ -106,8 +109,13 @@ export function TodayScreen() {
       <View style={styles.header}>
         <Text style={styles.logo}>runyo</Text>
         {isSignedIn ? (
-          <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn}>
-            <Text style={styles.refreshIcon}>↻</Text>
+          <TouchableOpacity
+            style={styles.avatar}
+            onPress={() => navigation.navigate('Settings' as never)}
+          >
+            <Text style={styles.avatarText}>
+              {tokenSet?.email?.[0]?.toUpperCase() ?? '?'}
+            </Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -119,6 +127,15 @@ export function TodayScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Races bar */}
+      <RacesBar
+        activities={activities}
+        onRacePress={datum => {
+          const race = activities.find(a => a.datum === datum && a.type === 'race')
+          if (race) setSelectedActivity(race)
+        }}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -220,12 +237,15 @@ const styles = StyleSheet.create({
     color: LightTheme.text,
     letterSpacing: -0.5,
   },
-  refreshBtn: {
-    padding: Spacing.sm,
+  avatar: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: LightTheme.accent,
+    alignItems: 'center', justifyContent: 'center',
   },
-  refreshIcon: {
-    fontSize: 20,
-    color: LightTheme.muted,
+  avatarText: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 14,
+    color: LightTheme.accentInk,
   },
   signInBtn: {
     backgroundColor: LightTheme.accent,

@@ -205,22 +205,26 @@ export function ConnectSection() {
     </View>
   )
 
-  // ── Connected state ───────────────────────────────────────────────────────
+  // ── Signed in (connected or not) — same layout ──────────────────────────
 
-  if (isConnected) {
+  if (isSignedIn) {
     return (
       <View style={styles.container}>
-        <View style={styles.connectedRow}>
-          <View style={styles.greenDot} />
-          <View style={styles.connectedInfo}>
-            <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
-            <Text style={styles.tabLabel}>Tab: {tabName}</Text>
+        {/* Connected schema display */}
+        {isConnected && (
+          <View style={styles.connectedRow}>
+            <View style={styles.greenDot} />
+            <View style={styles.connectedInfo}>
+              <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
+              <Text style={styles.tabLabel}>Tab: {tabName}</Text>
+            </View>
+            <TouchableOpacity onPress={() => clearSchema()}>
+              <Text style={styles.disconnectText}>Ontkoppelen</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => clearSchema()}>
-            <Text style={styles.disconnectText}>Ontkoppelen</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
+        {/* Always-visible buttons */}
         <View style={styles.btnRow}>
           <TouchableOpacity
             style={[styles.btnSave, panel === 'history' && styles.btnSaveActive]}
@@ -236,47 +240,11 @@ export function ConnectSection() {
           </TouchableOpacity>
         </View>
 
+        {/* Gekoppelde schema's panel */}
         {panel === 'history' && <SchemaBrowser onSelect={linkSheet} />}
+
+        {/* Nieuw trainingsschema — always the 3 tiles */}
         {panel === 'new' && newSchemaPanel}
-      </View>
-    )
-  }
-
-  // ── Signed in, no schema ──────────────────────────────────────────────────
-
-  if (isSignedIn) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.signedInHint}>
-          Ingelogd als <Text style={styles.signedInEmail}>{tokenSet.email}</Text>
-        </Text>
-        <ConnectTile
-          primary
-          icon="✦"
-          title="Importeer eigen schema"
-          badge="Aanbevolen"
-          sub="PDF, Excel, foto of van je coach — gratis proberen"
-          onPress={() => showToast('AI import — komt binnenkort')}
-        />
-        <ConnectTile
-          icon="🔗"
-          title="Koppel Google Sheets"
-          sub="Plak een URL of kies uit recente bestanden"
-          onPress={() => togglePanel(panel === 'history' ? null : 'history')}
-        />
-        {panel === 'history' && (
-          <>
-            <UrlLinker onLink={linkSheet} />
-            <SchemaBrowser onSelect={linkSheet} />
-          </>
-        )}
-        <ConnectTile
-          icon="＋"
-          title="Leeg schema aanmaken"
-          sub="Begin met een nieuw leeg schema"
-          onPress={creating ? () => {} : handleCreateNew}
-        />
-        {creating && <ActivityIndicator color={LightTheme.accent} />}
       </View>
     )
   }
