@@ -94,11 +94,28 @@ export async function listRecentSheets(token: string): Promise<SchemaEntry[]> {
 }
 
 export async function createNewSheet(token: string, name: string): Promise<SchemaEntry> {
+  const uniqueName = await findUniqueName(token, name)
   const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
     method: 'POST',
     headers: { ...authHeader(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ properties: { title: name } }),
+    body: JSON.stringify({ properties: { title: uniqueName } }),
   })
   const data = await res.json() as { spreadsheetId: string; properties: { title: string } }
   return { id: data.spreadsheetId, name: data.properties.title, url: null, ts: Date.now() }
+}
+
+// Returns a sheet name that doesn't already exist in Drive (appends _2, _3 etc.)
+async function findUniqueName(token: string, baseName: string): Promise<string> {
+  const existing = await listRecentSheets(token)
+  const names = new Set(existing.map(s => s.name))
+  if (!names.has(baseName)) return baseName
+  let i = 2
+  while (names.has(`${baseName}_${i}`)) i++
+  return `${baseName}_${i}`
+}
+
+export function todaySchemaName(): string {
+  const d = new Date()
+  const MONTHS = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
+  return `runyo schema ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }

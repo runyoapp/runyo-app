@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { listRecentSheets, createNewSheet } from '@/services/drive'
+import { listRecentSheets, createNewSheet, todaySchemaName } from '@/services/drive'
 import { getSheetTabId, verifyOrFixHeaders } from '@/services/sheets'
+import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import type { SchemaEntry } from '@/types/auth'
 
@@ -120,7 +121,7 @@ function UrlLinker({ onLink }: { onLink: (entry: SchemaEntry) => void }) {
 
 // ── Main ConnectSection ────────────────────────────────────────────────────
 
-type Panel = 'history' | 'new' | null
+type Panel = 'history' | 'new' | 'url' | null
 
 export function ConnectSection() {
   const getToken      = useAuthStore(s => s.getToken)
@@ -132,8 +133,9 @@ export function ConnectSection() {
   const clearSchema   = useDataStore(s => s.clearSchema)
   const showToast     = useUiStore(s => s.showToast)
 
-  const [panel,    setPanel]    = useState<Panel>(null)
-  const [creating, setCreating] = useState(false)
+  const [panel,       setPanel]       = useState<Panel>(null)
+  const [creating,    setCreating]    = useState(false)
+  const [importOpen,  setImportOpen]  = useState(false)
 
   const isSignedIn  = !!tokenSet
   const isConnected = isSignedIn && !!sheetId
@@ -162,11 +164,13 @@ export function ConnectSection() {
     if (!token) return
     setCreating(true)
     try {
-      const entry = await createNewSheet(token, 'runyo schema')
+      const name  = todaySchemaName()
+      const entry = await createNewSheet(token, name)
       await verifyOrFixHeaders(entry.id, 'Schema', token)
-      await setSchema(entry.id, 'Schema', entry.name, 0)
+      const tabId = await getSheetTabId(entry.id, 'Schema', token).catch(() => 0)
+      await setSchema(entry.id, 'Schema', entry.name, tabId)
       setPanel(null)
-      showToast('✓ Nieuw schema aangemaakt')
+      showToast(`✓ ${entry.name} aangemaakt`)
     } catch {
       showToast('Aanmaken mislukt')
     } finally {
@@ -184,21 +188,19 @@ export function ConnectSection() {
         title="Importeer eigen schema"
         badge="Aanbevolen"
         sub="PDF, Excel, foto of van je coach — gratis proberen"
-        onPress={() => showToast('AI import — komt binnenkort')}
+        onPress={() => setImportOpen(true)}
       />
       <ConnectTile
         icon="🔗"
         title="Koppel Google Sheets"
-        sub="Plak een URL van een bestaand schema"
-        onPress={() => togglePanel(panel === 'url' as any ? null : 'url' as any)}
+        sub="Plak een Google Sheets URL"
+        onPress={() => togglePanel(panel === 'url' ? null : 'url')}
       />
-      {(panel as any) === 'url' && (
-        <UrlLinker onLink={linkSheet} />
-      )}
+      {panel === 'url' && <UrlLinker onLink={linkSheet} />}
       <ConnectTile
         icon="＋"
         title="Leeg schema aanmaken"
-        sub="Begin met een nieuw leeg schema"
+        sub={`Nieuw leeg schema met datum als naam`}
         onPress={creating ? () => {} : handleCreateNew}
       />
       {creating && <ActivityIndicator color={LightTheme.accent} />}
@@ -246,13 +248,18 @@ export function ConnectSection() {
         {/* Nieuw trainingsschema — always the 3 tiles */}
         {panel === 'new' && newSchemaPanel}
       </View>
+
+      <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
     )
   }
 
   // ── Not signed in ─────────────────────────────────────────────────────────
 
   return (
-    <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
+    <>
+      <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
+      <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
+    </>
   )
 }
 
