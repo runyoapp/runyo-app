@@ -4,6 +4,7 @@ import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useDataStore } from '@/stores/dataStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY, ACTIVITY_TYPES } from '@/constants/activities'
 import type { ActivityType } from '@/constants/activities'
 

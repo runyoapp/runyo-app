@@ -7,6 +7,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { updateActivity, deleteActivity } from '@/services/sheets'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, DAYS_NL, MONTHS_FULL_NL, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
 

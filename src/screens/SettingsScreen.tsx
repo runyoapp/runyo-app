@@ -6,6 +6,7 @@ import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
 import { PrefsSection } from '@/components/settings/PrefsSection'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 
 export function SettingsScreen() {
   const insets     = useSafeAreaInsets()

@@ -13,6 +13,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { createNewSheet, todaySchemaName } from '@/services/drive'
 import { appendActivity, verifyOrFixHeaders, getSheetTabId, sortSheet } from '@/services/sheets'
 import { LightTheme, Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY, ACTIVITY_TYPES } from '@/constants/activities'
 import type { ActivityType } from '@/constants/activities'
 

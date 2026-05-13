@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { DAYS_NL, MONTHS_NL, fromDateString, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'

@@ -7,6 +7,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { appendAndSort } from '@/services/sheets'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { toDateString } from '@/utils/date'
 import type { ActivityType } from '@/constants/activities'
 

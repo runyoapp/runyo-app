@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useUiStore } from '@/stores/uiStore'
 import { saveUserSettings } from '@/services/settings'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 
 export function NotifSection() {
   const getToken       = useAuthStore(s => s.getToken)

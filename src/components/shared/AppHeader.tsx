@@ -7,6 +7,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { RacesBar } from '@/components/today/RacesBar'
 import { StatsModal } from '@/screens/StatsModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
 
 type Props = {

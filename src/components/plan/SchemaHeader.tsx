@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, MONTHS_NL } from '@/utils/date'
 import type { Activity } from '@/types/activity'
 

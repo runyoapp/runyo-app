@@ -9,12 +9,14 @@ import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { PhaseBlock } from '@/components/plan/PhaseBlock'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
 
 export function PlanScreen() {
   const insets     = useSafeAreaInsets()
   const activities = useDataStore(s => s.activities)
   const sheetId    = useDataStore(s => s.sheetId)
+  const theme      = useTheme()
   useActivities()
 
   const today = new Date().toISOString().split('T')[0]

@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 
 export function PrefsSection() {
   const prefs    = useSettingsStore(s => s.prefs)

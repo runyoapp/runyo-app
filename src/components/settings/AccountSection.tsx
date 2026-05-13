@@ -6,6 +6,7 @@ import { signInWithGoogle } from '@/services/auth'
 import { loadAppDataSettings } from '@/services/drive'
 import { useUiStore } from '@/stores/uiStore'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import { useState } from 'react'
 
 export function AccountSection() {

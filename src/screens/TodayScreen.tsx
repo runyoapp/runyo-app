@@ -22,6 +22,7 @@ import { RaceModal } from '@/screens/RaceModal'
 import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
 
@@ -48,6 +49,7 @@ export function TodayScreen() {
   )
   const lang        = useSettingsStore(s => s.prefs.lang)
   const showToast   = useUiStore(s => s.showToast)
+  const theme       = useTheme()
 
 
   // Data
@@ -104,7 +106,7 @@ export function TodayScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <AppHeader
         onAddPress={() => setAddModalOpen(true)}
         onRacePress={datum => {

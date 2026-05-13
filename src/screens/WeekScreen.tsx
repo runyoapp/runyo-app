@@ -18,6 +18,7 @@ import {
   MONTHS_NL, DAYS_NL, mondayIndex,
 } from '@/utils/date'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
 
 export function WeekScreen() {
@@ -35,6 +36,7 @@ export function WeekScreen() {
     }))
   )
   const showToast = useUiStore(s => s.showToast)
+  const theme     = useTheme()
   useActivities()
 
   const swipeAnim = useSwipeAnimation(weekOffset)
@@ -107,7 +109,7 @@ export function WeekScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <AppHeader onAddPress={() => setAddModalOpen(true)} />
       {/* Week nav header */}
       <View style={styles.header}>

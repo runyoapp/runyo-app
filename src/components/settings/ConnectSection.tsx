@@ -7,6 +7,7 @@ import { listRecentSheets, createNewSheet, todaySchemaName } from '@/services/dr
 import { getSheetTabId, verifyOrFixHeaders } from '@/services/sheets'
 import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import type { SchemaEntry } from '@/types/auth'
 
 // ── Connect tile — matches PWA .connect-tile exactly ──────────────────────
