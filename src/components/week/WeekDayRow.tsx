@@ -32,7 +32,7 @@ export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: 
     >
       <View style={[styles.bar, { backgroundColor: colors.text }]} />
       <View style={styles.body}>
-        <Text style={styles.dayLabel}>{dayName} · {label}</Text>
+        <Text style={styles.dayLabel}>{dayName.toLowerCase()} · {label.toLowerCase()}</Text>
         {!!activity.titel && (
           <Text style={styles.title} numberOfLines={1}>{activity.titel}</Text>
         )}
@@ -73,10 +73,9 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     fontFamily: Fonts.displayMedium,
-    fontSize: 11,
+    fontSize: 12,
     color: LightTheme.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: -0.1,   // mixed case per brand.md §4
   },
   title: {
     fontFamily: Fonts.displaySemiBold,

@@ -3,6 +3,7 @@ import { DAYS_NL } from '@/utils/date'
 import { dateFromOffset, toDateString, weekStart, addDays, dayOffsetFromDate } from '@/utils/date'
 import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
 import type { ActivityType } from '@/constants/activities'
 
@@ -14,7 +15,9 @@ type Props = {
   onNextWeek: () => void
 }
 
+// Active day = ink bg, paper text — spec: brand.md §7, runyo-pwa.jsx DayStrip
 export function DayStrip({ dayOffset, activities, onSelectDay, onPrevWeek, onNextWeek }: Props) {
+  const theme    = useTheme()
   const selected = dateFromOffset(dayOffset)
   const start    = weekStart(selected)
 
@@ -24,8 +27,9 @@ export function DayStrip({ dayOffset, activities, onSelectDay, onPrevWeek, onNex
     const offset = dayOffsetFromDate(date)
     const active = offset === dayOffset
     const act    = activities.find(a => a.datum === str && a.type !== 'rest')
+    // Dot: on active day use paper/accent tint, otherwise activity color
     const color  = act
-      ? (active ? 'rgba(255,255,255,0.7)' : ActivityColors[act.type as ActivityType]?.text ?? LightTheme.accent)
+      ? (active ? `${theme.bg}99` : ActivityColors[act.type as ActivityType]?.text ?? theme.accent)
       : 'transparent'
 
     return { date, str, offset, active, color, label: DAYS_NL[i] }
@@ -34,25 +38,35 @@ export function DayStrip({ dayOffset, activities, onSelectDay, onPrevWeek, onNex
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onPrevWeek} style={styles.navBtn}>
-        <Text style={styles.navArrow}>‹</Text>
+        <Text style={[styles.navArrow, { color: theme.muted }]}>‹</Text>
       </TouchableOpacity>
 
       <View style={styles.days}>
         {days.map(d => (
           <TouchableOpacity
             key={d.str}
-            style={[styles.dayBlock, d.active && styles.dayBlockActive]}
+            style={[
+              styles.dayBlock,
+              { borderColor: d.active ? theme.text : theme.border },
+              d.active
+                ? { backgroundColor: theme.text }    // ink bg when active
+                : { backgroundColor: theme.surface }, // surface when inactive
+            ]}
             onPress={() => onSelectDay(d.offset)}
           >
-            <Text style={[styles.dayName, d.active && styles.dayNameActive]}>{d.label}</Text>
-            <Text style={[styles.dayNum,  d.active && styles.dayNumActive]}>{d.date.getDate()}</Text>
+            <Text style={[styles.dayName, { color: d.active ? theme.bg : theme.muted }]}>
+              {d.label}
+            </Text>
+            <Text style={[styles.dayNum, { color: d.active ? theme.bg : theme.text }]}>
+              {d.date.getDate()}
+            </Text>
             <View style={[styles.dot, { backgroundColor: d.color }]} />
           </TouchableOpacity>
         ))}
       </View>
 
       <TouchableOpacity onPress={onNextWeek} style={styles.navBtn}>
-        <Text style={styles.navArrow}>›</Text>
+        <Text style={[styles.navArrow, { color: theme.muted }]}>›</Text>
       </TouchableOpacity>
     </View>
   )
@@ -73,38 +87,33 @@ const styles = StyleSheet.create({
   navArrow: {
     fontFamily: Fonts.display,
     fontSize: 22,
-    color: LightTheme.muted,
   },
   days: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 4,
   },
   dayBlock: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: Spacing.sm,
-    borderRadius: Radius.md,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
     gap: 2,
   },
-  dayBlockActive: {
-    backgroundColor: LightTheme.accent,
-  },
   dayName: {
-    fontFamily: Fonts.displayMedium,
-    fontSize: 10,
-    color: LightTheme.muted,
+    fontFamily: Fonts.mono,
+    fontSize: 11,
   },
-  dayNameActive: { color: '#fff' },
   dayNum: {
-    fontFamily: Fonts.displaySemiBold,
-    fontSize: 15,
-    color: LightTheme.text,
+    fontFamily: Fonts.displayBold,
+    fontSize: 16,
+    letterSpacing: -0.3,
   },
-  dayNumActive: { color: '#fff' },
   dot: {
     width: 4,
     height: 4,
     borderRadius: 2,
+    marginTop: 2,
   },
 })

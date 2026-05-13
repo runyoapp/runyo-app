@@ -48,14 +48,25 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, onToda
 
   return (
     <View style={styles.block}>
+      {/* current = mint bg; done = surface+strikethrough+opacity; next = surface — ref: runyo-pwa.jsx ScreenTraining */}
       <TouchableOpacity
-        style={[styles.header, { backgroundColor: theme.surface }, isCurrent && styles.headerCurrent, allPast && styles.headerPast]}
+        style={[
+          styles.header,
+          isCurrent
+            ? { backgroundColor: theme.accent, borderColor: theme.accent }
+            : { backgroundColor: theme.surface, borderColor: theme.border },
+          allPast && styles.headerPast,
+        ]}
         onPress={onToggle}
         activeOpacity={0.75}
       >
-        <Text style={styles.num}>{num}</Text>
-        <Text style={styles.name} numberOfLines={1}>{shortName}</Text>
-        {!!weeks && <Text style={styles.weeks}>{weeks}</Text>}
+        <Text style={[styles.num, { color: isCurrent ? theme.accentInk : theme.faint }]}>{num}</Text>
+        <Text style={[styles.name, {
+          color: isCurrent ? theme.accentInk : allPast ? theme.muted : theme.text,
+          textDecorationLine: allPast ? 'line-through' : 'none',
+          opacity: allPast ? 0.7 : 1,
+        }]} numberOfLines={1}>{shortName}</Text>
+        {!!weeks && <Text style={[styles.weeks, { color: isCurrent ? theme.accentInk : theme.muted }]}>{weeks}</Text>}
         {allPast && (
           <View style={[styles.badge, styles.badgeDone]}>
             <Text style={styles.badgeText}>✓</Text>

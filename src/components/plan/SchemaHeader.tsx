@@ -34,11 +34,14 @@ export function SchemaHeader({ activities }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      {/* "Schema · X km" — spec: runyo-pwa.jsx ScreenTraining */}
       <Text style={styles.kicker}>
-        training{totalKm > 0 ? ` · ${Math.round(totalKm)} km` : ''}
+        Schema{totalKm > 0 ? ` · ${Math.round(totalKm)} km` : ''}
       </Text>
       <Text style={styles.title}>{schemaName}</Text>
-      <Text style={styles.sub}>Week {weekNum} van {totalWeeks}</Text>
+      {totalWeeks > 1 && (
+        <Text style={styles.sub}>Week {weekNum} van {totalWeeks}</Text>
+      )}
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${pct}%` }]} />
       </View>

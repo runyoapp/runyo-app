@@ -11,82 +11,94 @@ type Props = {
   onFeedbackPress: () => void
 }
 
+// Canonical hero card — spec: runyo-pwa.jsx ScreenVandaag
+// cat-tag → km display → progress line → 3-metric row → CTA
 export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
-  const theme    = useTheme()
-  const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
-  const label    = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
-  const hasFb    = !!activity.feedback
-  const isRun    = activity.type === 'run'
-  const today    = new Date().toISOString().split('T')[0]
+  const theme  = useTheme()
+  const colors = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
+  const label  = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
+  const hasFb  = !!activity.feedback
+  const isRun  = activity.type === 'run'
+  const today  = new Date().toISOString().split('T')[0]
   const isPastOrToday = activity.datum <= today
 
-  // Parse pace/HR/duration from detail string
-  const detail     = activity.detail ?? ''
-  const paceMatch  = detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/)
-  const hrMatch    = detail.match(/<?\s*(\d+)\s*bpm/i) ?? detail.match(/HR\s*<?(\d+)/i)
-  const duurMatch  = detail.match(/(\d+)\s*(?:min|')/i)
-  const hasStats   = paceMatch ?? hrMatch ?? duurMatch
+  const detail    = activity.detail ?? ''
+  const paceMatch = detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/)
+  const hrMatch   = detail.match(/<?\s*(\d+)\s*bpm/i) ?? detail.match(/HR\s*<?(\d+)/i)
+  const duurMatch = detail.match(/(\d+)\s*(?:min|')/i)
+
+  // Always show 3 metric slots (pace / hr / duur) — blank if not available
+  const metrics = [
+    { key: 'pace',  val: paceMatch ? paceMatch[0].replace('/km','').trim() + '/km' : null },
+    { key: 'hr',    val: hrMatch   ? `${hrMatch[1]} bpm` : null },
+    { key: 'duur',  val: duurMatch ? `${duurMatch[1]}′`  : null },
+  ].filter(m => m.val)
 
   return (
-    <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface }]} onPress={onPress} activeOpacity={0.85}>
-      {/* Type badge */}
-      <View style={styles.badge}>
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {/* Cat tag: dot + label */}
+      <View style={styles.catTag}>
         <View style={[styles.dot, { backgroundColor: colors.text }]} />
-        <Text style={styles.badgeText}>
+        <Text style={[styles.catLabel, { color: theme.text2 }]}>
           {label}{activity.titel ? ` · ${activity.titel}` : ''}
         </Text>
       </View>
 
-      {/* Big number — km or duration */}
+      {/* Hero number — Sora 800 / 56px */}
       {activity.km != null && (
-        <View style={styles.kmRow}>
-          <Text style={[styles.km, !isRun && styles.kmSmall]}>{activity.km}</Text>
-          <Text style={styles.kmUnit}> km</Text>
-        </View>
+        <Text style={[styles.heroNum, { color: theme.text }]}>
+          {activity.km}<Text style={[styles.heroUnit, { color: theme.muted }]}> km</Text>
+        </Text>
       )}
-      {!activity.km && duurMatch && (
-        <View style={styles.kmRow}>
-          <Text style={styles.km}>{duurMatch[1]}</Text>
-          <Text style={styles.kmUnit}> min</Text>
+      {activity.km == null && duurMatch && (
+        <Text style={[styles.heroNum, { color: theme.text }]}>
+          {duurMatch[1]}<Text style={[styles.heroUnit, { color: theme.muted }]}> min</Text>
+        </Text>
+      )}
+
+      {/* Subtitle */}
+      {!!activity.titel && activity.km != null && (
+        <Text style={[styles.subtitle, { color: theme.text2 }]} numberOfLines={1}>
+          {activity.titel}
+        </Text>
+      )}
+
+      {/* Progress line: 3px, mute → mint — spec: brand.md §7 Workout card */}
+      <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
+        <View style={[styles.progressFill, { backgroundColor: theme.accent }]} />
+      </View>
+
+      {/* 3-metric row: pace / hr / duur — Sora 700 / 19px */}
+      {metrics.length > 0 && (
+        <View style={styles.metrics}>
+          {metrics.map(m => (
+            <View key={m.key} style={styles.metric}>
+              <Text style={[styles.metricLabel, { color: theme.muted }]}>{m.key}</Text>
+              <Text style={[styles.metricVal, { color: theme.text }]}>{m.val}</Text>
+            </View>
+          ))}
         </View>
       )}
 
-      {/* Pace / HR stats row */}
-      {hasStats && (
-        <View style={styles.statsRow}>
-          {paceMatch && (
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>pace</Text>
-              <Text style={styles.statVal}>{paceMatch[0]}</Text>
-            </View>
-          )}
-          {hrMatch && (
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>hr</Text>
-              <Text style={styles.statVal}>&lt;{hrMatch[1]} bpm</Text>
-            </View>
-          )}
-          {duurMatch && !activity.km && (
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>duur</Text>
-              <Text style={styles.statVal}>{duurMatch[1]}′</Text>
-            </View>
-          )}
-        </View>
+      {/* Detail */}
+      {!!detail && metrics.length === 0 && (
+        <Text style={[styles.detail, { color: theme.muted }]} numberOfLines={3}>{detail}</Text>
       )}
 
-      {/* Detail text */}
-      {!!detail && <Text style={styles.detail} numberOfLines={3}>{detail}</Text>}
-
-      {/* Feedback CTA — only for past/today runs */}
+      {/* Full-width CTA — mint bg, accent-ink text, Sora 700 / 15px */}
       {isRun && isPastOrToday && (
         <TouchableOpacity
-          style={[styles.cta, hasFb && styles.ctaSecondary]}
-          onPress={e => { onFeedbackPress() }}
+          style={[styles.cta, { backgroundColor: hasFb ? theme.accentGlow : theme.accent }]}
+          onPress={onFeedbackPress}
         >
-          <Text style={[styles.ctaText, hasFb && styles.ctaTextSecondary]}>
-            {hasFb ? 'Beoordeling bewerken →' : 'Beoordeel run →'}
+          <Text style={[styles.ctaText, { color: hasFb ? theme.accent : theme.accentInk }]}>
+            {hasFb ? 'Beoordeling bewerken' : 'Beoordeel run'}
           </Text>
+          <Text style={[styles.ctaArrow, { color: hasFb ? theme.accent : theme.accentInk }]}>→</Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -96,31 +108,31 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
 export function RestCard() {
   const theme = useTheme()
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface }]}>
-      <View style={styles.restInner}>
-        <Text style={styles.restEmoji}>😴</Text>
-        <View>
-          <Text style={styles.restTitle}>Rustdag</Text>
-          <Text style={styles.restSub}>Herstel is ook training.</Text>
-        </View>
+    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={styles.catTag}>
+        <View style={[styles.dot, { backgroundColor: theme.border }]} />
+        <Text style={[styles.catLabel, { color: theme.muted }]}>Rust</Text>
       </View>
+      <Text style={[styles.heroNum, { color: theme.text, fontSize: 40 }]}>😴</Text>
+      <Text style={[styles.subtitle, { color: theme.muted }]}>Herstel is ook training.</Text>
     </View>
   )
 }
 
 export function NoSchemaCard({ isSignedIn, onConnect }: { isSignedIn: boolean; onConnect: () => void }) {
+  const theme = useTheme()
   return (
-    <View style={styles.noSchemaContainer}>
-      <Text style={styles.noSchemaTitle}>
+    <View style={[styles.noSchema, { paddingHorizontal: Spacing.xl }]}>
+      <Text style={[styles.noSchemaTitle, { color: theme.text }]}>
         {isSignedIn ? 'Geen schema gekoppeld' : 'Breng je schema mee'}
       </Text>
-      <Text style={styles.noSchemaSub}>
+      <Text style={[styles.noSchemaSub, { color: theme.muted }]}>
         {isSignedIn
           ? 'Koppel jouw trainingsschema en ontvang dagelijks wat er op het programma staat.'
           : 'Importeer je trainingsschema en ontvang elke dag wat er op het programma staat.'}
       </Text>
-      <TouchableOpacity style={styles.connectBtn} onPress={onConnect}>
-        <Text style={styles.connectBtnText}>
+      <TouchableOpacity style={[styles.cta, { backgroundColor: theme.accent }]} onPress={onConnect}>
+        <Text style={[styles.ctaText, { color: theme.accentInk }]}>
           {isSignedIn ? 'Schema koppelen' : 'Inloggen met Google'}
         </Text>
       </TouchableOpacity>
@@ -129,135 +141,24 @@ export function NoSchemaCard({ isSignedIn, onConnect }: { isSignedIn: boolean; o
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: LightTheme.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.md,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  badgeText: {
-    fontFamily: Fonts.displayMedium,
-    fontSize: 13,
-    color: LightTheme.text2,
-  },
-  kmRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: Spacing.sm,
-  },
-  km: {
-    fontFamily: Fonts.displayBold,
-    fontSize: 64,
-    color: LightTheme.text,
-    letterSpacing: -2,
-    lineHeight: 68,
-  },
-  kmSmall: { fontSize: 48 },
-  kmUnit: {
-    fontFamily: Fonts.displayMedium,
-    fontSize: 20,
-    color: LightTheme.muted,
-    marginBottom: 8,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
-  stat: { gap: 2 },
-  statLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    color: LightTheme.faint,
-    textTransform: 'uppercase',
-  },
-  statVal: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 13,
-    color: LightTheme.text,
-  },
-  detail: {
-    fontFamily: Fonts.display,
-    fontSize: 14,
-    color: LightTheme.muted,
-    lineHeight: 20,
-    marginBottom: Spacing.md,
-  },
-  cta: {
-    backgroundColor: LightTheme.accent,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    alignSelf: 'flex-start',
-    marginTop: Spacing.xs,
-  },
-  ctaSecondary: {
-    backgroundColor: LightTheme.accentGlow,
-  },
-  ctaText: {
-    fontFamily: Fonts.displaySemiBold,
-    fontSize: 13,
-    color: '#fff',
-  },
-  ctaTextSecondary: {
-    color: LightTheme.accent,
-  },
-  restInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.lg,
-  },
-  restEmoji: { fontSize: 40 },
-  restTitle: {
-    fontFamily: Fonts.displaySemiBold,
-    fontSize: 18,
-    color: LightTheme.text,
-  },
-  restSub: {
-    fontFamily: Fonts.display,
-    fontSize: 13,
-    color: LightTheme.muted,
-    marginTop: 2,
-  },
-  noSchemaContainer: {
-    padding: Spacing.xl,
-    marginHorizontal: Spacing.lg,
-  },
-  noSchemaTitle: {
-    fontFamily: Fonts.displayBold,
-    fontSize: 24,
-    color: LightTheme.text,
-    letterSpacing: -0.5,
-    marginBottom: Spacing.sm,
-  },
-  noSchemaSub: {
-    fontFamily: Fonts.display,
-    fontSize: 14,
-    color: LightTheme.muted,
-    lineHeight: 22,
-    marginBottom: Spacing.xl,
-  },
-  connectBtn: {
-    backgroundColor: LightTheme.accent,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-    alignItems: 'center',
-  },
-  connectBtnText: {
-    fontFamily: Fonts.displaySemiBold,
-    fontSize: 15,
-    color: '#fff',
-  },
+  card:           { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, marginHorizontal: Spacing.lg, marginBottom: Spacing.md, gap: Spacing.sm },
+  catTag:         { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot:            { width: 8, height: 8, borderRadius: 4 },
+  catLabel:       { fontFamily: Fonts.displayMedium, fontSize: 12, letterSpacing: -0.1 },
+  heroNum:        { fontFamily: Fonts.displayBold, fontSize: 56, letterSpacing: -2.5, lineHeight: 60 },
+  heroUnit:       { fontFamily: Fonts.displayMedium, fontSize: 20 },
+  subtitle:       { fontFamily: Fonts.displaySemiBold, fontSize: 18, letterSpacing: -0.3 },
+  progressTrack:  { height: 3, borderRadius: 2, overflow: 'hidden' },
+  progressFill:   { width: '36%', height: '100%', borderRadius: 2 },
+  metrics:        { flexDirection: 'row', gap: Spacing.xl },
+  metric:         { gap: 2 },
+  metricLabel:    { fontFamily: Fonts.display, fontSize: 12, letterSpacing: -0.1 },
+  metricVal:      { fontFamily: Fonts.displayBold, fontSize: 19, letterSpacing: -0.4 },
+  detail:         { fontFamily: Fonts.display, fontSize: 14, lineHeight: 20 },
+  cta:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: Radius.sm, paddingVertical: 14, paddingHorizontal: Spacing.lg, marginTop: Spacing.sm },
+  ctaText:        { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.2 },
+  ctaArrow:       { fontFamily: Fonts.displayBold, fontSize: 15 },
+  noSchema:       { paddingVertical: Spacing.xl, gap: Spacing.md },
+  noSchemaTitle:  { fontFamily: Fonts.displayBold, fontSize: 24, letterSpacing: -0.5 },
+  noSchemaSub:    { fontFamily: Fonts.display, fontSize: 14, lineHeight: 22 },
 })
