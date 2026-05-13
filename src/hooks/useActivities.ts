@@ -21,9 +21,10 @@ export function useActivities() {
     staleTime: 1000 * 60 * 5,
   })
 
+  const data = query.data
   useEffect(() => {
-    if (query.data) setActivities(query.data)
-  }, [query.data])
+    if (data) setActivities(data)
+  }, [data, setActivities])
 
   return query
 }

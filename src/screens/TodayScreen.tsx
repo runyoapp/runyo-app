@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -30,15 +31,17 @@ export function TodayScreen() {
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const getToken    = useAuthStore(s => s.getToken)
-  const { dayOffset, setDayOffset, activities, sheetId, tabName, sheetTabId, upsertActivity } = useDataStore(s => ({
-    dayOffset:    s.dayOffset,
-    setDayOffset: s.setDayOffset,
-    activities:   s.activities,
-    sheetId:      s.sheetId,
-    tabName:      s.tabName,
-    sheetTabId:   s.sheetTabId,
-    upsertActivity: s.upsertActivity,
-  }))
+  const { dayOffset, setDayOffset, activities, sheetId, tabName, sheetTabId, upsertActivity } = useDataStore(
+    useShallow(s => ({
+      dayOffset:      s.dayOffset,
+      setDayOffset:   s.setDayOffset,
+      activities:     s.activities,
+      sheetId:        s.sheetId,
+      tabName:        s.tabName,
+      sheetTabId:     s.sheetTabId,
+      upsertActivity: s.upsertActivity,
+    }))
+  )
   const lang        = useSettingsStore(s => s.prefs.lang)
   const showToast   = useUiStore(s => s.showToast)
 
