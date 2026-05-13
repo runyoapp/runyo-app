@@ -3,9 +3,8 @@ import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
 import { NavigationContainer } from '@react-navigation/native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { View, StyleSheet } from 'react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { StyleSheet } from 'react-native'
 import { RootNavigator } from '@/navigation/RootNavigator'
 import { useAuthStore } from '@/stores/authStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -22,12 +21,12 @@ export default function App() {
   const hydrateSettings = useSettingsStore(s => s.hydrate)
 
   const [fontsLoaded] = useFonts({
-    'Sora':                  require('./assets/fonts/Sora/Sora-Regular.ttf'),
-    'Sora-Medium':           require('./assets/fonts/Sora/Sora-Medium.ttf'),
-    'Sora-SemiBold':         require('./assets/fonts/Sora/Sora-SemiBold.ttf'),
-    'Sora-Bold':             require('./assets/fonts/Sora/Sora-Bold.ttf'),
-    'JetBrainsMono':         require('./assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf'),
-    'JetBrainsMono-Medium':  require('./assets/fonts/JetBrainsMono/JetBrainsMono-Medium.ttf'),
+    'Sora':                 require('./assets/fonts/Sora/Sora-Regular.ttf'),
+    'Sora-Medium':          require('./assets/fonts/Sora/Sora-Medium.ttf'),
+    'Sora-SemiBold':        require('./assets/fonts/Sora/Sora-SemiBold.ttf'),
+    'Sora-Bold':            require('./assets/fonts/Sora/Sora-Bold.ttf'),
+    'JetBrainsMono':        require('./assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf'),
+    'JetBrainsMono-Medium': require('./assets/fonts/JetBrainsMono/JetBrainsMono-Medium.ttf'),
   })
 
   useEffect(() => {
@@ -37,7 +36,7 @@ export default function App() {
   if (!fontsLoaded) return null
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <View style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <NavigationContainer>
@@ -46,7 +45,7 @@ export default function App() {
           </NavigationContainer>
         </QueryClientProvider>
       </SafeAreaProvider>
-    </GestureHandlerRootView>
+    </View>
   )
 }
 
