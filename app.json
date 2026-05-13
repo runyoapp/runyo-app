@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "runyo",
+    "slug": "runyo",
+    "version": "3.50.0",
+    "orientation": "portrait",
+    "scheme": "runyo",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F1EEE6"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.runyo.app"
+    },
+    "android": {
+      "package": "app.runyo.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F1EEE6"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "expo-auth-session"
+    ]
+  }
+}
