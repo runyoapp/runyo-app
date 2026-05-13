@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { DayDetailModal } from '@/screens/DayDetailModal'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
 import { useActivities } from '@/hooks/useActivities'
@@ -39,13 +40,10 @@ export function PlanScreen() {
   }, [phases])
 
   const [openFase, setOpenFase] = useState<string | null>(defaultOpen)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
 
   function toggle(fase: string) {
     setOpenFase(prev => prev === fase ? null : fase)
-  }
-
-  function handleEdit(_activity: Activity) {
-    // Day detail modal — Phase 10
   }
 
   // No schema / no data states
@@ -82,7 +80,7 @@ export function PlanScreen() {
                 isOpen={openFase === fase}
                 today={today}
                 onToggle={() => toggle(fase)}
-                onEdit={handleEdit}
+                onEdit={setSelectedActivity}
               />
             ))
           ) : (
@@ -100,6 +98,12 @@ export function PlanScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      <DayDetailModal
+        activity={selectedActivity}
+        visible={!!selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+      />
     </View>
   )
 }

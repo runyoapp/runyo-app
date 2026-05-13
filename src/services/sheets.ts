@@ -25,7 +25,13 @@ export async function fetchActivities(
   if (rows.length < 2) return []
 
   const headers = rows[0].map(h => h.toLowerCase().trim())
-  return rows.slice(1).map(row => mapRow(row, headers)).filter(Boolean) as Activity[]
+  return rows.slice(1)
+    .map((row, i) => {
+      const activity = mapRow(row, headers)
+      if (activity) activity.rowIndex = i + 2  // header=1, first data=2
+      return activity
+    })
+    .filter(Boolean) as Activity[]
 }
 
 export async function appendActivity(
@@ -198,5 +204,6 @@ function mapRow(row: RawSheetRow, headers: string[]): Activity | null {
     updatedAt: get('updated_at') || new Date().toISOString(),
     createdAt: get('created_at') || new Date().toISOString(),
     raceType:  get('race_type') || null,
+    rowIndex:  null,  // set by caller after mapping with index
   }
 }

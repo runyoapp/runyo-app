@@ -15,6 +15,7 @@ export type Activity = {
   updatedAt: string    // ISO timestamp
   createdAt: string    // ISO timestamp
   raceType: string | null
+  rowIndex: number | null   // 1-based sheet row index (null for unsaved)
 }
 
 export type RawSheetRow = string[]

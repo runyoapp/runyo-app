@@ -13,6 +13,7 @@ import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
 import { Toast } from '@/components/shared/Toast'
+import { DayDetailModal } from '@/screens/DayDetailModal'
 import { signInWithGoogle } from '@/services/auth'
 import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
@@ -64,6 +65,7 @@ export function TodayScreen() {
 
   // Local UI state
   const [editingFeedback, setEditingFeedback] = useState(false)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
 
   // Derived
   const isSignedIn   = !!tokenSet
@@ -158,7 +160,7 @@ export function TodayScreen() {
               <HeroCard
                 key={row.id}
                 activity={row}
-                onPress={() => {}}
+                onPress={() => setSelectedActivity(row)}
                 onFeedbackPress={() => setEditingFeedback(true)}
               />
             ))}
@@ -191,6 +193,11 @@ export function TodayScreen() {
       </ScrollView>
 
       <Toast />
+      <DayDetailModal
+        activity={selectedActivity}
+        visible={!!selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+      />
     </View>
   )
 }

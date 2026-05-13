@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { RaceModal } from '@/screens/RaceModal'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
@@ -9,8 +10,7 @@ import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { MONTHS_FULL_NL } from '@/utils/date'
-import type { Activity } from '@/types/activity'
-import type { ActivityType } from '@/constants/activities'
+import type { Activity, ActivityType } from '@/types/activity'
 
 export function CalendarScreen() {
   const insets     = useSafeAreaInsets()
@@ -21,6 +21,7 @@ export function CalendarScreen() {
   useActivities()
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
 
   function prevMonth() {
     if (calMonth === 0) setCalDate(calYear - 1, 11)
@@ -145,13 +146,19 @@ export function CalendarScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Races deze maand</Text>
             {monthRaces.map(race => (
-              <RaceCard key={race.id} race={race} onPress={() => setSelectedDate(race.datum)} />
+              <RaceCard key={race.id} race={race} onPress={() => setRaceActivity(race)} />
             ))}
           </View>
         )}
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      <RaceModal
+        activity={raceActivity}
+        visible={!!raceActivity}
+        onClose={() => setRaceActivity(null)}
+      />
     </View>
   )
 }

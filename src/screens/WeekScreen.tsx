@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
+import { DayDetailModal } from '@/screens/DayDetailModal'
+import type { Activity } from '@/types/activity'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateActivity } from '@/services/sheets'
 import {
@@ -32,6 +34,7 @@ export function WeekScreen() {
   const showToast = useUiStore(s => s.showToast)
   useActivities()
 
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const todayStr  = toDateString(new Date())
   const weekDates = getWeekDates(weekOffset)
   const d0        = fromDateString(weekDates[0])
@@ -162,7 +165,7 @@ export function WeekScreen() {
                 activity={activity}
                 isToday={date === todayStr}
                 isPast={date < todayStr}
-                onPress={() => {}}
+                onPress={() => setSelectedActivity(activity)}
                 onLongPress={handleLongPress}
               />
             ))
@@ -170,6 +173,12 @@ export function WeekScreen() {
         )}
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      <DayDetailModal
+        activity={selectedActivity}
+        visible={!!selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+      />
     </View>
   )
 }
