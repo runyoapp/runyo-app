@@ -5,6 +5,7 @@ import { TodayScreen } from '@/screens/TodayScreen'
 import { WeekScreen } from '@/screens/WeekScreen'
 import { PlanScreen } from '@/screens/PlanScreen'
 import { CalendarScreen } from '@/screens/CalendarScreen'
+import { SettingsScreen } from '@/screens/SettingsScreen'
 import { LightTheme, Fonts, Radius } from '@/constants/theme'
 
 export type MainTabParamList = {
@@ -12,6 +13,7 @@ export type MainTabParamList = {
   Week: undefined
   Plan: undefined
   Calendar: undefined
+  Settings: undefined
 }
 
 const Tab = createBottomTabNavigator<MainTabParamList>()
@@ -21,6 +23,7 @@ const TAB_LABELS: Record<string, string> = {
   Week:     'Week',
   Plan:     'Schema',
   Calendar: 'Kalender',
+  Settings: 'Profiel',
 }
 
 export function MainNavigator() {
@@ -46,6 +49,7 @@ export function MainNavigator() {
       <Tab.Screen name="Week"     component={WeekScreen} />
       <Tab.Screen name="Plan"     component={PlanScreen} />
       <Tab.Screen name="Calendar" component={CalendarScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   )
 }

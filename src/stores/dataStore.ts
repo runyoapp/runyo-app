@@ -1,6 +1,9 @@
 import { create } from 'zustand'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Activity, Race, PersonalRecord } from '@/types/activity'
 import type { SchemaEntry } from '@/types/auth'
+
+const SCHEMA_KEY = 'runyo_schema'
 
 export type TabName = 'today' | 'week' | 'plan' | 'calendar'
 
@@ -32,8 +35,9 @@ type DataStore = {
   upsertRace: (race: Race) => void
   removeRace: (id: string) => void
   setPrs: (prs: PersonalRecord[]) => void
-  setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => void
-  clearSchema: () => void
+  setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => Promise<void>
+  clearSchema: () => Promise<void>
+  hydrateSchema: () => Promise<void>
   setTab: (tab: TabName) => void
   setWeekOffset: (offset: number) => void
   setDayOffset: (offset: number) => void
@@ -81,10 +85,20 @@ export const useDataStore = create<DataStore>((set) => ({
     set((s) => ({ races: s.races.filter(r => r.id !== id) })),
 
   setPrs: (prs) => set({ prs }),
-  setSchema: (sheetId, tabName, sheetFileName, sheetTabId) =>
-    set({ sheetId, tabName, sheetFileName, sheetTabId }),
-  clearSchema: () =>
-    set({ sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null }),
+  setSchema: async (sheetId, tabName, sheetFileName, sheetTabId) => {
+    set({ sheetId, tabName, sheetFileName, sheetTabId })
+    await AsyncStorage.setItem(SCHEMA_KEY, JSON.stringify({ sheetId, tabName, sheetFileName, sheetTabId }))
+  },
+  clearSchema: async () => {
+    set({ sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null, activities: [] })
+    await AsyncStorage.removeItem(SCHEMA_KEY)
+  },
+  hydrateSchema: async () => {
+    const raw = await AsyncStorage.getItem(SCHEMA_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    set({ sheetId: parsed.sheetId, tabName: parsed.tabName, sheetFileName: parsed.sheetFileName, sheetTabId: parsed.sheetTabId })
+  },
 
   setTab: (currentTab) => set({ currentTab }),
   setWeekOffset: (weekOffset) => set({ weekOffset }),

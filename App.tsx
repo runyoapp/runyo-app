@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RootNavigator } from '@/navigation/RootNavigator'
 import { useAuthStore } from '@/stores/authStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useDataStore } from '@/stores/dataStore'
 import { LightTheme } from '@/constants/theme'
 
 const queryClient = new QueryClient({
@@ -19,6 +20,7 @@ const queryClient = new QueryClient({
 export default function App() {
   const hydrateAuth     = useAuthStore(s => s.hydrate)
   const hydrateSettings = useSettingsStore(s => s.hydrate)
+  const hydrateSchema   = useDataStore(s => s.hydrateSchema)
 
   const [fontsLoaded] = useFonts({
     'Sora':                 require('./assets/fonts/Sora/Sora-Regular.ttf'),
@@ -30,7 +32,7 @@ export default function App() {
   })
 
   useEffect(() => {
-    Promise.all([hydrateAuth(), hydrateSettings()])
+    Promise.all([hydrateAuth(), hydrateSettings(), hydrateSchema()])
   }, [])
 
   if (!fontsLoaded) return null
