@@ -2,10 +2,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { useGoogleAuth, exchangeCode } from '@/services/auth'
+import { signInWithGoogle } from '@/services/auth'
 import { useUiStore } from '@/stores/uiStore'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
-import { useEffect } from 'react'
+import { useState } from 'react'
 
 export function AccountSection() {
   const tokenSet    = useAuthStore(s => s.tokenSet)
@@ -14,20 +14,19 @@ export function AccountSection() {
   const clearSchema = useDataStore(s => s.clearSchema)
   const resetPrefs  = useSettingsStore(s => s.setTelegramUser)
   const showToast   = useUiStore(s => s.showToast)
+  const [loading, setLoading] = useState(false)
 
-  const { request, response, promptAsync, redirectUri } = useGoogleAuth()
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const code         = response.params.code
-      const codeVerifier = request?.codeVerifier
-      if (code && codeVerifier) {
-        exchangeCode(code, codeVerifier, redirectUri)
-          .then(setTokenSet)
-          .catch(() => showToast('Inloggen mislukt'))
-      }
+  async function handleSignIn() {
+    setLoading(true)
+    try {
+      const tokenSet = await signInWithGoogle()
+      setTokenSet(tokenSet)
+    } catch (e: any) {
+      if (e?.message !== 'Auth cancelled') showToast('Inloggen mislukt')
+    } finally {
+      setLoading(false)
     }
-  }, [response])
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -56,10 +55,10 @@ export function AccountSection() {
       <Text style={styles.hint}>Log in met Google om je schema te koppelen.</Text>
       <TouchableOpacity
         style={styles.googleBtn}
-        onPress={() => promptAsync()}
-        disabled={!request}
+        onPress={handleSignIn}
+        disabled={loading}
       >
-        <Text style={styles.googleBtnText}>Inloggen met Google</Text>
+        <Text style={styles.googleBtnText}>{loading ? 'Bezig…' : 'Inloggen met Google'}</Text>
       </TouchableOpacity>
     </View>
   )

@@ -1,9 +1,12 @@
-import * as AuthSession from 'expo-auth-session'
+import * as WebBrowser from 'expo-web-browser'
+import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import type { TokenSet } from '@/types/auth'
 
-const CLIENT_ID = '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com'
-const BACKEND = 'https://runyo-auth-production.up.railway.app'
+const CLIENT_ID   = '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com'
+const BACKEND     = 'https://runyo-auth-production.up.railway.app'
+const REDIRECT_URI = 'https://app.runyo.app/oauth-callback.html'
+const DEEP_LINK   = 'runyo://auth'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -12,41 +15,57 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/gmail.send',
-]
+].join(' ')
 
 const KEYS = {
-  token:   'gauth_token',
-  expiry:  'gauth_expiry',
-  refresh: 'gauth_refresh',
-  email:   'gauth_email',
+  token:    'gauth_token',
+  expiry:   'gauth_expiry',
+  refresh:  'gauth_refresh',
+  email:    'gauth_email',
 }
 
-// expo-auth-session discovery for Google
-const discovery = AuthSession.useAutoDiscovery
-  ? undefined
-  : {
-      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-      tokenEndpoint: 'https://oauth2.googleapis.com/token',
-    }
+// PKCE helpers
+async function generateVerifier(): Promise<string> {
+  const bytes = await Crypto.getRandomBytesAsync(32)
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
 
-export function useGoogleAuth() {
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'runyo' })
-  console.log('[auth] redirectUri:', redirectUri)
-
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: CLIENT_ID,
-      scopes: SCOPES,
-      redirectUri,
-      usePKCE: true,
-      responseType: AuthSession.ResponseType.Code,
-    },
-    {
-      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-    },
+async function generateChallenge(verifier: string): Promise<string> {
+  const digest = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    verifier,
+    { encoding: Crypto.CryptoEncoding.BASE64 },
   )
+  return digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
 
-  return { request, response, promptAsync, redirectUri }
+// Main sign-in — opens SFSafariViewController, catches runyo://auth deep link
+export async function signInWithGoogle(): Promise<TokenSet> {
+  const verifier   = await generateVerifier()
+  const challenge  = await generateChallenge(verifier)
+
+  const params = new URLSearchParams({
+    client_id:             CLIENT_ID,
+    redirect_uri:          REDIRECT_URI,
+    response_type:         'code',
+    scope:                 SCOPES,
+    code_challenge:        challenge,
+    code_challenge_method: 'S256',
+    access_type:           'offline',
+    prompt:                'consent',
+  })
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+  const result  = await WebBrowser.openAuthSessionAsync(authUrl, DEEP_LINK)
+
+  if (result.type !== 'success') throw new Error('Auth cancelled')
+
+  const url  = new URL(result.url)
+  const code = url.searchParams.get('code')
+  if (!code) throw new Error('No code in redirect URL')
+
+  return exchangeCode(code, verifier, REDIRECT_URI)
 }
 
 export async function exchangeCode(
@@ -67,10 +86,10 @@ export async function exchangeCode(
   }
 
   const tokenSet: TokenSet = {
-    accessToken: data.access_token,
+    accessToken:  data.access_token,
     refreshToken: data.refresh_token ?? null,
-    expiry: Date.now() + data.expires_in * 1000,
-    email: await fetchEmail(data.access_token),
+    expiry:       Date.now() + data.expires_in * 1000,
+    email:        await fetchEmail(data.access_token),
   }
   await storeTokenSet(tokenSet)
   return tokenSet
@@ -85,18 +104,17 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenSet
   if (!res.ok) throw new Error(`Token refresh failed: ${res.status}`)
   const data = await res.json() as { access_token: string; expires_in: number }
 
-  const email = (await SecureStore.getItemAsync(KEYS.email)) ?? ''
+  const email   = (await SecureStore.getItemAsync(KEYS.email)) ?? ''
   const tokenSet: TokenSet = {
-    accessToken: data.access_token,
+    accessToken:  data.access_token,
     refreshToken,
-    expiry: Date.now() + data.expires_in * 1000,
+    expiry:       Date.now() + data.expires_in * 1000,
     email,
   }
   await storeTokenSet(tokenSet)
   return tokenSet
 }
 
-// Returns a valid access token — silently refreshes if within 60s of expiry
 export async function getAccessToken(): Promise<string | null> {
   const [token, expiryStr, refresh] = await Promise.all([
     SecureStore.getItemAsync(KEYS.token),
@@ -104,10 +122,8 @@ export async function getAccessToken(): Promise<string | null> {
     SecureStore.getItemAsync(KEYS.refresh),
   ])
   if (!token) return null
-
   const expiry = parseInt(expiryStr ?? '0', 10)
   if (Date.now() < expiry - 60_000) return token
-
   if (!refresh) return null
   const tokenSet = await refreshAccessToken(refresh)
   return tokenSet.accessToken
@@ -122,9 +138,9 @@ export async function loadStoredTokenSet(): Promise<TokenSet | null> {
   ])
   if (!token || !email) return null
   return {
-    accessToken: token,
+    accessToken:  token,
     refreshToken: refresh ?? null,
-    expiry: parseInt(expiryStr ?? '0', 10),
+    expiry:       parseInt(expiryStr ?? '0', 10),
     email,
   }
 }

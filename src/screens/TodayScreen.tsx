@@ -13,7 +13,7 @@ import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
 import { Toast } from '@/components/shared/Toast'
-import { useGoogleAuth, exchangeCode } from '@/services/auth'
+import { signInWithGoogle } from '@/services/auth'
 import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
@@ -45,19 +45,19 @@ export function TodayScreen() {
   const lang        = useSettingsStore(s => s.prefs.lang)
   const showToast   = useUiStore(s => s.showToast)
 
-  // Auth
-  const { request, response, promptAsync, redirectUri } = useGoogleAuth()
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const code         = response.params.code
-      const codeVerifier = request?.codeVerifier
-      if (code && codeVerifier) {
-        exchangeCode(code, codeVerifier, redirectUri).then(setTokenSet).catch(() => {
-          showToast('Inloggen mislukt, probeer opnieuw.')
-        })
-      }
+  const [signingIn, setSigningIn] = useState(false)
+
+  async function handleSignIn() {
+    setSigningIn(true)
+    try {
+      const ts = await signInWithGoogle()
+      setTokenSet(ts)
+    } catch (e: any) {
+      if (e?.message !== 'Auth cancelled') showToast('Inloggen mislukt, probeer opnieuw.')
+    } finally {
+      setSigningIn(false)
     }
-  }, [response])
+  }
 
   // Data
   const { isLoading, refetch } = useActivities()
@@ -110,10 +110,10 @@ export function TodayScreen() {
         ) : (
           <TouchableOpacity
             style={styles.signInBtn}
-            onPress={() => promptAsync()}
-            disabled={!request}
+            onPress={handleSignIn}
+            disabled={signingIn}
           >
-            <Text style={styles.signInBtnText}>Inloggen</Text>
+            <Text style={styles.signInBtnText}>{signingIn ? '…' : 'Inloggen'}</Text>
           </TouchableOpacity>
         )}
       </View>
