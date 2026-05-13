@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { Text, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TodayScreen } from '@/screens/TodayScreen'
 import { WeekScreen } from '@/screens/WeekScreen'
 import { PlanScreen } from '@/screens/PlanScreen'
@@ -23,11 +24,13 @@ const TAB_LABELS: Record<string, string> = {
 }
 
 export function MainNavigator() {
+  const insets = useSafeAreaInsets()
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { paddingBottom: insets.bottom + 8, height: 56 + insets.bottom }],
         tabBarItemStyle: styles.tabItem,
         tabBarLabel: ({ focused }) => (
           <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
@@ -52,8 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: LightTheme.surface,
     borderTopColor: LightTheme.border,
     borderTopWidth: 1,
-    height: 64,
-    paddingBottom: 8,
     paddingTop: 8,
   },
   tabItem: {
