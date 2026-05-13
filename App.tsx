@@ -22,12 +22,12 @@ export default function App() {
   const hydrateSettings = useSettingsStore(s => s.hydrate)
 
   const [fontsLoaded] = useFonts({
-    'Sora':                  require('./assets/fonts/Sora-Regular.ttf'),
-    'Sora-Medium':           require('./assets/fonts/Sora-Medium.ttf'),
-    'Sora-SemiBold':         require('./assets/fonts/Sora-SemiBold.ttf'),
-    'Sora-Bold':             require('./assets/fonts/Sora-Bold.ttf'),
-    'JetBrainsMono':         require('./assets/fonts/JetBrainsMono-Regular.ttf'),
-    'JetBrainsMono-Medium':  require('./assets/fonts/JetBrainsMono-Medium.ttf'),
+    'Sora':                  require('./assets/fonts/Sora/Sora-Regular.ttf'),
+    'Sora-Medium':           require('./assets/fonts/Sora/Sora-Medium.ttf'),
+    'Sora-SemiBold':         require('./assets/fonts/Sora/Sora-SemiBold.ttf'),
+    'Sora-Bold':             require('./assets/fonts/Sora/Sora-Bold.ttf'),
+    'JetBrainsMono':         require('./assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf'),
+    'JetBrainsMono-Medium':  require('./assets/fonts/JetBrainsMono/JetBrainsMono-Medium.ttf'),
   })
 
   useEffect(() => {
