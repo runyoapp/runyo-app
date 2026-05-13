@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet } from 'react-native'
+import { useState } from 'react'
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Alert } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -8,36 +8,138 @@ import { getSheetTabId, verifyOrFixHeaders } from '@/services/sheets'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import type { SchemaEntry } from '@/types/auth'
 
-export function ConnectSection() {
-  const getToken    = useAuthStore(s => s.getToken)
-  const tokenSet    = useAuthStore(s => s.tokenSet)
-  const sheetId     = useDataStore(s => s.sheetId)
-  const sheetFileName = useDataStore(s => s.sheetFileName)
-  const tabName     = useDataStore(s => s.tabName)
-  const setSchema   = useDataStore(s => s.setSchema)
-  const clearSchema = useDataStore(s => s.clearSchema)
-  const showToast   = useUiStore(s => s.showToast)
+// ── Connect tile — matches PWA .connect-tile exactly ──────────────────────
 
-  const [sheets,   setSheets]   = useState<SchemaEntry[]>([])
-  const [loading,  setLoading]  = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [browsing, setBrowsing] = useState(false)
+type TileProps = {
+  primary?: boolean
+  icon: string
+  title: string
+  badge?: string
+  sub: string
+  onPress: () => void
+}
 
-  const isSignedIn  = !!tokenSet
-  const isConnected = isSignedIn && !!sheetId
+function ConnectTile({ primary, icon, title, badge, sub, onPress }: TileProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.tile, primary && styles.tilePrimary]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={[styles.tileIcon, primary && styles.tileIconPrimary]}>
+        <Text style={styles.tileIconText}>{icon}</Text>
+      </View>
+      <View style={styles.tileBody}>
+        <View style={styles.tileTitleRow}>
+          <Text style={[styles.tileTitle, primary && styles.tileTitlePrimary]}>{title}</Text>
+          {badge && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.tileSub, primary && styles.tileSubPrimary]}>{sub}</Text>
+      </View>
+      <Text style={[styles.tileChevron, primary && styles.tileChevronPrimary]}>›</Text>
+    </TouchableOpacity>
+  )
+}
 
-  async function loadSheets() {
+// ── Sheet browser (for "Gekoppelde schema's") ──────────────────────────────
+
+function SchemaBrowser({ onSelect }: { onSelect: (s: SchemaEntry) => void }) {
+  const getToken = useAuthStore(s => s.getToken)
+  const [sheets,  setSheets]  = useState<SchemaEntry[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loaded,  setLoaded]  = useState(false)
+
+  async function load() {
+    if (loaded) return
     setLoading(true)
     try {
       const token = await getToken()
       if (!token) return
-      const list = await listRecentSheets(token)
-      setSheets(list)
-    } catch {
-      showToast('Kon sheets niet laden')
+      setSheets(await listRecentSheets(token))
+      setLoaded(true)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Auto-load on mount
+  if (!loaded && !loading) load()
+
+  if (loading) return <ActivityIndicator color={LightTheme.accent} style={{ marginTop: Spacing.md }} />
+  if (!sheets.length) return <Text style={styles.emptyText}>Geen schema's gevonden.</Text>
+
+  return (
+    <View style={styles.browser}>
+      {sheets.map(s => (
+        <TouchableOpacity key={s.id} style={styles.sheetRow} onPress={() => onSelect(s)}>
+          <Text style={styles.sheetName} numberOfLines={1}>{s.name}</Text>
+          <Text style={styles.sheetChevron}>›</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  )
+}
+
+// ── URL linker ─────────────────────────────────────────────────────────────
+
+function extractSheetId(url: string): string | null {
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+  return m ? m[1] : (url.length > 10 ? url.trim() : null)
+}
+
+function UrlLinker({ onLink }: { onLink: (entry: SchemaEntry) => void }) {
+  const [url, setUrl] = useState('')
+
+  function handleLink() {
+    const id = extractSheetId(url)
+    if (!id) { return }
+    onLink({ id, name: 'Google Sheet', url, ts: Date.now() })
+  }
+
+  return (
+    <View style={styles.urlLinker}>
+      <TextInput
+        style={styles.urlInput}
+        value={url}
+        onChangeText={setUrl}
+        placeholder="Plak hier de Google Sheets URL"
+        placeholderTextColor={LightTheme.faint}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <TouchableOpacity style={styles.urlBtn} onPress={handleLink}>
+        <Text style={styles.urlBtnText}>Koppelen</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+// ── Main ConnectSection ────────────────────────────────────────────────────
+
+type Panel = 'history' | 'new' | null
+
+export function ConnectSection() {
+  const getToken      = useAuthStore(s => s.getToken)
+  const tokenSet      = useAuthStore(s => s.tokenSet)
+  const sheetId       = useDataStore(s => s.sheetId)
+  const sheetFileName = useDataStore(s => s.sheetFileName)
+  const tabName       = useDataStore(s => s.tabName)
+  const setSchema     = useDataStore(s => s.setSchema)
+  const clearSchema   = useDataStore(s => s.clearSchema)
+  const showToast     = useUiStore(s => s.showToast)
+
+  const [panel,    setPanel]    = useState<Panel>(null)
+  const [creating, setCreating] = useState(false)
+
+  const isSignedIn  = !!tokenSet
+  const isConnected = isSignedIn && !!sheetId
+
+  function togglePanel(p: Panel) {
+    setPanel(prev => prev === p ? null : p)
   }
 
   async function linkSheet(entry: SchemaEntry) {
@@ -45,11 +147,10 @@ export function ConnectSection() {
     if (!token) return
     showToast('Schema koppelen…')
     try {
-      const tabId = await getSheetTabId(entry.id, 'Schema', token)
-        .catch(() => 0)
+      const tabId = await getSheetTabId(entry.id, 'Schema', token).catch(() => 0)
       await verifyOrFixHeaders(entry.id, 'Schema', token).catch(() => {})
       await setSchema(entry.id, 'Schema', entry.name, tabId)
-      setBrowsing(false)
+      setPanel(null)
       showToast(`✓ ${entry.name} gekoppeld`)
     } catch {
       showToast('Koppelen mislukt')
@@ -64,7 +165,8 @@ export function ConnectSection() {
       const entry = await createNewSheet(token, 'runyo schema')
       await verifyOrFixHeaders(entry.id, 'Schema', token)
       await setSchema(entry.id, 'Schema', entry.name, 0)
-      showToast(`✓ Nieuw schema aangemaakt`)
+      setPanel(null)
+      showToast('✓ Nieuw schema aangemaakt')
     } catch {
       showToast('Aanmaken mislukt')
     } finally {
@@ -72,98 +174,172 @@ export function ConnectSection() {
     }
   }
 
-  // Connected state
+  // ── The 3 new-schema tiles ────────────────────────────────────────────────
+
+  const newSchemaPanel = (
+    <View style={styles.panelContent}>
+      <ConnectTile
+        primary
+        icon="✦"
+        title="Importeer eigen schema"
+        badge="Aanbevolen"
+        sub="PDF, Excel, foto of van je coach — gratis proberen"
+        onPress={() => showToast('AI import — komt binnenkort')}
+      />
+      <ConnectTile
+        icon="🔗"
+        title="Koppel Google Sheets"
+        sub="Plak een URL van een bestaand schema"
+        onPress={() => togglePanel(panel === 'url' as any ? null : 'url' as any)}
+      />
+      {(panel as any) === 'url' && (
+        <UrlLinker onLink={linkSheet} />
+      )}
+      <ConnectTile
+        icon="＋"
+        title="Leeg schema aanmaken"
+        sub="Begin met een nieuw leeg schema"
+        onPress={creating ? () => {} : handleCreateNew}
+      />
+      {creating && <ActivityIndicator color={LightTheme.accent} />}
+    </View>
+  )
+
+  // ── Connected state ───────────────────────────────────────────────────────
+
   if (isConnected) {
     return (
-      <View>
+      <View style={styles.container}>
         <View style={styles.connectedRow}>
           <View style={styles.greenDot} />
           <View style={styles.connectedInfo}>
             <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
-            <Text style={styles.tabName}>Tab: {tabName}</Text>
+            <Text style={styles.tabLabel}>Tab: {tabName}</Text>
           </View>
-          <TouchableOpacity onPress={() => clearSchema()} style={styles.disconnectBtn}>
+          <TouchableOpacity onPress={() => clearSchema()}>
             <Text style={styles.disconnectText}>Ontkoppelen</Text>
           </TouchableOpacity>
         </View>
+
         <View style={styles.btnRow}>
           <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={() => { setBrowsing(b => !b); if (!browsing) loadSheets() }}
+            style={[styles.btnSave, panel === 'history' && styles.btnSaveActive]}
+            onPress={() => togglePanel('history')}
           >
-            <Text style={styles.secondaryBtnText}>Ander schema</Text>
+            <Text style={styles.btnSaveText}>Gekoppelde schema's</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btnSave, panel === 'new' && styles.btnSaveActive]}
+            onPress={() => togglePanel('new')}
+          >
+            <Text style={styles.btnSaveText}>+ Nieuw trainingsschema</Text>
           </TouchableOpacity>
         </View>
-        {browsing && <SchemaBrowser sheets={sheets} loading={loading} onSelect={linkSheet} />}
+
+        {panel === 'history' && <SchemaBrowser onSelect={linkSheet} />}
+        {panel === 'new' && newSchemaPanel}
       </View>
     )
   }
 
-  // Signed in, no sheet
+  // ── Signed in, no schema ──────────────────────────────────────────────────
+
   if (isSignedIn) {
     return (
-      <View>
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={() => { setBrowsing(b => !b); if (!browsing) loadSheets() }}
-        >
-          <Text style={styles.primaryBtnText}>Koppel Google Sheets schema</Text>
-        </TouchableOpacity>
-        {browsing && <SchemaBrowser sheets={sheets} loading={loading} onSelect={linkSheet} />}
-        <TouchableOpacity
-          style={[styles.secondaryBtn, { marginTop: Spacing.sm }]}
-          onPress={handleCreateNew}
-          disabled={creating}
-        >
-          <Text style={styles.secondaryBtnText}>
-            {creating ? 'Aanmaken…' : '+ Leeg schema aanmaken'}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <Text style={styles.signedInHint}>
+          Ingelogd als <Text style={styles.signedInEmail}>{tokenSet.email}</Text>
+        </Text>
+        <ConnectTile
+          primary
+          icon="✦"
+          title="Importeer eigen schema"
+          badge="Aanbevolen"
+          sub="PDF, Excel, foto of van je coach — gratis proberen"
+          onPress={() => showToast('AI import — komt binnenkort')}
+        />
+        <ConnectTile
+          icon="🔗"
+          title="Koppel Google Sheets"
+          sub="Plak een URL of kies uit recente bestanden"
+          onPress={() => togglePanel(panel === 'history' ? null : 'history')}
+        />
+        {panel === 'history' && (
+          <>
+            <UrlLinker onLink={linkSheet} />
+            <SchemaBrowser onSelect={linkSheet} />
+          </>
+        )}
+        <ConnectTile
+          icon="＋"
+          title="Leeg schema aanmaken"
+          sub="Begin met een nieuw leeg schema"
+          onPress={creating ? () => {} : handleCreateNew}
+        />
+        {creating && <ActivityIndicator color={LightTheme.accent} />}
       </View>
     )
   }
 
-  // Not signed in
-  return (
-    <Text style={styles.hint}>Log eerst in om een schema te koppelen.</Text>
-  )
-}
-
-function SchemaBrowser({
-  sheets, loading, onSelect,
-}: { sheets: SchemaEntry[]; loading: boolean; onSelect: (s: SchemaEntry) => void }) {
-  if (loading) return <ActivityIndicator color={LightTheme.accent} style={{ marginTop: Spacing.md }} />
-  if (!sheets.length) return <Text style={styles.emptyText}>Geen sheets gevonden.</Text>
+  // ── Not signed in ─────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.browser}>
-      {sheets.map(s => (
-        <TouchableOpacity key={s.id} style={styles.sheetRow} onPress={() => onSelect(s)}>
-          <Text style={styles.sheetName}>{s.name}</Text>
-          <Text style={styles.sheetChevron}>›</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+    <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
   )
 }
 
 const styles = StyleSheet.create({
-  connectedRow:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
-  greenDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.accent, flexShrink: 0 },
-  connectedInfo:   { flex: 1 },
-  fileName:        { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
-  tabName:         { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, marginTop: 2 },
-  disconnectBtn:   { padding: Spacing.sm },
-  disconnectText:  { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted, textDecorationLine: 'underline' },
-  btnRow:          { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-  primaryBtn:      { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
-  primaryBtnText:  { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
-  secondaryBtn:    { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', borderWidth: 1, borderColor: LightTheme.border },
-  secondaryBtnText:{ fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
-  browser:         { marginTop: Spacing.md, borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: LightTheme.border },
-  sheetRow:        { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: LightTheme.border, backgroundColor: LightTheme.surface },
-  sheetName:       { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  sheetChevron:    { fontFamily: Fonts.display, fontSize: 18, color: LightTheme.faint },
-  hint:            { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
-  emptyText:       { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted, marginTop: Spacing.md },
+  container:          { gap: Spacing.md },
+
+  // Connect tile
+  tile:               { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border, borderRadius: Radius.lg, padding: 16 },
+  tilePrimary:        { backgroundColor: LightTheme.text, borderColor: LightTheme.text },
+  tileIcon:           { width: 44, height: 44, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: LightTheme.bg },
+  tileIconPrimary:    { backgroundColor: LightTheme.accent },
+  tileIconText:       { fontSize: 20 },
+  tileBody:           { flex: 1, minWidth: 0 },
+  tileTitleRow:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  tileTitle:          { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text, letterSpacing: -0.1 },
+  tileTitlePrimary:   { color: '#fff' },
+  badge:              { backgroundColor: LightTheme.accent, borderRadius: Radius.pill, paddingHorizontal: 6, paddingVertical: 1 },
+  badgeText:          { fontFamily: Fonts.displayBold, fontSize: 9, color: LightTheme.accentInk, letterSpacing: -0.1 },
+  tileSub:            { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted, marginTop: 2 },
+  tileSubPrimary:     { color: 'rgba(255,255,255,0.65)' },
+  tileChevron:        { fontFamily: Fonts.display, fontSize: 20, color: LightTheme.faint },
+  tileChevronPrimary: { color: 'rgba(255,255,255,0.5)' },
+
+  // Connected state
+  connectedRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  greenDot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.accent, flexShrink: 0 },
+  connectedInfo:  { flex: 1 },
+  fileName:       { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
+  tabLabel:       { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, marginTop: 2 },
+  disconnectText: { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted, textDecorationLine: 'underline' },
+
+  // Buttons
+  btnRow:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+  btnSave:        { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: LightTheme.bgAlt, borderWidth: 1, borderColor: LightTheme.border },
+  btnSaveActive:  { borderColor: LightTheme.accent },
+  btnSaveText:    { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
+
+  // Panel
+  panelContent:   { gap: Spacing.sm },
+
+  // Schema browser
+  browser:        { borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: LightTheme.border },
+  sheetRow:       { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: LightTheme.border, backgroundColor: LightTheme.surface },
+  sheetName:      { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
+  sheetChevron:   { fontFamily: Fonts.display, fontSize: 18, color: LightTheme.faint },
+  emptyText:      { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },
+
+  // URL linker
+  urlLinker:      { gap: Spacing.sm },
+  urlInput:       { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border },
+  urlBtn:         { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
+  urlBtnText:     { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
+
+  // Hints
+  signedInHint:   { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
+  signedInEmail:  { fontFamily: Fonts.displaySemiBold, color: LightTheme.text },
+  notSignedIn:    { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
 })
