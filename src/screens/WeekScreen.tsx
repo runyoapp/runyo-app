@@ -1,6 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
-import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated'
+import { useState } from 'react'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
@@ -40,13 +39,11 @@ export function WeekScreen() {
   const weekNum   = getISOWeekNumber(d0)
   const weekLabel = `${d0.getDate()}–${d6.getDate()} ${MONTHS_NL[d0.getMonth()]}`
 
-  // Active rows per day (exclude work + rest)
   const weekData = weekDates.map(date => ({
     date,
     rows: activities.filter(a => a.datum === date && a.type !== 'work' && a.type !== 'rest'),
   })).filter(d => d.rows.length > 0)
 
-  // Km stats
   const plannedKm = weekData.reduce((s, d) => s + d.rows.reduce((a, r) => a + (r.km ?? 0), 0), 0)
   const doneKm    = weekData
     .filter(d => d.date <= todayStr)
@@ -54,67 +51,42 @@ export function WeekScreen() {
   const pct    = plannedKm > 0 ? Math.min(100, Math.round(doneKm / plannedKm * 100)) : 0
   const kmLeft = Math.max(0, plannedKm - doneKm)
 
-  // Drag state
-  const dragging     = useRef<Activity | null>(null)
-  const dragX        = useSharedValue(0)
-  const dragY        = useSharedValue(0)
-  const isDragging   = useSharedValue(false)
-  const dayLayouts   = useRef<{ date: string; x: number; width: number }[]>([])
-
-  const ghostStyle = useAnimatedStyle(() => ({
-    opacity:   isDragging.value ? 0.9 : 0,
-    transform: [
-      { translateX: dragX.value - 150 },
-      { translateY: dragY.value - 30 },
-    ],
-    pointerEvents: 'none' as const,
-  }))
-
-  function onDragStart(activity: Activity, pageY: number) {
-    dragging.current = activity
-    isDragging.value = true
-    dragY.value = pageY
-  }
-
-  function onDragMove(pageX: number, pageY: number) {
-    dragX.value = pageX
-    dragY.value = pageY
-    // Highlight closest day
-    const closest = dayLayouts.current.find(
-      l => pageX >= l.x && pageX <= l.x + l.width
-    )
-    // Could add visual highlight here
-  }
-
-  async function onDragEnd(pageX: number, pageY: number) {
-    isDragging.value = false
-    const act = dragging.current
-    dragging.current = null
-    if (!act) return
-
-    const target = dayLayouts.current.find(
-      l => pageX >= l.x && pageX <= l.x + l.width
-    )
-    if (!target || target.date === act.datum) return
-
-    await doReschedule(act, target.date)
-  }
-
   async function doReschedule(activity: Activity, newDate: string) {
-    if (!sheetId) return
+    if (!sheetId || newDate === activity.datum) return
     const token = await getToken()
     if (!token) return
-
     showToast('Verplaatsen…')
     try {
-      const updated = { ...activity, datum: newDate }
       await updateActivity(sheetId, tabName, token, (activity as any).rowIndex ?? 2, { datum: newDate })
-      upsertActivity(updated)
+      upsertActivity({ ...activity, datum: newDate })
       const mn = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
       showToast(`✓ Verplaatst naar ${newDate.slice(8)} ${mn[parseInt(newDate.slice(5, 7)) - 1]}`)
     } catch {
       showToast('❌ Verplaatsen mislukt')
     }
+  }
+
+  function handleLongPress(activity: Activity) {
+    const options = weekDates
+      .filter(d => d !== activity.datum)
+      .map(d => {
+        const date = fromDateString(d)
+        return `${DAYS_NL[mondayIndex(date)]} ${date.getDate()}`
+      })
+
+    Alert.alert(
+      'Verplaatsen naar…',
+      activity.titel ?? activity.type,
+      [
+        ...weekDates
+          .filter(d => d !== activity.datum)
+          .map((d, i) => ({
+            text: options[i],
+            onPress: () => doReschedule(activity, d),
+          })),
+        { text: 'Annuleren', style: 'cancel' },
+      ]
+    )
   }
 
   return (
@@ -158,22 +130,9 @@ export function WeekScreen() {
           const isToday = date === todayStr
           const hasAct  = activities.some(a => a.datum === date && a.type !== 'rest' && a.type !== 'work')
           return (
-            <View
-              key={date}
-              style={[styles.stripDay, isToday && styles.stripDayToday]}
-              onLayout={e => {
-                const { x, width } = e.nativeEvent.layout
-                const existing = dayLayouts.current.findIndex(l => l.date === date)
-                if (existing >= 0) dayLayouts.current[existing] = { date, x, width }
-                else dayLayouts.current.push({ date, x, width })
-              }}
-            >
-              <Text style={[styles.stripDayName, isToday && styles.stripTextActive]}>
-                {DAYS_NL[i]}
-              </Text>
-              <Text style={[styles.stripDayNum, isToday && styles.stripTextActive]}>
-                {d.getDate()}
-              </Text>
+            <View key={date} style={[styles.stripDay, isToday && styles.stripDayToday]}>
+              <Text style={[styles.stripDayName, isToday && styles.stripTextActive]}>{DAYS_NL[i]}</Text>
+              <Text style={[styles.stripDayNum,  isToday && styles.stripTextActive]}>{d.getDate()}</Text>
               <View style={[
                 styles.stripDot,
                 { backgroundColor: hasAct ? (isToday ? 'rgba(255,255,255,0.7)' : LightTheme.accent) : 'transparent' },
@@ -204,55 +163,41 @@ export function WeekScreen() {
                 isToday={date === todayStr}
                 isPast={date < todayStr}
                 onPress={() => {}}
-                onDragStart={onDragStart}
-                onDragMove={onDragMove}
-                onDragEnd={onDragEnd}
+                onLongPress={handleLongPress}
               />
             ))
           )
         )}
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
-
-      {/* Drag ghost */}
-      <Animated.View style={[styles.ghost, ghostStyle]}>
-        {dragging.current && (
-          <View style={styles.ghostInner}>
-            <Text style={styles.ghostText}>{dragging.current.titel ?? dragging.current.type}</Text>
-          </View>
-        )}
-      </Animated.View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: LightTheme.bg },
-  header:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.md },
-  navBtn:        { width: 36, alignItems: 'center' },
-  navArrow:      { fontFamily: Fonts.display, fontSize: 24, color: LightTheme.muted },
-  headerCenter:  { flex: 1, alignItems: 'center' },
-  weekNum:       { fontFamily: Fonts.displayBold, fontSize: 16, color: LightTheme.text },
-  weekDates:     { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
-  nowBtn:        { color: LightTheme.accent },
-  kmBlock:       { alignItems: 'flex-end' },
-  kmTotal:       { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text },
-  kmSlash:       { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
-  kmPct:         { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
-  progressTrack: { height: 3, backgroundColor: LightTheme.border, marginHorizontal: Spacing.lg, borderRadius: 2, marginBottom: Spacing.sm },
-  progressFill:  { height: 3, backgroundColor: LightTheme.accent, borderRadius: 2 },
-  strip:         { flexDirection: 'row', paddingHorizontal: Spacing.sm, marginBottom: Spacing.sm },
-  stripDay:      { flex: 1, alignItems: 'center', paddingVertical: Spacing.sm, borderRadius: Radius.md, gap: 2 },
-  stripDayToday: { backgroundColor: LightTheme.accent },
-  stripDayName:  { fontFamily: Fonts.displayMedium, fontSize: 10, color: LightTheme.muted },
-  stripDayNum:   { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
+  root:            { flex: 1, backgroundColor: LightTheme.bg },
+  header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.md },
+  navBtn:          { width: 36, alignItems: 'center' },
+  navArrow:        { fontFamily: Fonts.display, fontSize: 24, color: LightTheme.muted },
+  headerCenter:    { flex: 1, alignItems: 'center' },
+  weekNum:         { fontFamily: Fonts.displayBold, fontSize: 16, color: LightTheme.text },
+  weekDates:       { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
+  nowBtn:          { color: LightTheme.accent },
+  kmBlock:         { alignItems: 'flex-end' },
+  kmTotal:         { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text },
+  kmSlash:         { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
+  kmPct:           { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
+  progressTrack:   { height: 3, backgroundColor: LightTheme.border, marginHorizontal: Spacing.lg, borderRadius: 2, marginBottom: Spacing.sm },
+  progressFill:    { height: 3, backgroundColor: LightTheme.accent, borderRadius: 2 },
+  strip:           { flexDirection: 'row', paddingHorizontal: Spacing.sm, marginBottom: Spacing.sm },
+  stripDay:        { flex: 1, alignItems: 'center', paddingVertical: Spacing.sm, borderRadius: Radius.md, gap: 2 },
+  stripDayToday:   { backgroundColor: LightTheme.accent },
+  stripDayName:    { fontFamily: Fonts.displayMedium, fontSize: 10, color: LightTheme.muted },
+  stripDayNum:     { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
   stripTextActive: { color: '#fff' },
-  stripDot:      { width: 4, height: 4, borderRadius: 2 },
-  scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
-  emptyState:    { paddingTop: Spacing.xxl, alignItems: 'center' },
-  emptyText:     { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
-  ghost:         { position: 'absolute', top: 0, left: 0, zIndex: 999 },
-  ghostInner:    { backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, width: 300, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 8 },
-  ghostText:     { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text },
+  stripDot:        { width: 4, height: 4, borderRadius: 2 },
+  scroll:          { flex: 1 },
+  scrollContent:   { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
+  emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center' },
+  emptyText:       { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
 })

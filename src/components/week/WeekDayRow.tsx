@@ -1,7 +1,4 @@
-import { useRef } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { runOnJS } from 'react-native-reanimated'
 import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { TYPE_DISPLAY } from '@/constants/activities'
@@ -14,54 +11,35 @@ type Props = {
   isToday: boolean
   isPast: boolean
   onPress: () => void
-  onDragStart: (activity: Activity, pageY: number) => void
-  onDragMove: (pageX: number, pageY: number) => void
-  onDragEnd: (pageX: number, pageY: number) => void
+  onLongPress: (activity: Activity) => void
 }
 
-export function WeekDayRow({ activity, isToday, isPast, onPress, onDragStart, onDragMove, onDragEnd }: Props) {
+export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: Props) {
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label   = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
   const date    = fromDateString(activity.datum)
   const dayName = DAYS_NL[mondayIndex(date)]
 
-  const dragGesture = Gesture.Pan()
-    .activateAfterLongPress(350)
-    .onStart((e) => {
-      runOnJS(onDragStart)(activity, e.absoluteY)
-    })
-    .onUpdate((e) => {
-      runOnJS(onDragMove)(e.absoluteX, e.absoluteY)
-    })
-    .onEnd((e) => {
-      runOnJS(onDragEnd)(e.absoluteX, e.absoluteY)
-    })
-    .onFinalize((e) => {
-      runOnJS(onDragEnd)(e.absoluteX, e.absoluteY)
-    })
-
   return (
-    <GestureDetector gesture={dragGesture}>
-      <TouchableOpacity
-        style={[
-          styles.row,
-          isToday && styles.rowToday,
-          isPast  && styles.rowPast,
-        ]}
-        onPress={onPress}
-        activeOpacity={0.75}
-      >
-        <View style={[styles.bar, { backgroundColor: colors.text }]} />
-        <View style={styles.body}>
-          <Text style={styles.dayLabel}>{dayName} · {label}</Text>
-          {!!activity.titel && <Text style={styles.title} numberOfLines={1}>{activity.titel}</Text>}
-        </View>
-        {activity.km != null && (
-          <Text style={styles.km}>{activity.km} km</Text>
+    <TouchableOpacity
+      style={[styles.row, isToday && styles.rowToday, isPast && styles.rowPast]}
+      onPress={onPress}
+      onLongPress={() => onLongPress(activity)}
+      delayLongPress={400}
+      activeOpacity={0.75}
+    >
+      <View style={[styles.bar, { backgroundColor: colors.text }]} />
+      <View style={styles.body}>
+        <Text style={styles.dayLabel}>{dayName} · {label}</Text>
+        {!!activity.titel && (
+          <Text style={styles.title} numberOfLines={1}>{activity.titel}</Text>
         )}
-        <Text style={styles.handle}>⠿</Text>
-      </TouchableOpacity>
-    </GestureDetector>
+      </View>
+      {activity.km != null && (
+        <Text style={styles.km}>{activity.km} km</Text>
+      )}
+      <Text style={styles.handle}>⠿</Text>
+    </TouchableOpacity>
   )
 }
 
