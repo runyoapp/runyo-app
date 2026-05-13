@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, PanResponder } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native'
+import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
@@ -19,7 +20,7 @@ import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
-import { LightTheme, Spacing } from '@/constants/theme'
+import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
 
@@ -52,6 +53,7 @@ export function TodayScreen() {
   const { isLoading, refetch } = useActivities()
 
   // Local UI state
+  const swipe = useSwipeAnimation(dayOffset)
   const [editingFeedback,  setEditingFeedback]  = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
@@ -109,8 +111,8 @@ export function TodayScreen() {
         }}
       />
 
-      <ScrollView
-        style={styles.scroll}
+      <Animated.ScrollView
+        style={[styles.scroll, swipe.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         {...panResponder.panHandlers}
@@ -181,7 +183,7 @@ export function TodayScreen() {
         )}
 
         <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       <Toast />
       <DayDetailModal

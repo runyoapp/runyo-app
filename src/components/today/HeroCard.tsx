@@ -12,9 +12,11 @@ type Props = {
 
 export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
-  const label   = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
-  const hasFb   = !!activity.feedback
-  const isRun   = activity.type === 'run'
+  const label    = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
+  const hasFb    = !!activity.feedback
+  const isRun    = activity.type === 'run'
+  const today    = new Date().toISOString().split('T')[0]
+  const isPastOrToday = activity.datum <= today
 
   // Parse pace/HR/duration from detail string
   const detail     = activity.detail ?? ''
@@ -74,8 +76,8 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
       {/* Detail text */}
       {!!detail && <Text style={styles.detail} numberOfLines={3}>{detail}</Text>}
 
-      {/* Feedback CTA — only for runs */}
-      {isRun && (
+      {/* Feedback CTA — only for past/today runs */}
+      {isRun && isPastOrToday && (
         <TouchableOpacity
           style={[styles.cta, hasFb && styles.ctaSecondary]}
           onPress={e => { onFeedbackPress() }}

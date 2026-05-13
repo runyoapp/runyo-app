@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, PanResponder } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, PanResponder, Animated } from 'react-native'
+import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
@@ -35,6 +36,7 @@ export function WeekScreen() {
   const showToast = useUiStore(s => s.showToast)
   useActivities()
 
+  const swipe = useSwipeAnimation(weekOffset)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
   const todayStr  = toDateString(new Date())
@@ -157,8 +159,8 @@ export function WeekScreen() {
       </View>
 
       {/* Rows */}
-      <ScrollView
-        style={styles.scroll}
+      <Animated.ScrollView
+        style={[styles.scroll, swipe.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         {...swipePan.panHandlers}
@@ -184,7 +186,7 @@ export function WeekScreen() {
           )
         )}
         <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       <DayDetailModal
         activity={selectedActivity}
