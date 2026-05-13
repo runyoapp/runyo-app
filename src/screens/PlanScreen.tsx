@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { DayDetailModal } from '@/screens/DayDetailModal'
+import { AddActivityModal } from '@/screens/AddActivityModal'
+import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
 import { useActivities } from '@/hooks/useActivities'
@@ -39,8 +41,9 @@ export function PlanScreen() {
     return current ?? phases[phases.length - 1]
   }, [phases])
 
-  const [openFase, setOpenFase] = useState<string | null>(defaultOpen)
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [openFase,          setOpenFase]          = useState<string | null>(defaultOpen)
+  const [selectedActivity,  setSelectedActivity]  = useState<Activity | null>(null)
+  const [addModalOpen,      setAddModalOpen]      = useState(false)
 
   function toggle(fase: string) {
     setOpenFase(prev => prev === fase ? null : fase)
@@ -67,6 +70,7 @@ export function PlanScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <AppHeader onAddPress={() => setAddModalOpen(true)} />
       <ScrollView showsVerticalScrollIndicator={false}>
         <SchemaHeader activities={activities} />
 
@@ -103,6 +107,10 @@ export function PlanScreen() {
         activity={selectedActivity}
         visible={!!selectedActivity}
         onClose={() => setSelectedActivity(null)}
+      />
+      <AddActivityModal
+        visible={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
       />
     </View>
   )

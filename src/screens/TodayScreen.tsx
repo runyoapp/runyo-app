@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, PanResponder } from 'react-native'
+import { useState, useRef } from 'react'
+import { View, Text, ScrollView, StyleSheet, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useNavigation } from '@react-navigation/native'
+import { useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -13,13 +13,13 @@ import { HeroCard, RestCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
-import { RacesBar } from '@/components/today/RacesBar'
+import { AppHeader } from '@/components/shared/AppHeader'
 import { Toast } from '@/components/shared/Toast'
 import { DayDetailModal } from '@/screens/DayDetailModal'
-import { signInWithGoogle } from '@/services/auth'
+import { AddActivityModal } from '@/screens/AddActivityModal'
 import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
-import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { LightTheme, Spacing } from '@/constants/theme'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
 
@@ -29,8 +29,6 @@ function buildFeedbackString(rating: number, text: string): string {
 
 export function TodayScreen() {
   const insets     = useSafeAreaInsets()
-  const navigation = useNavigation()
-
   // Stores
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
@@ -49,26 +47,14 @@ export function TodayScreen() {
   const lang        = useSettingsStore(s => s.prefs.lang)
   const showToast   = useUiStore(s => s.showToast)
 
-  const [signingIn, setSigningIn] = useState(false)
-
-  async function handleSignIn() {
-    setSigningIn(true)
-    try {
-      const ts = await signInWithGoogle()
-      setTokenSet(ts)
-    } catch (e: any) {
-      if (e?.message !== 'Auth cancelled') showToast('Inloggen mislukt, probeer opnieuw.')
-    } finally {
-      setSigningIn(false)
-    }
-  }
 
   // Data
   const { isLoading, refetch } = useActivities()
 
   // Local UI state
-  const [editingFeedback, setEditingFeedback] = useState(false)
+  const [editingFeedback,  setEditingFeedback]  = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [addModalOpen,     setAddModalOpen]     = useState(false)
 
   const swipe = useRef({ x: 0 })
   const panResponder = PanResponder.create({
@@ -81,7 +67,7 @@ export function TodayScreen() {
   })
 
   // Derived
-  const isSignedIn   = !!tokenSet
+  const isSignedIn = !!tokenSet
   const selectedDate = dateFromOffset(dayOffset)
   const dateStr      = toDateString(selectedDate)
   const dayLabel     = formatDayLabel(selectedDate, dayOffset, lang)
@@ -115,32 +101,8 @@ export function TodayScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>runyo</Text>
-        {isSignedIn ? (
-          <TouchableOpacity
-            style={styles.avatar}
-            onPress={() => navigation.navigate('Settings' as never)}
-          >
-            <Text style={styles.avatarText}>
-              {tokenSet?.email?.[0]?.toUpperCase() ?? '?'}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.signInBtn}
-            onPress={handleSignIn}
-            disabled={signingIn}
-          >
-            <Text style={styles.signInBtnText}>{signingIn ? '…' : 'Inloggen'}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Races bar */}
-      <RacesBar
-        activities={activities}
+      <AppHeader
+        onAddPress={() => setAddModalOpen(true)}
         onRacePress={datum => {
           const race = activities.find(a => a.datum === datum && a.type === 'race')
           if (race) setSelectedActivity(race)
@@ -174,7 +136,7 @@ export function TodayScreen() {
         {!sheetId ? (
           <NoSchemaCard
             isSignedIn={isSignedIn}
-            onConnect={() => isSignedIn ? null : promptAsync()}
+            onConnect={() => {}}
           />
         ) : isLoading ? (
           <View style={styles.loadingRow}>
@@ -193,19 +155,20 @@ export function TodayScreen() {
               />
             ))}
 
-            {/* Feedback */}
-            {fbRow && (fbRow.feedback && !editingFeedback ? (
+            {/* Feedback — only show when explicitly opened */}
+            {fbRow && fbRow.feedback && !editingFeedback && (
               <FeedbackDisplay
                 feedback={fbRow.feedback}
                 onEdit={() => setEditingFeedback(true)}
               />
-            ) : (editingFeedback || !fbRow.feedback) && fbRow.type === 'run' && (
+            )}
+            {fbRow && editingFeedback && (
               <FeedbackSection
                 existing={fbRow.feedback}
                 onSubmit={handleFeedback}
-                onCancel={fbRow.feedback ? () => setEditingFeedback(false) : undefined}
+                onCancel={() => setEditingFeedback(false)}
               />
-            ))}
+            )}
           </>
         )}
 
@@ -226,49 +189,17 @@ export function TodayScreen() {
         visible={!!selectedActivity}
         onClose={() => setSelectedActivity(null)}
       />
+      <AddActivityModal
+        visible={addModalOpen}
+        prefillDate={dateStr}
+        onClose={() => setAddModalOpen(false)}
+      />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: LightTheme.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  logo: {
-    fontFamily: Fonts.displayBold,
-    fontSize: 22,
-    color: LightTheme.text,
-    letterSpacing: -0.5,
-  },
-  avatar: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: LightTheme.accent,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: {
-    fontFamily: Fonts.displayBold,
-    fontSize: 14,
-    color: LightTheme.accentInk,
-  },
-  signInBtn: {
-    backgroundColor: LightTheme.accent,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 999,
-  },
-  signInBtnText: {
-    fontFamily: Fonts.displaySemiBold,
-    fontSize: 13,
-    color: '#fff',
-  },
+  root: { flex: 1, backgroundColor: LightTheme.bg },
   scroll: { flex: 1 },
   scrollContent: { paddingTop: Spacing.sm },
   kickerRow: {

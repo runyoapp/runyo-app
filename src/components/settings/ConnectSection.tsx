@@ -247,19 +247,16 @@ export function ConnectSection() {
 
         {/* Nieuw trainingsschema — always the 3 tiles */}
         {panel === 'new' && newSchemaPanel}
-      </View>
 
-      <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
+        <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
+      </View>
     )
   }
 
   // ── Not signed in ─────────────────────────────────────────────────────────
 
   return (
-    <>
-      <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
-      <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
-    </>
+    <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
   )
 }
 

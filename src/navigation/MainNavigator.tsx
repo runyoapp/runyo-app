@@ -52,10 +52,11 @@ export function MainNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: LightTheme.surface,
-    borderTopColor: LightTheme.border,
-    borderTopWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderTopColor: 'rgba(222,218,202,0.6)',
+    borderTopWidth: 0.5,
     paddingTop: 8,
+    position: 'absolute' as const,
   },
   tabItem: {
     borderRadius: Radius.md,

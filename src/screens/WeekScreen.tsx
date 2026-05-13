@@ -7,6 +7,8 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { DayDetailModal } from '@/screens/DayDetailModal'
+import { AddActivityModal } from '@/screens/AddActivityModal'
+import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateActivity } from '@/services/sheets'
 import {
@@ -34,6 +36,7 @@ export function WeekScreen() {
   useActivities()
 
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [addModalOpen,     setAddModalOpen]     = useState(false)
   const todayStr  = toDateString(new Date())
 
   const swipePan = PanResponder.create({
@@ -101,7 +104,8 @@ export function WeekScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Header */}
+      <AppHeader onAddPress={() => setAddModalOpen(true)} />
+      {/* Week nav header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setWeekOffset(weekOffset - 1)} style={styles.navBtn}>
           <Text style={styles.navArrow}>‹</Text>
@@ -186,6 +190,10 @@ export function WeekScreen() {
         activity={selectedActivity}
         visible={!!selectedActivity}
         onClose={() => setSelectedActivity(null)}
+      />
+      <AddActivityModal
+        visible={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
       />
     </View>
   )

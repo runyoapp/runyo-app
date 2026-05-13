@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react'
 import { RaceModal } from '@/screens/RaceModal'
+import { AddActivityModal } from '@/screens/AddActivityModal'
+import { AppHeader } from '@/components/shared/AppHeader'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
@@ -22,6 +24,7 @@ export function CalendarScreen() {
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
+  const [addModalOpen, setAddModalOpen] = useState(false)
 
   function prevMonth() {
     if (calMonth === 0) setCalDate(calYear - 1, 11)
@@ -73,6 +76,10 @@ export function CalendarScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <AppHeader
+        onAddPress={() => setAddModalOpen(true)}
+        showRacesBar={false}
+      />
       {/* Month header */}
       <View style={styles.header}>
         <Text style={styles.monthTitle}>
@@ -158,6 +165,11 @@ export function CalendarScreen() {
         activity={raceActivity}
         visible={!!raceActivity}
         onClose={() => setRaceActivity(null)}
+      />
+      <AddActivityModal
+        visible={addModalOpen}
+        prefillDate={selectedDate ?? undefined}
+        onClose={() => setAddModalOpen(false)}
       />
     </View>
   )
