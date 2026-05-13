@@ -7,7 +7,6 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { DayDetailModal } from '@/screens/DayDetailModal'
-import type { Activity } from '@/types/activity'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateActivity } from '@/services/sheets'
 import {
