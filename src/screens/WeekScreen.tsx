@@ -9,6 +9,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
+import { RaceModal } from '@/screens/RaceModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateActivity } from '@/services/sheets'
@@ -36,8 +37,9 @@ export function WeekScreen() {
   const showToast = useUiStore(s => s.showToast)
   useActivities()
 
-  const swipe = useSwipeAnimation(weekOffset)
+  const swipeAnim = useSwipeAnimation(weekOffset)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
   const todayStr  = toDateString(new Date())
 
@@ -160,7 +162,7 @@ export function WeekScreen() {
 
       {/* Rows */}
       <Animated.ScrollView
-        style={[styles.scroll, swipe.style]}
+        style={[styles.scroll, swipeAnim.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         {...swipePan.panHandlers}
@@ -179,13 +181,13 @@ export function WeekScreen() {
                 activity={activity}
                 isToday={date === todayStr}
                 isPast={date < todayStr}
-                onPress={() => setSelectedActivity(activity)}
+                onPress={() => activity.type === 'race' ? setRaceActivity(activity) : setSelectedActivity(activity)}
                 onLongPress={handleLongPress}
               />
             ))
           )
         )}
-        <View style={{ height: Spacing.xl }} />
+        <View style={{ height: 100 }} />
       </Animated.ScrollView>
 
       <DayDetailModal
@@ -196,6 +198,11 @@ export function WeekScreen() {
       <AddActivityModal
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
+      />
+      <RaceModal
+        activity={raceActivity}
+        visible={!!raceActivity}
+        onClose={() => setRaceActivity(null)}
       />
     </View>
   )

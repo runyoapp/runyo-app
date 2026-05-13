@@ -18,6 +18,7 @@ import { AppHeader } from '@/components/shared/AppHeader'
 import { Toast } from '@/components/shared/Toast'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
+import { RaceModal } from '@/screens/RaceModal'
 import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
@@ -53,9 +54,10 @@ export function TodayScreen() {
   const { isLoading, refetch } = useActivities()
 
   // Local UI state
-  const swipe = useSwipeAnimation(dayOffset)
+  const swipeAnim = useSwipeAnimation(dayOffset)
   const [editingFeedback,  setEditingFeedback]  = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
 
   const swipe = useRef({ x: 0 })
@@ -107,12 +109,12 @@ export function TodayScreen() {
         onAddPress={() => setAddModalOpen(true)}
         onRacePress={datum => {
           const race = activities.find(a => a.datum === datum && a.type === 'race')
-          if (race) setSelectedActivity(race)
+          if (race) setRaceActivity(race)
         }}
       />
 
       <Animated.ScrollView
-        style={[styles.scroll, swipe.style]}
+        style={[styles.scroll, swipeAnim.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         {...panResponder.panHandlers}
@@ -152,7 +154,7 @@ export function TodayScreen() {
               <HeroCard
                 key={row.id}
                 activity={row}
-                onPress={() => setSelectedActivity(row)}
+                onPress={() => row.type === 'race' ? setRaceActivity(row) : setSelectedActivity(row)}
                 onFeedbackPress={() => setEditingFeedback(true)}
               />
             ))}
@@ -182,7 +184,7 @@ export function TodayScreen() {
           />
         )}
 
-        <View style={{ height: Spacing.xl }} />
+        <View style={{ height: 100 }} />
       </Animated.ScrollView>
 
       <Toast />
@@ -195,6 +197,11 @@ export function TodayScreen() {
         visible={addModalOpen}
         prefillDate={dateStr}
         onClose={() => setAddModalOpen(false)}
+      />
+      <RaceModal
+        activity={raceActivity}
+        visible={!!raceActivity}
+        onClose={() => setRaceActivity(null)}
       />
     </View>
   )

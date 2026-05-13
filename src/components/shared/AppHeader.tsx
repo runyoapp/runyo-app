@@ -38,10 +38,11 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       <View style={styles.header}>
         <Text style={styles.logo}>runyo</Text>
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.addBtn} onPress={onAddPress}>
-            <Text style={styles.addBtnText}>+</Text>
-          </TouchableOpacity>
-
+          {!showRacesBar && (
+            <TouchableOpacity style={styles.addBtn} onPress={onAddPress}>
+              <Text style={styles.addBtnText}>+</Text>
+            </TouchableOpacity>
+          )}
           {tokenSet ? (
             <TouchableOpacity
               style={styles.avatar}
@@ -63,11 +64,17 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       </View>
 
       {showRacesBar && (
-        <RacesBar
-          activities={activities}
-          onRacePress={datum => onRacePress?.(datum)}
-        />
+        <>
+          <RacesBar
+            activities={activities}
+            onRacePress={datum => onRacePress?.(datum)}
+          />
+          <TouchableOpacity style={styles.addBelowBar} onPress={onAddPress}>
+            <Text style={styles.addBelowText}>+ Activiteit toevoegen</Text>
+          </TouchableOpacity>
+        </>
       )}
+      {!showRacesBar && null}
 
       {/* Avatar dropdown */}
       <Modal
@@ -119,6 +126,8 @@ const styles = StyleSheet.create({
   actions:           { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   addBtn:            { width: 32, height: 32, borderRadius: 16, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border, alignItems: 'center', justifyContent: 'center' },
   addBtnText:        { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, lineHeight: 24 },
+  addBelowBar:       { marginHorizontal: 16, marginBottom: 4, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' },
+  addBelowText:      { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.muted },
   avatar:            { width: 32, height: 32, borderRadius: 16, backgroundColor: LightTheme.accent, alignItems: 'center', justifyContent: 'center' },
   avatarText:        { fontFamily: Fonts.displayBold, fontSize: 14, color: LightTheme.accentInk },
   signInBtn:         { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: 999, borderWidth: 1, borderColor: LightTheme.border, backgroundColor: LightTheme.surface },

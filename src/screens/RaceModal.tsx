@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -140,10 +140,15 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
         <TextInput style={[styles.input, styles.textarea]} value={notes} onChangeText={setNotes} placeholder="Parcours, strategie…" placeholderTextColor={LightTheme.faint} multiline numberOfLines={3} textAlignVertical="top" />
       </Field>
 
-      <View style={styles.mainGoalRow}>
-        <Text style={styles.mainGoalLabel}>Hoofddoel</Text>
-        <Switch value={mainGoal} onValueChange={setMainGoal} trackColor={{ true: LightTheme.accent }} thumbColor="#fff" />
-      </View>
+      <TouchableOpacity style={styles.mainGoalRow} onPress={() => setMainGoal(v => !v)}>
+        <View style={[styles.checkbox, mainGoal && styles.checkboxActive]}>
+          {mainGoal && <Text style={styles.checkMark}>✓</Text>}
+        </View>
+        <View>
+          <Text style={styles.mainGoalLabel}>Hoofddoel</Text>
+          <Text style={styles.mainGoalSub}>Markeer als belangrijkste race</Text>
+        </View>
+      </TouchableOpacity>
 
       <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={handleSave} disabled={saving}>
         <Text style={styles.saveBtnText}>{saving ? 'Opslaan…' : 'Race opslaan'}</Text>
@@ -169,8 +174,12 @@ const styles = StyleSheet.create({
   chipActive:     { backgroundColor: LightTheme.accent, borderColor: LightTheme.accent },
   chipText:       { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
   chipTextActive: { color: '#fff' },
-  mainGoalRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mainGoalRow:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  checkbox:       { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: LightTheme.border, backgroundColor: LightTheme.surface, alignItems: 'center', justifyContent: 'center' },
+  checkboxActive: { backgroundColor: LightTheme.accent, borderColor: LightTheme.accent },
+  checkMark:      { fontFamily: Fonts.displayBold, fontSize: 13, color: '#fff', lineHeight: 18 },
   mainGoalLabel:  { fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
+  mainGoalSub:    { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted, marginTop: 1 },
   saveBtn:        { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
   saveBtnDisabled:{ opacity: 0.5 },
   saveBtnText:    { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: '#fff' },
