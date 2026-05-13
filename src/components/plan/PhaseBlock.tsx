@@ -11,9 +11,10 @@ type Props = {
   today: string
   onToggle: () => void
   onEdit: (activity: Activity) => void
+  onTodayLayout?: (y: number) => void
 }
 
-export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Props) {
+export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, onTodayLayout }: Props) {
   const sorted    = [...rows].sort((a, b) => a.datum.localeCompare(b.datum))
   const startDate = sorted[0]?.datum
   const endDate   = sorted[sorted.length - 1]?.datum
@@ -53,9 +54,16 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Prop
         <Text style={styles.num}>{num}</Text>
         <Text style={styles.name} numberOfLines={1}>{shortName}</Text>
         {!!weeks && <Text style={styles.weeks}>{weeks}</Text>}
-        <Text style={styles.status}>
-          {allPast ? '✓' : isCurrent ? '→' : ''}
-        </Text>
+        {allPast && (
+          <View style={[styles.badge, styles.badgeDone]}>
+            <Text style={styles.badgeText}>✓</Text>
+          </View>
+        )}
+        {isCurrent && (
+          <View style={[styles.badge, styles.badgeCurrent]}>
+            <Text style={[styles.badgeText, styles.badgeTextCurrent]}>→</Text>
+          </View>
+        )}
         <Text style={[styles.chevron, isOpen && styles.chevronOpen]}>›</Text>
       </TouchableOpacity>
 
@@ -69,6 +77,9 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Prop
               isToday={datum === today}
               isPast={datum < today}
               onEdit={onEdit}
+              onLayout={datum === today && onTodayLayout
+                ? (e: any) => onTodayLayout(e.nativeEvent.layout.y)
+                : undefined}
             />
           ))}
         </View>
@@ -78,15 +89,19 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Prop
 }
 
 const styles = StyleSheet.create({
-  block:         { marginBottom: 4 },
-  header:        { flexDirection: 'row', alignItems: 'center', backgroundColor: LightTheme.surface, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, gap: Spacing.sm },
-  headerCurrent: { borderLeftWidth: 3, borderLeftColor: LightTheme.accent },
-  headerPast:    { opacity: 0.6 },
-  num:           { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.faint, width: 24 },
-  name:          { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text, flex: 1 },
-  weeks:         { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
-  status:        { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.accent, width: 16, textAlign: 'center' },
-  chevron:       { fontFamily: Fonts.display, fontSize: 16, color: LightTheme.faint },
-  chevronOpen:   { transform: [{ rotate: '90deg' }] },
-  rows:          { paddingTop: Spacing.xs },
+  block:            { marginBottom: 4 },
+  header:           { flexDirection: 'row', alignItems: 'center', backgroundColor: LightTheme.surface, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, gap: Spacing.sm },
+  headerCurrent:    { borderLeftWidth: 3, borderLeftColor: LightTheme.accent },
+  headerPast:       { opacity: 0.6 },
+  num:              { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.faint, width: 24 },
+  name:             { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text, flex: 1 },
+  weeks:            { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
+  badge:            { paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.pill },
+  badgeDone:        { backgroundColor: 'rgba(0,185,142,0.12)' },
+  badgeCurrent:     { backgroundColor: LightTheme.accent },
+  badgeText:        { fontFamily: Fonts.displayBold, fontSize: 11, color: LightTheme.accent },
+  badgeTextCurrent: { color: '#fff' },
+  chevron:          { fontFamily: Fonts.display, fontSize: 16, color: LightTheme.faint },
+  chevronOpen:      { transform: [{ rotate: '90deg' }] },
+  rows:             { paddingTop: Spacing.xs },
 })

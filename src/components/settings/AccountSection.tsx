@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { signInWithGoogle } from '@/services/auth'
+import { loadAppDataSettings } from '@/services/drive'
 import { useUiStore } from '@/stores/uiStore'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useState } from 'react'
@@ -13,6 +14,7 @@ export function AccountSection() {
   const signOut     = useAuthStore(s => s.signOut)
   const clearSchema = useDataStore(s => s.clearSchema)
   const resetPrefs  = useSettingsStore(s => s.setTelegramUser)
+  const setPrefs    = useSettingsStore(s => s.setPrefs)
   const showToast   = useUiStore(s => s.showToast)
   const [loading, setLoading] = useState(false)
 
@@ -21,6 +23,10 @@ export function AccountSection() {
     try {
       const tokenSet = await signInWithGoogle()
       setTokenSet(tokenSet)
+      // Sync Drive appData settings after sign-in
+      loadAppDataSettings(tokenSet.accessToken).then(saved => {
+        if (saved.prefs) setPrefs(saved.prefs)
+      }).catch(() => {})
     } catch (e: any) {
       if (e?.message !== 'Auth cancelled') showToast('Inloggen mislukt')
     } finally {

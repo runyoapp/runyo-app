@@ -34,6 +34,17 @@ export async function fetchActivities(
     .filter(Boolean) as Activity[]
 }
 
+export async function appendAndSort(
+  sheetId: string,
+  tabName: string,
+  token: string,
+  activity: Omit<Activity, 'id' | 'createdAt' | 'updatedAt'>,
+): Promise<void> {
+  await appendActivity(sheetId, tabName, token, activity)
+  const tabId = await getSheetTabId(sheetId, tabName, token).catch(() => 0)
+  if (tabId) await sortSheet(sheetId, tabId, token).catch(() => {})
+}
+
 export async function appendActivity(
   sheetId: string,
   tabName: string,

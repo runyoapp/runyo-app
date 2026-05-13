@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     borderColor: LightTheme.accent,
   },
   rowPast: {
-    opacity: 0.6,
+    opacity: 0.45,
   },
   bar: {
     width: 4,

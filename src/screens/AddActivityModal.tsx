@@ -4,7 +4,7 @@ import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { appendActivity } from '@/services/sheets'
+import { appendAndSort } from '@/services/sheets'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { toDateString } from '@/utils/date'
@@ -41,7 +41,7 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
     setSaving(true)
     try {
       const kmVal = parseFloat(km) || null
-      await appendActivity(sheetId, tabName, token, {
+      await appendAndSort(sheetId, tabName, token, {
         datum, titel, type, km: kmVal, detail, feedback: null, fase: null, raceType: null,
       })
       upsertActivity({
