@@ -16,6 +16,7 @@ type Props = {
 }
 
 export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: Props) {
+  const theme   = useTheme()
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label   = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
   const date    = fromDateString(activity.datum)
@@ -23,7 +24,7 @@ export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: 
 
   return (
     <TouchableOpacity
-      style={[styles.row, isToday && styles.rowToday, isPast && styles.rowPast]}
+      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && styles.rowPast]}
       onPress={onPress}
       onLongPress={() => onLongPress(activity)}
       delayLongPress={400}

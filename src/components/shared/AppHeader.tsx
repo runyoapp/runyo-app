@@ -18,6 +18,7 @@ type Props = {
 
 export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Props) {
   const navigation   = useNavigation()
+  const theme        = useTheme()
   const tokenSet     = useAuthStore(s => s.tokenSet)
   const signOut      = useAuthStore(s => s.signOut)
   const clearSchema  = useDataStore(s => s.clearSchema)
@@ -35,7 +36,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   }
 
   return (
-    <View>
+    <View style={{ backgroundColor: theme.bg }}>
       <View style={styles.header}>
         <Text style={styles.logo}>runyo</Text>
         <View style={styles.actions}>
@@ -85,7 +86,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
         onRequestClose={() => setDropdownOpen(false)}
       >
         <Pressable style={styles.overlay} onPress={() => setDropdownOpen(false)}>
-          <View style={styles.dropdown}>
+          <View style={[styles.dropdown, { backgroundColor: theme.surface }]}>
             <View style={styles.dropdownEmail}>
               <Text style={styles.dropdownEmailText} numberOfLines={1}>{tokenSet?.email}</Text>
             </View>

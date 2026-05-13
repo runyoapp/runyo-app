@@ -12,6 +12,7 @@ type Props = {
 
 export function ModalSheet({ visible, title, onClose, children }: Props) {
   const insets = useSafeAreaInsets()
+  const theme  = useTheme()
 
   return (
     <Modal
@@ -21,7 +22,7 @@ export function ModalSheet({ visible, title, onClose, children }: Props) {
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={styles.root}
+        style={[styles.root, { backgroundColor: theme.bg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>

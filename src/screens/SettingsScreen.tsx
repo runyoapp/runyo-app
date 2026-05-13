@@ -11,9 +11,10 @@ import { useTheme } from '@/hooks/useTheme'
 export function SettingsScreen() {
   const insets     = useSafeAreaInsets()
   const navigation = useNavigation()
+  const theme      = useTheme()
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xxl }]}
@@ -49,10 +50,11 @@ export function SettingsScreen() {
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme()
   return (
     <View style={sectionStyles.container}>
       <Text style={sectionStyles.title}>{title}</Text>
-      <View style={sectionStyles.body}>{children}</View>
+      <View style={[sectionStyles.body, { backgroundColor: theme.surface }]}>{children}</View>
     </View>
   )
 }

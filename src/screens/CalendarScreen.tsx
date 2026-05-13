@@ -23,6 +23,7 @@ export function CalendarScreen() {
   const setCalDate = useDataStore(s => s.setCalDate)
   useActivities()
 
+  const theme      = useTheme()
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -76,7 +77,7 @@ export function CalendarScreen() {
   )]
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <AppHeader
         onAddPress={() => setAddModalOpen(true)}
         showRacesBar={false}
@@ -134,7 +135,7 @@ export function CalendarScreen() {
               const colors = ActivityColors[row.type as ActivityType] ?? ActivityColors.run
               const label  = TYPE_DISPLAY[row.type as ActivityType]?.nl ?? row.type
               return (
-                <TouchableOpacity key={row.id} style={styles.dayCard} activeOpacity={0.8}>
+                <TouchableOpacity key={row.id} style={[styles.dayCard, { backgroundColor: theme.surface }]} activeOpacity={0.8}>
                   <View style={[styles.dayCardBar, { backgroundColor: colors.text }]} />
                   <View style={styles.dayCardBody}>
                     <Text style={styles.dayCardLabel}>{label}</Text>

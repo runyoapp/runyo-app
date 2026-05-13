@@ -4,6 +4,7 @@ import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
 export function PrefsSection() {
+  const theme    = useTheme()
   const prefs    = useSettingsStore(s => s.prefs)
   const setPrefs = useSettingsStore(s => s.setPrefs)
 

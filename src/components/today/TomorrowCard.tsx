@@ -13,13 +13,14 @@ type Props = {
 }
 
 export function TomorrowCard({ activity, onPress }: Props) {
+  const theme  = useTheme()
   const tmr    = addDays(new Date(), 1)
   const colors = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label  = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
   const dayStr = `${DAYS_NL[mondayIndex(tmr)]} ${tmr.getDate()}`
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface }]} onPress={onPress} activeOpacity={0.85}>
       <View style={[styles.bar, { backgroundColor: colors.text }]} />
       <View style={styles.body}>
         <Text style={styles.label}>Morgen · {dayStr}</Text>

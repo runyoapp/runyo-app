@@ -10,6 +10,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { useState } from 'react'
 
 export function AccountSection() {
+  const theme       = useTheme()
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const signOut     = useAuthStore(s => s.signOut)

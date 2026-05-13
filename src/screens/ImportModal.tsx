@@ -52,6 +52,7 @@ type ParsedRow = {
 type InputMode = 'text' | 'file' | 'photo'
 
 export function ImportModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const theme          = useTheme()
   const getToken       = useAuthStore(s => s.getToken)
   const setSchema      = useDataStore(s => s.setSchema)
   const setActivities  = useDataStore(s => s.setActivities)

@@ -16,6 +16,7 @@ type Props = {
 }
 
 export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, onTodayLayout }: Props) {
+  const theme = useTheme()
   const sorted    = [...rows].sort((a, b) => a.datum.localeCompare(b.datum))
   const startDate = sorted[0]?.datum
   const endDate   = sorted[sorted.length - 1]?.datum
@@ -48,7 +49,7 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, onToda
   return (
     <View style={styles.block}>
       <TouchableOpacity
-        style={[styles.header, isCurrent && styles.headerCurrent, allPast && styles.headerPast]}
+        style={[styles.header, { backgroundColor: theme.surface }, isCurrent && styles.headerCurrent, allPast && styles.headerPast]}
         onPress={onToggle}
         activeOpacity={0.75}
       >

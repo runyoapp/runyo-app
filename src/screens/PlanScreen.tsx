@@ -56,7 +56,7 @@ export function PlanScreen() {
   // No schema / no data states
   if (!sheetId) {
     return (
-      <View style={[styles.root, styles.empty, { paddingTop: insets.top }]}>
+      <View style={[styles.root, styles.empty, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
         <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
         <Text style={styles.emptySub}>Koppel je schema via Instellingen.</Text>
       </View>
@@ -65,7 +65,7 @@ export function PlanScreen() {
 
   if (!activities.length) {
     return (
-      <View style={[styles.root, styles.empty, { paddingTop: insets.top }]}>
+      <View style={[styles.root, styles.empty, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
         <Text style={styles.emptyTitle}>Geen data</Text>
         <Text style={styles.emptySub}>Je schema is leeg of wordt geladen.</Text>
       </View>
@@ -73,7 +73,7 @@ export function PlanScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <AppHeader onAddPress={() => setAddModalOpen(true)} />
       <ScrollView
         ref={scrollRef}

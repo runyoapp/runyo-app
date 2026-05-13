@@ -8,6 +8,7 @@ import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
 export function NotifSection() {
+  const theme          = useTheme()
   const getToken       = useAuthStore(s => s.getToken)
   const telegramUser   = useSettingsStore(s => s.telegramUser)
   const notifications  = useSettingsStore(s => s.notifications)

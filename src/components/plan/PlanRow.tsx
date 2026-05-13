@@ -16,6 +16,7 @@ type Props = {
 }
 
 export function PlanRow({ datum, rows, isToday, isPast, onEdit, onLayout }: Props) {
+  const theme    = useTheme()
   const [expanded, setExpanded] = useState(isToday)
   const d        = fromDateString(datum)
   const dayName  = DAYS_NL[mondayIndex(d)]
@@ -30,7 +31,7 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit, onLayout }: Prop
 
   return (
     <TouchableOpacity
-      style={[styles.row, isToday && styles.rowToday, isPast && styles.rowPast]}
+      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && styles.rowPast]}
       onPress={() => setExpanded(e => !e)}
       onLayout={onLayout}
       activeOpacity={0.8}

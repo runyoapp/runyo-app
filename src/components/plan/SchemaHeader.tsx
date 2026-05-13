@@ -12,6 +12,7 @@ function fmt(dateStr: string): string {
 }
 
 export function SchemaHeader({ activities }: Props) {
+  const theme     = useTheme()
   const today     = new Date().toISOString().split('T')[0]
   const allRows   = activities.filter(a => a.datum)
   const totalKm   = allRows.reduce((s, a) => s + (a.km ?? 0), 0)
@@ -32,7 +33,7 @@ export function SchemaHeader({ activities }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Text style={styles.kicker}>
         training{totalKm > 0 ? ` · ${Math.round(totalKm)} km` : ''}
       </Text>

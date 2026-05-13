@@ -13,6 +13,7 @@ const PR_DISTANCES = ['1 km', '5 km', '10 km', '10 mile', 'Halve marathon', 'Mar
 type Props = { visible: boolean; onClose: () => void }
 
 export function StatsModal({ visible, onClose }: Props) {
+  const theme      = useTheme()
   const activities = useDataStore(s => s.activities)
   const prs        = useDataStore(s => s.prs)
   const setPrs     = useDataStore(s => s.setPrs)
@@ -63,15 +64,15 @@ export function StatsModal({ visible, onClose }: Props) {
     <ModalSheet visible={visible} title="Statistieken" onClose={onClose}>
       {/* Summary row */}
       <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { backgroundColor: theme.surface }]}>
           <Text style={styles.summaryVal}>{Math.round(totalKm)}</Text>
           <Text style={styles.summaryLabel}>km totaal</Text>
         </View>
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { backgroundColor: theme.surface }]}>
           <Text style={styles.summaryVal}>{totalRuns}</Text>
           <Text style={styles.summaryLabel}>runs</Text>
         </View>
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { backgroundColor: theme.surface }]}>
           <Text style={styles.summaryVal}>{past.length}</Text>
           <Text style={styles.summaryLabel}>activiteiten</Text>
         </View>

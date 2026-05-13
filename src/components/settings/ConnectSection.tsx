@@ -125,6 +125,7 @@ function UrlLinker({ onLink }: { onLink: (entry: SchemaEntry) => void }) {
 type Panel = 'history' | 'new' | 'url' | null
 
 export function ConnectSection() {
+  const theme         = useTheme()
   const getToken      = useAuthStore(s => s.getToken)
   const tokenSet      = useAuthStore(s => s.tokenSet)
   const sheetId       = useDataStore(s => s.sheetId)

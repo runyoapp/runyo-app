@@ -22,6 +22,7 @@ function parseExisting(existing: string | null): { rating: number; text: string 
 }
 
 export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
+  const theme    = useTheme()
   const parsed  = parseExisting(existing)
   const [rating, setRating] = useState(parsed.rating)
   const [text,   setText]   = useState(parsed.text)
@@ -36,7 +37,7 @@ export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.surface }]}>
       <Text style={styles.title}>Hoe was je training?</Text>
       <View style={styles.stars}>
         {EMOJIS.map((emoji, i) => {
@@ -80,8 +81,9 @@ export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
 }
 
 export function FeedbackDisplay({ feedback, onEdit }: { feedback: string; onEdit: () => void }) {
+  const theme = useTheme()
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.surface }]}>
       <View style={styles.displayHeader}>
         <Text style={styles.displayLabel}>Beoordeling opgeslagen</Text>
         <TouchableOpacity onPress={onEdit}>

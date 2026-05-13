@@ -31,6 +31,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function DayDetailModal({ activity, visible, onClose }: Props) {
+  const theme         = useTheme()
   const getToken      = useAuthStore(s => s.getToken)
   const sheetId       = useDataStore(s => s.sheetId)
   const tabName       = useDataStore(s => s.tabName)
@@ -123,7 +124,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
     <ModalSheet visible={visible} title={dayLabel} onClose={onClose}>
       {/* Activity display */}
       {!editing && (
-        <View style={styles.displayCard}>
+        <View style={[styles.displayCard, { backgroundColor: theme.surface }]}>
           <View style={styles.badgeRow}>
             <View style={[styles.typeDot, { backgroundColor: colors.text }]} />
             <Text style={styles.typeLabel}>{typeLabel}</Text>

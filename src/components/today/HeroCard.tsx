@@ -12,6 +12,7 @@ type Props = {
 }
 
 export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
+  const theme    = useTheme()
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label    = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
   const hasFb    = !!activity.feedback
@@ -27,7 +28,7 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
   const hasStats   = paceMatch ?? hrMatch ?? duurMatch
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface }]} onPress={onPress} activeOpacity={0.85}>
       {/* Type badge */}
       <View style={styles.badge}>
         <View style={[styles.dot, { backgroundColor: colors.text }]} />
@@ -93,8 +94,9 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
 }
 
 export function RestCard() {
+  const theme = useTheme()
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.surface }]}>
       <View style={styles.restInner}>
         <Text style={styles.restEmoji}>😴</Text>
         <View>

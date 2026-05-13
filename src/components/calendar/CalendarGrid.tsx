@@ -39,6 +39,7 @@ type Props = {
 }
 
 export function CalendarGrid({ year, month, activities, selectedDate, onSelectDate }: Props) {
+  const theme = useTheme()
   const today = toDateString(new Date())
   const cells  = buildCells(year, month)
 

@@ -18,6 +18,7 @@ type Props = {
 }
 
 export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
+  const theme          = useTheme()
   const getToken       = useAuthStore(s => s.getToken)
   const sheetId        = useDataStore(s => s.sheetId)
   const tabName        = useDataStore(s => s.tabName)
