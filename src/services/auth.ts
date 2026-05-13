@@ -31,6 +31,7 @@ const discovery = AuthSession.useAutoDiscovery
 
 export function useGoogleAuth() {
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'runyo' })
+  console.log('[auth] redirectUri:', redirectUri)
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
