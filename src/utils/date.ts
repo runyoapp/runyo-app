@@ -57,3 +57,23 @@ export function formatDayLabel(date: Date, dayOffset: number, lang: 'nl' | 'en')
   if (dayOffset === 0) return `${days[mondayIndex(date)]} · vandaag`
   return `${days[mondayIndex(date)]} ${date.getDate()} ${months[date.getMonth()]}`
 }
+
+// Returns 7 YYYY-MM-DD strings for the week that is `weekOffset` weeks from now (Mon–Sun)
+export function getWeekDates(weekOffset: number): string[] {
+  const n = new Date()
+  n.setHours(12, 0, 0, 0)
+  n.setDate(n.getDate() + weekOffset * 7)
+  const dow = n.getDay()
+  n.setDate(n.getDate() - (dow === 0 ? 6 : dow - 1))  // rewind to Monday
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(n)
+    d.setDate(n.getDate() + i)
+    return toDateString(d)
+  })
+}
+
+// ISO 8601 week number
+export function getISOWeekNumber(date: Date): number {
+  const jan4 = new Date(date.getFullYear(), 0, 4)
+  return Math.ceil(((date.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7)
+}
