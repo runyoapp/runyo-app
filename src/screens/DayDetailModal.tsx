@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
@@ -41,12 +41,23 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const [editing, setEditing]   = useState(false)
   const [saving,  setSaving]    = useState(false)
 
-  // Edit fields
-  const [datum,  setDatum]  = useState(activity?.datum  ?? '')
-  const [titel,  setTitel]  = useState(activity?.titel  ?? '')
-  const [type,   setType]   = useState<ActivityType>((activity?.type as ActivityType) ?? 'run')
-  const [km,     setKm]     = useState(activity?.km != null ? String(activity.km) : '')
-  const [detail, setDetail] = useState(activity?.detail ?? '')
+  // Edit fields — sync whenever the activity changes
+  const [datum,  setDatum]  = useState('')
+  const [titel,  setTitel]  = useState('')
+  const [type,   setType]   = useState<ActivityType>('run')
+  const [km,     setKm]     = useState('')
+  const [detail, setDetail] = useState('')
+
+  useEffect(() => {
+    if (activity) {
+      setDatum(activity.datum)
+      setTitel(activity.titel ?? '')
+      setType((activity.type as ActivityType) ?? 'run')
+      setKm(activity.km != null ? String(activity.km) : '')
+      setDetail(activity.detail ?? '')
+      setEditing(false)
+    }
+  }, [activity?.id])
 
   if (!activity) return null
 
