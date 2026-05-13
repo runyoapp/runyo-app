@@ -41,7 +41,7 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit }: Props) {
         <View style={[styles.typeDot, { backgroundColor: colors.text }]} />
         <View style={styles.bodyBlock}>
           <Text style={styles.titleText} numberOfLines={1}>
-            {rows.map(r => r.titel || TYPE_DISPLAY[r.type as ActivityType]?.nl ?? r.type).join(' · ')}
+            {rows.map(r => r.titel || (TYPE_DISPLAY[r.type as ActivityType]?.nl ?? r.type)).join(' · ')}
           </Text>
         </View>
         {hasKm && (
