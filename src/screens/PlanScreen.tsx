@@ -91,7 +91,7 @@ export function PlanScreen() {
               isOpen={true}
               today={today}
               onToggle={() => {}}
-              onEdit={handleEdit}
+              onEdit={setSelectedActivity}
             />
           )}
         </View>
