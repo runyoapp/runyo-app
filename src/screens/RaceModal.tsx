@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch } from 'react-native'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
@@ -27,16 +27,30 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
 
   const isEdit = !!activity
 
-  const [name,       setName]       = useState(activity?.titel ?? '')
-  const [date,       setDate]       = useState(activity?.datum ?? prefillDate ?? '')
-  const [distSel,    setDistSel]    = useState(DISTANCES.includes(String(activity?.km ?? '')) ? String(activity?.km) : (activity?.km != null ? '__custom' : ''))
-  const [distCustom, setDistCustom] = useState(DISTANCES.includes(String(activity?.km ?? '')) ? '' : String(activity?.km ?? ''))
-  const [typeSel,    setTypeSel]    = useState(RACE_TYPES.includes(activity?.raceType ?? '') ? activity?.raceType ?? '' : (activity?.raceType ? '__custom' : ''))
-  const [typeCustom, setTypeCustom] = useState(RACE_TYPES.includes(activity?.raceType ?? '') ? '' : activity?.raceType ?? '')
+  const [name,       setName]       = useState('')
+  const [date,       setDate]       = useState('')
+  const [distSel,    setDistSel]    = useState('')
+  const [distCustom, setDistCustom] = useState('')
+  const [typeSel,    setTypeSel]    = useState('')
+  const [typeCustom, setTypeCustom] = useState('')
   const [goal,       setGoal]       = useState('')
-  const [notes,      setNotes]      = useState(activity?.detail?.replace(/\s*\(Doel:[^)]*\)/g, '') ?? '')
+  const [notes,      setNotes]      = useState('')
   const [mainGoal,   setMainGoal]   = useState(false)
   const [saving,     setSaving]     = useState(false)
+
+  useEffect(() => {
+    const km = activity?.km != null ? String(activity.km) : ''
+    const rt = activity?.raceType ?? ''
+    setName(activity?.titel ?? '')
+    setDate(activity?.datum ?? prefillDate ?? '')
+    setDistSel(DISTANCES.includes(km) ? km : km ? '__custom' : '')
+    setDistCustom(DISTANCES.includes(km) ? '' : km)
+    setTypeSel(RACE_TYPES.includes(rt) ? rt : rt ? '__custom' : '')
+    setTypeCustom(RACE_TYPES.includes(rt) ? '' : rt)
+    setGoal(activity?.detail?.match(/\(Doel:\s*([^)]+)\)/)?.[1] ?? '')
+    setNotes(activity?.detail?.replace(/\s*\(Doel:[^)]*\)/g, '').trim() ?? '')
+    setMainGoal(false)
+  }, [activity?.id, prefillDate])
 
   const dist      = distSel === '__custom' ? distCustom : distSel
   const raceType  = typeSel === '__custom' ? typeCustom : typeSel

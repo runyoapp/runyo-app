@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
+import { useEffect, useState, useRef } from 'react'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import { useShallow } from 'zustand/react/shallow'
@@ -69,6 +69,16 @@ export function TodayScreen() {
   // Local UI state
   const [editingFeedback, setEditingFeedback] = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+
+  const swipe = useRef({ x: 0 })
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
+    onPanResponderGrant: e => { swipe.current.x = e.nativeEvent.pageX },
+    onPanResponderRelease: (_, g) => {
+      if (Math.abs(g.dx) > 50) setDayOffset(dayOffset + (g.dx < 0 ? 1 : -1))
+    },
+  })
 
   // Derived
   const isSignedIn   = !!tokenSet
@@ -141,6 +151,7 @@ export function TodayScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        {...panResponder.panHandlers}
       >
         {/* Day strip — always visible */}
         <DayStrip

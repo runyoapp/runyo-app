@@ -26,7 +26,7 @@ export function RootNavigator() {
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
-            options={{ headerShown: true, title: 'Instellingen', presentation: 'card' }}
+            options={{ headerShown: false, presentation: 'modal' }}
           />
         </>
       )}

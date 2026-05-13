@@ -1,5 +1,6 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
 import { AccountSection } from '@/components/settings/AccountSection'
 import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
@@ -7,17 +8,25 @@ import { PrefsSection } from '@/components/settings/PrefsSection'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 
 export function SettingsScreen() {
-  const insets = useSafeAreaInsets()
+  const insets     = useSafeAreaInsets()
+  const navigation = useNavigation()
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Text style={styles.pageTitle}>Profiel</Text>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xxl }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Title row — inside scroll so it scrolls away */}
+        <View style={styles.titleRow}>
+          <Text style={styles.pageTitle}>Profiel</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+            <Text style={styles.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
         <Section title="Account">
           <AccountSection />
         </Section>
@@ -33,8 +42,6 @@ export function SettingsScreen() {
         <Section title="Voorkeuren">
           <PrefsSection />
         </Section>
-
-        <View style={{ height: Spacing.xxl * 2 }} />
       </ScrollView>
     </View>
   )
@@ -51,9 +58,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const styles = StyleSheet.create({
   root:          { flex: 1, backgroundColor: LightTheme.bg },
-  pageTitle:     { fontFamily: Fonts.displayBold, fontSize: 28, color: LightTheme.text, letterSpacing: -0.5, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: Spacing.lg },
+  titleRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.lg },
+  pageTitle:     { fontFamily: Fonts.displayBold, fontSize: 28, color: LightTheme.text, letterSpacing: -0.5 },
+  closeBtn:      { padding: Spacing.sm },
+  closeBtnText:  { fontFamily: Fonts.display, fontSize: 20, color: LightTheme.muted },
 })
 
 const sectionStyles = StyleSheet.create({

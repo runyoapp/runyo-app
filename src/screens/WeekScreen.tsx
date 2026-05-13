@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
@@ -35,6 +35,14 @@ export function WeekScreen() {
 
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const todayStr  = toDateString(new Date())
+
+  const swipePan = PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
+    onPanResponderRelease: (_, g) => {
+      if (Math.abs(g.dx) > 50) setWeekOffset(weekOffset + (g.dx < 0 ? 1 : -1))
+    },
+  })
   const weekDates = getWeekDates(weekOffset)
   const d0        = fromDateString(weekDates[0])
   const d6        = fromDateString(weekDates[6])
@@ -149,6 +157,7 @@ export function WeekScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        {...swipePan.panHandlers}
       >
         {weekData.length === 0 ? (
           <View style={styles.emptyState}>
