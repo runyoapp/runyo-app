@@ -1,20 +1,19 @@
 import { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Switch, Alert,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  TextInput, Switch, ActivityIndicator,
 } from 'react-native'
+import Svg, { Circle } from 'react-native-svg'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { ModalSheet } from '@/components/shared/ModalSheet'
+import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
-import { useUiStore } from '@/stores/uiStore'
 import { createNewSheet, todaySchemaName } from '@/services/drive'
 import { appendActivity, verifyOrFixHeaders, getSheetTabId, sortSheet } from '@/services/sheets'
-import { LightTheme, Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
-import { useTheme } from '@/hooks/useTheme'
-import { TYPE_DISPLAY, ACTIVITY_TYPES } from '@/constants/activities'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import type { ActivityType } from '@/constants/activities'
 
 const BACKEND = 'https://runyo-auth-production.up.railway.app'
@@ -22,7 +21,7 @@ const DAY_LABELS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 
 const SYSTEM_PROMPT = `Je krijgt een trainingsschema (PDF, afbeelding, Excel of tekst).
 
-Eerste stap (kritiek): Scan naar de kern — zoek week/dag-structuren. Sla inleidingen, motivatie, algemene adviezen over.
+Eerste stap: Scan naar weken en dagroosters. Sla inleidingen en algemene adviezen over.
 
 Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 170 tekens), km (number|null), fase ("" altijd leeg).
 
@@ -31,117 +30,132 @@ Regels:
 2. Begindatum = eerste dag week 1. Elke week +7 dagen.
 3. REST/Off → type rust. Cross-Training → mobiliteit.
 4. Meerdere sessies per dag: combineer in één item.
-5. km: miles × 1.609, afronden op 1 decimaal. Ranges zonder afstand → null.
+5. km: miles × 1.609, afronden op 1 decimaal. Geen afstand → null.
 6. Output: chronologisch, één entry per dag.
 
-Schrijf eerst TITEL: (max 30 tekens, naam van het schema).
-Dan RAPPORT: (max 5 zinnen, plain language samenvatting voor de gebruiker).
-Dan direct de JSON array, geen markdown, geen \`\`\`json.`
+Schrijf eerst TITEL: (max 30 tekens).
+Dan WEKEN: (getal, bijv. "12").
+Dan PIEK: (hoogste weekvolume in km, bijv. "65 km").
+Dan RAPPORT: (max 3 zinnen plain language).
+Dan direct de JSON array, geen markdown.`
 
-type Step = 'input' | 'config' | 'preview' | 'importing'
+type Step = 'source' | 'picked' | 'processing' | 'preview' | 'success'
+type Source = 'pdf' | 'excel' | 'foto'
 
 type ParsedRow = {
-  datum: string
-  type: string
-  titel: string
-  detail: string
-  km: number | null
-  fase: string
+  datum: string; type: string; titel: string; detail: string; km: number | null; fase: string
 }
 
-type InputMode = 'text' | 'file' | 'photo'
+// ── Circular progress (SVG) ───────────────────────────────────────────────
+function CircleProgress({ pct, size = 80, color }: { pct: number; size: number; color: string }) {
+  const r   = (size - 12) / 2
+  const circ = 2 * Math.PI * r
+  return (
+    <Svg width={size} height={size}>
+      <Circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={6} />
+      <Circle
+        cx={size/2} cy={size/2} r={r} fill="none"
+        stroke={color} strokeWidth={6}
+        strokeDasharray={`${circ * pct / 100} ${circ}`}
+        strokeDashoffset={circ * 0.25}
+        strokeLinecap="round"
+        rotation={-90} originX={size/2} originY={size/2}
+      />
+    </Svg>
+  )
+}
+
+// ── Recognised info card ──────────────────────────────────────────────────
+function InfoCard({ label, value, p }: { label: string; value: string; p: any }) {
+  return (
+    <View style={[styles.infoCard, { backgroundColor: p.surface, borderColor: p.border }]}>
+      <Text style={[styles.infoLabel, { color: p.text }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: p.muted }]}>{value}</Text>
+    </View>
+  )
+}
 
 export function ImportModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const theme          = useTheme()
-  const getToken       = useAuthStore(s => s.getToken)
-  const setSchema      = useDataStore(s => s.setSchema)
-  const setActivities  = useDataStore(s => s.setActivities)
-  const showToast      = useUiStore(s => s.showToast)
+  const theme      = useTheme()
+  const getToken   = useAuthStore(s => s.getToken)
+  const setSchema  = useDataStore(s => s.setSchema)
 
-  const [step,       setStep]       = useState<Step>('input')
-  const [inputMode,  setInputMode]  = useState<InputMode>('text')
-  const [text,       setText]       = useState('')
-  const [fileName,   setFileName]   = useState('')
-  const [fileB64,    setFileB64]    = useState('')
-  const [fileMime,   setFileMime]   = useState('')
-  const [startDate,  setStartDate]  = useState(new Date().toISOString().split('T')[0])
-  const [runDays,    setRunDays]    = useState([0, 2, 4])
-  const [keepRest,   setKeepRest]   = useState(true)
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState('')
+  const [step,        setStep]        = useState<Step>('source')
+  const [source,      setSource]      = useState<Source>('pdf')
+  const [fileName,    setFileName]    = useState('')
+  const [fileB64,     setFileB64]     = useState('')
+  const [fileMime,    setFileMime]    = useState('')
+  const [progress,    setProgress]    = useState(0)
   const [schemaTitle, setSchemaTitle] = useState('')
-  const [rapport,    setRapport]    = useState('')
-  const [preview,    setPreview]    = useState<ParsedRow[]>([])
+  const [wekenStr,    setWekenStr]    = useState('')
+  const [piekStr,     setPiekStr]     = useState('')
+  const [rapport,     setRapport]     = useState('')
+  const [preview,     setPreview]     = useState<ParsedRow[]>([])
+  const [error,       setError]       = useState('')
+  const [startDate,   setStartDate]   = useState(new Date().toISOString().split('T')[0])
+  const [runDays,     setRunDays]     = useState([0, 2, 4])
+  const [keepRest,    setKeepRest]    = useState(true)
+  const [showConfig,  setShowConfig]  = useState(false)
 
   function reset() {
-    setStep('input'); setText(''); setFileName(''); setFileB64(''); setFileMime('')
-    setStartDate(new Date().toISOString().split('T')[0]); setRunDays([0, 2, 4]); setKeepRest(true)
-    setLoading(false); setError(''); setSchemaTitle(''); setRapport(''); setPreview([])
-    setInputMode('text')
+    setStep('source'); setFileName(''); setFileB64(''); setFileMime(''); setProgress(0)
+    setSchemaTitle(''); setWekenStr(''); setPiekStr(''); setRapport(''); setPreview([])
+    setError(''); setShowConfig(false)
+    setStartDate(new Date().toISOString().split('T')[0])
+    setRunDays([0, 2, 4]); setKeepRest(true)
   }
 
-  async function pickDocument() {
+  async function pickFile() {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',   // allow all — iOS filters by extension anyway
-        copyToCacheDirectory: true,
-      })
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true })
       if (result.canceled || !result.assets?.[0]) return
       const asset = result.assets[0]
       setFileName(asset.name)
       setFileMime(asset.mimeType ?? 'application/pdf')
-      setInputMode('file')
-      setFileB64('')          // clear while reading
-      setError('')
-      // Read base64 — may take a moment on large PDFs
-      const b64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      })
+      setFileB64('')
+      setStep('picked')
+      const b64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
       setFileB64(b64)
     } catch (e: any) {
-      setError(`Bestand kon niet worden geladen: ${e?.message ?? 'onbekende fout'}`)
+      setError(`Bestand laden mislukt: ${e?.message ?? ''}`)
     }
   }
 
   async function pickPhoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!perm.granted) { Alert.alert('Toegang nodig', 'Sta toegang tot foto\'s toe in instellingen.'); return }
+    if (!perm.granted) return
     const result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.8 })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
-    setFileB64(asset.base64 ?? '')
-    setFileName('foto.jpg')
-    setFileMime('image/jpeg')
-    setInputMode('photo')
+    setFileName('foto.jpg'); setFileMime('image/jpeg')
+    setFileB64(asset.base64 ?? ''); setStep('picked')
   }
 
-  async function takePhoto() {
+  async function pickCamera() {
     const perm = await ImagePicker.requestCameraPermissionsAsync()
-    if (!perm.granted) { Alert.alert('Toegang nodig', 'Sta cameratoegang toe in instellingen.'); return }
+    if (!perm.granted) return
     const result = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.8 })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
-    setFileB64(asset.base64 ?? '')
-    setFileName('foto.jpg')
-    setFileMime('image/jpeg')
-    setInputMode('photo')
+    setFileName('foto.jpg'); setFileMime('image/jpeg')
+    setFileB64(asset.base64 ?? ''); setStep('picked')
   }
 
-  function canProceedToConfig() {
-    if (inputMode === 'text') return text.trim().length > 20
-    return !!fileName  // file selected (b64 may still be loading)
+  function handleSourceTap(s: Source) {
+    setSource(s)
+    if (s === 'pdf' || s === 'excel') pickFile()
+    else pickPhoto()
   }
 
-  async function runAI() {
-    setLoading(true)
-    setError('')
+  async function analyse() {
+    if (!fileB64) { setError('Wacht tot het bestand geladen is.'); return }
+    setStep('processing'); setProgress(0); setError('')
+
     const dayNames = DAY_LABELS.filter((_, i) => runDays.includes(i)).join(', ')
     const userText = `Begindatum: ${startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${keepRest ? 'ja' : 'nee'}.`
 
     let userContent: unknown
-    if (inputMode === 'text') {
-      userContent = `${userText}\n\n${text}`
-    } else if (fileMime === 'image/jpeg' || fileMime === 'image/png') {
+    if (fileMime === 'image/jpeg' || fileMime === 'image/png') {
       userContent = [
         { type: 'image', source: { type: 'base64', media_type: fileMime, data: fileB64 } },
         { type: 'text', text: userText },
@@ -153,56 +167,53 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
       ]
     }
 
+    // Animate progress ring while fetching
+    const timer = setInterval(() => setProgress(p => Math.min(p + 3, 85)), 200)
+
     try {
       const token = await getToken()
       const res = await fetch(`${BACKEND}/ai/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userContent }],
-        }),
+        body: JSON.stringify({ system: SYSTEM_PROMPT, messages: [{ role: 'user', content: userContent }] }),
       })
-      if (!res.ok) throw new Error(`API fout ${res.status}`)
+      if (!res.ok) throw new Error(`Fout ${res.status}`)
       const json = await res.json() as { content: { text: string }[] }
       const raw = json.content?.[0]?.text ?? ''
 
-      const titelMatch = raw.match(/TITEL\s*:\s*([^\n\r]{1,40})/i)
-      setSchemaTitle(titelMatch?.[1]?.trim() ?? '')
-      const rapportMatch = raw.match(/RAPPORT\s*:\s*([\s\S]*?)(?=\[|$)/i)
-      setRapport(rapportMatch?.[1]?.trim() ?? '')
+      setProgress(95)
+
+      const titelM  = raw.match(/TITEL\s*:\s*([^\n\r]{1,40})/i)
+      const wekenM  = raw.match(/WEKEN\s*:\s*(\d+)/i)
+      const piekM   = raw.match(/PIEK\s*:\s*([^\n\r]{1,20})/i)
+      const rapportM = raw.match(/RAPPORT\s*:\s*([\s\S]*?)(?=\[|$)/i)
+
+      setSchemaTitle(titelM?.[1]?.trim() ?? '')
+      setWekenStr(wekenM?.[1] ? `${wekenM[1]} weken` : '')
+      setPiekStr(piekM?.[1]?.trim() ?? '')
+      setRapport(rapportM?.[1]?.trim() ?? '')
 
       let parsed: ParsedRow[] | null = null
-      const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-      const cleaned = fenced ? fenced[1].trim() : raw.trim()
-      const m = cleaned.match(/\[[\s\S]*\]/) ?? raw.match(/\[[\s\S]*\]/)
+      const m = raw.match(/\[[\s\S]*\]/)
       if (m) { try { parsed = JSON.parse(m[0]) } catch {} }
 
-      if (!Array.isArray(parsed) || !parsed.length) throw new Error('Geen schema gevonden. Probeer meer details toe te voegen.')
+      if (!Array.isArray(parsed) || !parsed.length) throw new Error('Geen schema gevonden.')
 
       const rows = parsed
         .filter(r => r?.datum && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
-        .map(r => ({
-          datum: r.datum,
-          type: r.type || 'run',
-          titel: String(r.titel || ''),
-          detail: String(r.detail || ''),
-          km: r.km != null && r.km !== '' ? Number(r.km) || null : null,
-          fase: r.fase || '',
-        }))
+        .map(r => ({ datum: r.datum, type: r.type || 'run', titel: String(r.titel || ''), detail: String(r.detail || ''), km: r.km != null ? Number(r.km) || null : null, fase: r.fase || '' }))
 
-      if (!rows.length) throw new Error('Geen activiteiten gevonden in de output.')
-      setPreview(rows)
+      setPreview(rows); setProgress(100)
       setStep('preview')
     } catch (e: any) {
-      setError(e.message ?? 'Onbekende fout')
+      setError(e.message ?? 'Analyse mislukt'); setStep('picked')
     } finally {
-      setLoading(false)
+      clearInterval(timer)
     }
   }
 
-  async function confirmImport() {
-    setStep('importing')
+  async function confirm() {
+    setStep('processing'); setProgress(0)
     const token = await getToken()
     if (!token) { setError('Niet ingelogd'); setStep('preview'); return }
     try {
@@ -213,6 +224,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
       const entry = await createNewSheet(token, baseName)
       await verifyOrFixHeaders(entry.id, 'Schema', token)
 
+      const timer = setInterval(() => setProgress(p => Math.min(p + 2, 90)), 300)
       for (const row of preview) {
         await appendActivity(entry.id, 'Schema', token, {
           datum: row.datum, type: row.type as ActivityType,
@@ -220,216 +232,168 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
           km: row.km, feedback: null, fase: row.fase, raceType: null,
         })
       }
-
+      clearInterval(timer)
       const tabId = await getSheetTabId(entry.id, 'Schema', token).catch(() => 0)
       if (tabId) await sortSheet(entry.id, tabId, token).catch(() => {})
-
       await setSchema(entry.id, 'Schema', entry.name, tabId)
-      showToast(`✓ ${preview.length} activiteiten geïmporteerd`)
-      reset()
-      onClose()
+      setProgress(100); setStep('success')
     } catch (e: any) {
-      setError(e.message ?? 'Importeren mislukt')
-      setStep('preview')
+      setError(e.message ?? 'Importeren mislukt'); setStep('preview')
     }
   }
 
-  // ── Week preview visualization ──────────────────────────────────────────
-
-  function renderWeekBars() {
-    const byWeek: Record<number, ParsedRow[]> = {}
-    const base = new Date(preview[0]?.datum ?? startDate)
-    preview.forEach(r => {
-      const d = new Date(r.datum)
-      const w = Math.floor((d.getTime() - base.getTime()) / (7 * 86400000))
-      if (!byWeek[w]) byWeek[w] = []
-      byWeek[w].push(r)
-    })
-    return Object.entries(byWeek).slice(0, 8).map(([wk, rows]) => {
-      const km = rows.reduce((s, r) => s + (r.km ?? 0), 0)
-      const types = [...new Set(rows.map(r => r.type))]
-      return (
-        <View key={wk} style={wbStyles.row}>
-          <Text style={wbStyles.label}>WK {parseInt(wk) + 1}</Text>
-          <View style={wbStyles.dots}>
-            {types.map(t => {
-              const c = ActivityColors[t as ActivityType]?.text ?? LightTheme.accent
-              return <View key={t} style={[wbStyles.dot, { backgroundColor: c }]} />
-            })}
-          </View>
-          <Text style={wbStyles.km}>{km > 0 ? `${km.toFixed(0)} km` : ''}</Text>
-        </View>
-      )
-    })
-  }
-
-  const stepTitle = { input: 'Importeer schema', config: 'Instellen', preview: 'Voorbeeld', importing: 'Importeren…' }[step]
+  const p = theme  // alias for brevity
 
   return (
-    <ModalSheet visible={visible} title={stepTitle} onClose={() => { reset(); onClose() }}>
+    <ModalSheet visible={visible} title="Schema laden" onClose={() => { reset(); onClose() }}>
 
-      {/* ── Step 1: Input ─────────────────────────────────────────────── */}
-      {step === 'input' && (
-        <View style={styles.container}>
-          {/* Input mode tabs */}
-          <View style={styles.modeTabs}>
-            {(['text', 'file', 'photo'] as InputMode[]).map(m => (
-              <TouchableOpacity
-                key={m}
-                style={[styles.modeTab, inputMode === m && styles.modeTabActive]}
-                onPress={() => { setInputMode(m); if (m !== 'text') m === 'file' ? pickDocument() : pickPhoto() }}
-              >
-                <Text style={[styles.modeTabText, inputMode === m && styles.modeTabTextActive]}>
-                  {m === 'text' ? '📝 Tekst' : m === 'file' ? '📄 Bestand' : '📷 Foto'}
-                </Text>
-              </TouchableOpacity>
-            ))}
+      {/* ── Frame 2: source selection ─────────────────────────────── */}
+      {step === 'source' && (
+        <View style={styles.column}>
+          <Text style={[styles.sectionLabel, { color: p.muted }]}>kies je bron</Text>
+
+          {/* PDF — primary tile */}
+          <TouchableOpacity style={[styles.tile, styles.tilePrimary, { backgroundColor: p.accent, borderColor: p.accent }]} onPress={() => handleSourceTap('pdf')}>
+            <View style={styles.tileBody}>
+              <Text style={[styles.tileTitle, { color: p.accentInk }]}>PDF</Text>
+              <Text style={[styles.tileSub, { color: p.accentInk, opacity: 0.8 }]}>van je coach of trainingsplan</Text>
+            </View>
+            <Text style={[styles.tileArrow, { color: p.accentInk }]}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => handleSourceTap('excel')}>
+            <View style={styles.tileBody}>
+              <Text style={[styles.tileTitle, { color: p.text }]}>Excel / sheet</Text>
+              <Text style={[styles.tileSub, { color: p.muted }]}>spreadsheet of .csv</Text>
+            </View>
+            <Text style={[styles.tileArrow, { color: p.muted }]}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => handleSourceTap('foto')}>
+            <View style={styles.tileBody}>
+              <Text style={[styles.tileTitle, { color: p.text }]}>Foto</Text>
+              <Text style={[styles.tileSub, { color: p.muted }]}>whiteboard, briefje, schermafdruk</Text>
+            </View>
+            <Text style={[styles.tileArrow, { color: p.muted }]}>›</Text>
+          </TouchableOpacity>
+
+          {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
+        </View>
+      )}
+
+      {/* ── Frame 3: file picked ───────────────────────────────────── */}
+      {step === 'picked' && (
+        <View style={[styles.column, styles.centered]}>
+          {/* Document preview mockup */}
+          <View style={[styles.docPreview, { backgroundColor: p.surface, borderColor: p.border }]}>
+            <View style={[styles.docLine, { width: '70%', backgroundColor: p.text }]} />
+            <View style={[styles.docLine, { backgroundColor: p.border }]} />
+            <View style={[styles.docLine, { width: '85%', backgroundColor: p.border }]} />
+            <View style={[styles.docLine, { backgroundColor: p.border }]} />
+            <View style={[styles.docLine, { width: '60%', backgroundColor: p.border }]} />
+            <Text style={[styles.docFileName, { color: p.muted }]}>{fileName}</Text>
           </View>
 
-          {inputMode === 'text' && (
-            <TextInput
-              style={styles.textarea}
-              value={text}
-              onChangeText={setText}
-              placeholder="Plak hier je trainingsschema als tekst, of beschrijf je schema…"
-              placeholderTextColor={LightTheme.faint}
-              multiline
-              numberOfLines={8}
-              textAlignVertical="top"
-            />
-          )}
+          <Text style={[styles.fileNameBig, { color: p.text }]}>{fileName}</Text>
+          {!fileB64 && <Text style={[styles.loadingHint, { color: p.muted }]}>bestand laden…</Text>}
+          {fileB64  && <Text style={[styles.loadingHint, { color: p.accent }]}>✓ klaar om te analyseren</Text>}
 
-          {inputMode === 'file' && (
-            <View style={styles.fileInfo}>
-              <Text style={styles.fileInfoName}>{fileName || 'Geen bestand geselecteerd'}</Text>
-              {fileName && !fileB64 && !error && (
-                <Text style={[styles.rePickText, { color: theme.muted }]}>Bestand laden…</Text>
-              )}
-              {fileName && fileB64 && (
-                <Text style={[styles.rePickText, { color: theme.accent }]}>✓ Klaar om te analyseren</Text>
-              )}
-              <TouchableOpacity style={styles.rePickBtn} onPress={pickDocument}>
-                <Text style={styles.rePickText}>Ander bestand</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
-          {inputMode === 'photo' && (
-            <View style={styles.fileInfo}>
-              <Text style={styles.fileInfoName}>{fileName ? 'Foto geselecteerd ✓' : 'Geen foto geselecteerd'}</Text>
-              <View style={styles.photoRow}>
-                <TouchableOpacity style={styles.rePickBtn} onPress={pickPhoto}>
-                  <Text style={styles.rePickText}>Galerij</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rePickBtn} onPress={takePhoto}>
-                  <Text style={styles.rePickText}>Camera</Text>
-                </TouchableOpacity>
+          {/* Config (collapsible) */}
+          <TouchableOpacity onPress={() => setShowConfig(s => !s)} style={styles.configToggle}>
+            <Text style={[styles.configToggleText, { color: p.muted }]}>
+              {showConfig ? '▴' : '▾'} Instellingen
+            </Text>
+          </TouchableOpacity>
+          {showConfig && (
+            <View style={[styles.configBox, { backgroundColor: p.surface, borderColor: p.border }]}>
+              <Text style={[styles.configLabel, { color: p.muted }]}>Begindatum</Text>
+              <TextInput style={[styles.configInput, { color: p.text, borderColor: p.border, backgroundColor: p.bg }]} value={startDate} onChangeText={setStartDate} keyboardType="numbers-and-punctuation" />
+              <Text style={[styles.configLabel, { color: p.muted, marginTop: 8 }]}>Hardloopdagen</Text>
+              <View style={styles.dayRow}>
+                {DAY_LABELS.map((label, i) => {
+                  const on = runDays.includes(i)
+                  return (
+                    <TouchableOpacity key={i} style={[styles.dayBtn, { backgroundColor: on ? p.accent : p.bg, borderColor: on ? p.accent : p.border }]}
+                      onPress={() => setRunDays(prev => on ? prev.filter(d => d !== i) : [...prev, i].sort())}>
+                      <Text style={[styles.dayBtnText, { color: on ? p.accentInk : p.muted }]}>{label}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+              <View style={[styles.keepRestRow, { marginTop: 8 }]}>
+                <Text style={[styles.configLabel, { color: p.muted, flex: 1 }]}>Rustdagen behouden</Text>
+                <Switch value={keepRest} onValueChange={setKeepRest} trackColor={{ true: p.accent }} thumbColor="#fff" />
               </View>
             </View>
           )}
 
           <TouchableOpacity
-            style={[styles.primaryBtn, !canProceedToConfig() && styles.primaryBtnDisabled]}
-            onPress={() => setStep('config')}
-            disabled={!canProceedToConfig()}
+            style={[styles.ctaBtn, { backgroundColor: p.accent }, !fileB64 && { opacity: 0.45 }]}
+            onPress={analyse}
+            disabled={!fileB64}
           >
-            <Text style={styles.primaryBtnText}>Volgende →</Text>
+            <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>schema analyseren →</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setStep('source')} style={styles.backBtn}>
+            <Text style={[styles.backBtnText, { color: p.muted }]}>← andere bron kiezen</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* ── Step 2: Config ────────────────────────────────────────────── */}
-      {step === 'config' && (
-        <View style={styles.container}>
-          <Text style={styles.sectionLabel}>Begindatum</Text>
-          <TextInput
-            style={styles.input}
-            value={startDate}
-            onChangeText={setStartDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={LightTheme.faint}
-            keyboardType="numbers-and-punctuation"
-          />
-
-          <Text style={styles.sectionLabel}>Hardloopdagen</Text>
-          <View style={styles.dayGrid}>
-            {DAY_LABELS.map((label, i) => {
-              const active = runDays.includes(i)
-              return (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.dayBtn, active && styles.dayBtnActive]}
-                  onPress={() => setRunDays(prev => active ? prev.filter(d => d !== i) : [...prev, i].sort())}
-                >
-                  <Text style={[styles.dayBtnText, active && styles.dayBtnTextActive]}>{label}</Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-
-          <View style={styles.toggleRow}>
-            <View>
-              <Text style={styles.toggleLabel}>Rustdagen behouden</Text>
-              <Text style={styles.toggleSub}>Vervang rust niet door extra training</Text>
-            </View>
-            <Switch value={keepRest} onValueChange={setKeepRest} trackColor={{ true: LightTheme.accent }} thumbColor="#fff" />
-          </View>
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={LightTheme.accent} />
-              <Text style={styles.loadingText}>Schema analyseren…</Text>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.primaryBtn} onPress={runAI}>
-              <Text style={styles.primaryBtnText}>Schema importeren →</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity style={styles.backBtn} onPress={() => setStep('input')}>
-            <Text style={styles.backBtnText}>← Terug</Text>
-          </TouchableOpacity>
+      {/* ── Frame 4: processing ───────────────────────────────────── */}
+      {step === 'processing' && (
+        <View style={[styles.column, styles.centered, { paddingVertical: 48 }]}>
+          <CircleProgress pct={progress} size={96} color={p.accent} />
+          <Text style={[styles.processingTitle, { color: p.text }]}>schema lezen…</Text>
+          <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
         </View>
       )}
 
-      {/* ── Step 3: Preview ───────────────────────────────────────────── */}
+      {/* ── Frame 5: preview / gevonden ───────────────────────────── */}
       {step === 'preview' && (
-        <View style={styles.container}>
-          <View style={styles.previewHeader}>
-            <Text style={styles.previewCheck}>✓ Schema herkend</Text>
-            {schemaTitle ? <Text style={styles.previewTitle}>{schemaTitle}</Text> : null}
-            <Text style={styles.previewMeta}>
-              {preview.length} activiteiten · {preview.reduce((s, r) => s + (r.km ?? 0), 0).toFixed(0)} km totaal
-            </Text>
-          </View>
+        <View style={styles.column}>
+          <Text style={[styles.gevondenTitle, { color: p.text }]}>gevonden</Text>
+
+          {wekenStr && <InfoCard label={wekenStr} value={rapport.split('.')[0] ?? ''} p={p} />}
+          {schemaTitle && <InfoCard label={schemaTitle} value={piekStr ? `piekweek ${piekStr}` : ''} p={p} />}
+          {preview.filter(r => r.type === 'race').slice(0, 1).map(r => (
+            <InfoCard key={r.datum} label="doelrace" value={r.datum} p={p} />
+          ))}
 
           {rapport ? (
-            <View style={styles.rapportBox}>
-              <Text style={styles.rapportText}>{rapport}</Text>
-            </View>
+            <Text style={[styles.rapportText, { color: p.muted }]}>{rapport}</Text>
           ) : null}
 
-          <View style={styles.weekBars}>{renderWeekBars()}</View>
+          <Text style={[styles.countText, { color: p.muted }]}>
+            {preview.length} activiteiten · {preview.reduce((s, r) => s + (r.km ?? 0), 0).toFixed(0)} km
+          </Text>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={confirmImport}>
-            <Text style={styles.primaryBtnText}>Klopt, ga verder →</Text>
+          <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: p.accent }]} onPress={confirm}>
+            <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>klopt het? importeren →</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => setStep('config')}>
-            <Text style={styles.backBtnText}>← Terug</Text>
+          <TouchableOpacity onPress={() => setStep('picked')} style={styles.backBtn}>
+            <Text style={[styles.backBtnText, { color: p.muted }]}>← opnieuw analyseren</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* ── Importing ─────────────────────────────────────────────────── */}
-      {step === 'importing' && (
-        <View style={[styles.container, styles.centeredRow]}>
-          <ActivityIndicator color={LightTheme.accent} size="large" />
-          <Text style={styles.loadingText}>Schema aanmaken en rijen wegschrijven…</Text>
+      {/* ── Frame 6: success ──────────────────────────────────────── */}
+      {step === 'success' && (
+        <View style={[styles.column, styles.centered, { paddingVertical: 48 }]}>
+          <View style={[styles.successCircle, { backgroundColor: p.accent }]}>
+            <Text style={styles.successCheck}>✓</Text>
+          </View>
+          <Text style={[styles.successTitle, { color: p.text }]}>klaar</Text>
+          <Text style={[styles.successSub, { color: p.muted }]}>je schema loopt nu mee.</Text>
+          <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: p.accent, marginTop: 32 }]} onPress={() => { reset(); onClose() }}>
+            <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>naar vandaag →</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -438,50 +402,56 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
 }
 
 const styles = StyleSheet.create({
-  container:          { gap: Spacing.md },
-  centeredRow:        { alignItems: 'center', paddingTop: Spacing.xxl },
-  modeTabs:           { flexDirection: 'row', gap: Spacing.sm },
-  modeTab:            { flex: 1, padding: Spacing.md, borderRadius: Radius.md, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border, alignItems: 'center' },
-  modeTabActive:      { borderColor: LightTheme.accent, backgroundColor: LightTheme.accentGlow },
-  modeTabText:        { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
-  modeTabTextActive:  { color: LightTheme.accent },
-  textarea:           { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, minHeight: 160, borderWidth: 1, borderColor: LightTheme.border, textAlignVertical: 'top' },
-  fileInfo:           { backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border, gap: Spacing.sm },
-  fileInfoName:       { fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  photoRow:           { flexDirection: 'row', gap: Spacing.sm },
-  rePickBtn:          { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.sm, borderWidth: 1, borderColor: LightTheme.border, alignSelf: 'flex-start' },
-  rePickText:         { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
-  sectionLabel:       { fontFamily: Fonts.displaySemiBold, fontSize: 12, color: LightTheme.muted, textTransform: 'uppercase', letterSpacing: 0.3 },
-  input:              { fontFamily: Fonts.mono, fontSize: 14, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border },
-  dayGrid:            { flexDirection: 'row', gap: Spacing.sm },
-  dayBtn:             { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border, alignItems: 'center' },
-  dayBtnActive:       { backgroundColor: LightTheme.accent, borderColor: LightTheme.accent },
-  dayBtnText:         { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
-  dayBtnTextActive:   { color: '#fff' },
-  toggleRow:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  toggleLabel:        { fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  toggleSub:          { fontFamily: Fonts.display, fontSize: 11, color: LightTheme.muted, marginTop: 2 },
-  loadingRow:         { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, justifyContent: 'center' },
-  loadingText:        { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
-  errorText:          { fontFamily: Fonts.display, fontSize: 13, color: '#C8336B', lineHeight: 18 },
-  previewHeader:      { gap: 4 },
-  previewCheck:       { fontFamily: Fonts.displaySemiBold, fontSize: 13, color: LightTheme.accent },
-  previewTitle:       { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, letterSpacing: -0.3 },
-  previewMeta:        { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },
-  rapportBox:         { backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border },
-  rapportText:        { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.text, lineHeight: 20 },
-  weekBars:           { gap: 4 },
-  primaryBtn:         { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
-  primaryBtnDisabled: { opacity: 0.4 },
-  primaryBtnText:     { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: '#fff' },
-  backBtn:            { alignItems: 'center', padding: Spacing.sm },
-  backBtnText:        { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted },
-})
+  column:           { gap: Spacing.md },
+  centered:         { alignItems: 'center' },
 
-const wbStyles = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 2 },
-  label: { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, width: 36 },
-  dots:  { flexDirection: 'row', gap: 3, flex: 1 },
-  dot:   { width: 8, height: 8, borderRadius: 4 },
-  km:    { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, width: 44, textAlign: 'right' },
+  // Source tiles
+  sectionLabel:     { fontFamily: Fonts.displayMedium, fontSize: 12, letterSpacing: -0.1 },
+  tile:             { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, padding: '14px 16px' as any, paddingHorizontal: 16, paddingVertical: 14 },
+  tilePrimary:      {},
+  tileBody:         { flex: 1 },
+  tileTitle:        { fontFamily: Fonts.displaySemiBold, fontSize: 13 },
+  tileSub:          { fontFamily: Fonts.displayMedium, fontSize: 11, marginTop: 2 },
+  tileArrow:        { fontFamily: Fonts.display, fontSize: 18 },
+
+  // File picked
+  docPreview:       { width: 140, borderRadius: 8, padding: 14, gap: 6, borderWidth: 1, transform: [{ rotate: '-2deg' }], shadowColor: '#0E1F1A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
+  docLine:          { height: 5, borderRadius: 2 },
+  docFileName:      { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1, marginTop: 4 },
+  fileNameBig:      { fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.1, textAlign: 'center' },
+  loadingHint:      { fontFamily: Fonts.mono, fontSize: 11 },
+  errorText:        { fontFamily: Fonts.display, fontSize: 13 },
+  configToggle:     { alignSelf: 'flex-start' },
+  configToggleText: { fontFamily: Fonts.displayMedium, fontSize: 12 },
+  configBox:        { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, gap: 4 },
+  configLabel:      { fontFamily: Fonts.displayMedium, fontSize: 11 },
+  configInput:      { fontFamily: Fonts.mono, fontSize: 13, borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  dayRow:           { flexDirection: 'row', gap: 4 },
+  dayBtn:           { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, borderWidth: 1 },
+  dayBtnText:       { fontFamily: Fonts.displayMedium, fontSize: 11 },
+  keepRestRow:      { flexDirection: 'row', alignItems: 'center' },
+
+  // Processing
+  processingTitle:  { fontFamily: Fonts.displaySemiBold, fontSize: 14, marginTop: 16 },
+  processingPct:    { fontFamily: Fonts.mono, fontSize: 11, letterSpacing: 1, marginTop: 4 },
+
+  // Preview
+  gevondenTitle:    { fontFamily: Fonts.displayBold, fontSize: 20, letterSpacing: -0.5 },
+  infoCard:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10 },
+  infoLabel:        { fontFamily: Fonts.displaySemiBold, fontSize: 12 },
+  infoValue:        { fontFamily: Fonts.mono, fontSize: 10 },
+  rapportText:      { fontFamily: Fonts.display, fontSize: 13, lineHeight: 20 },
+  countText:        { fontFamily: Fonts.mono, fontSize: 11 },
+
+  // CTA
+  ctaBtn:           { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
+  ctaBtnText:       { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.2 },
+  backBtn:          { alignItems: 'center', padding: Spacing.sm },
+  backBtnText:      { fontFamily: Fonts.display, fontSize: 13 },
+
+  // Success
+  successCircle:    { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  successCheck:     { fontFamily: Fonts.displayBold, fontSize: 34, color: '#fff', lineHeight: 40 },
+  successTitle:     { fontFamily: Fonts.displayBold, fontSize: 24, letterSpacing: -0.5, marginTop: 16 },
+  successSub:       { fontFamily: Fonts.displayMedium, fontSize: 13, marginTop: 4 },
 })
