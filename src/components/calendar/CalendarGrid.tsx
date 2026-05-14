@@ -56,9 +56,9 @@ export function CalendarGrid({ year, month, activities, selectedDate, onSelectDa
   return (
     <View>
       {/* Day of week headers */}
-      <View style={styles.row}>
+      <View style={[styles.row, { marginBottom: 2 }]}>
         {DOW_LABELS.map((label, i) => (
-          <View key={i} style={styles.cell}>
+          <View key={i} style={{ flex: 1, alignItems: 'center' }}>
             <Text style={styles.dowLabel}>{label}</Text>
           </View>
         ))}
@@ -76,13 +76,15 @@ export function CalendarGrid({ year, month, activities, selectedDate, onSelectDa
               ? (isToday ? 'rgba(6,32,25,0.55)' : ActivityColors[type]?.text ?? LightTheme.accent)
               : null
 
+            // Spec: square cells, number top-left, dot bottom-right — runyo-pwa.jsx ScreenKalender
             return (
               <TouchableOpacity
                 key={ds}
                 style={[
                   styles.cell,
-                  isToday && styles.cellToday,
-                  isSel   && !isToday && styles.cellSelected,
+                  { backgroundColor: isToday ? LightTheme.accent : LightTheme.surface, borderColor: isToday ? LightTheme.accent : LightTheme.border },
+                  isSel && !isToday && { backgroundColor: LightTheme.accentGlow, borderColor: LightTheme.accent },
+                  other && styles.cellOther,
                 ]}
                 onPress={() => other ? null : onSelectDate(isSel ? null : ds)}
                 disabled={other}
@@ -90,9 +92,8 @@ export function CalendarGrid({ year, month, activities, selectedDate, onSelectDa
               >
                 <Text style={[
                   styles.dayNum,
-                  other   && styles.dayNumOther,
-                  isToday && styles.dayNumToday,
-                  isSel   && !isToday && styles.dayNumSelected,
+                  { color: isToday ? '#fff' : other ? LightTheme.faint : LightTheme.text },
+                  isSel && !isToday && { color: LightTheme.accent },
                 ]}>
                   {date.getDate()}
                 </Text>
@@ -109,14 +110,11 @@ export function CalendarGrid({ year, month, activities, selectedDate, onSelectDa
 }
 
 const styles = StyleSheet.create({
-  row:            { flexDirection: 'row', marginBottom: 2 },
-  cell:           { flex: 1, alignItems: 'center', paddingVertical: Spacing.sm, borderRadius: Radius.sm, gap: 2 },
-  cellToday:      { backgroundColor: LightTheme.accent },
-  cellSelected:   { backgroundColor: LightTheme.accentGlow },
-  dowLabel:       { fontFamily: Fonts.displayMedium, fontSize: 10, color: LightTheme.faint },
-  dayNum:         { fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  dayNumOther:    { color: LightTheme.faint },
-  dayNumToday:    { color: '#fff' },
-  dayNumSelected: { color: LightTheme.accent },
-  dot:            { width: 4, height: 4, borderRadius: 2 },
+  row:       { flexDirection: 'row', gap: 4, marginBottom: 4 },
+  // Square cells: number top-left, dot bottom-right — spec: runyo-pwa.jsx ScreenKalender
+  cell:      { flex: 1, aspectRatio: 1, padding: 5, borderRadius: Radius.sm, borderWidth: 1, justifyContent: 'space-between' },
+  cellOther: { opacity: 0.35 },
+  dowLabel:  { fontFamily: Fonts.displayMedium, fontSize: 10, color: LightTheme.faint, textAlign: 'center', paddingVertical: 4 },
+  dayNum:    { fontFamily: Fonts.displaySemiBold, fontSize: 12, letterSpacing: -0.1 },
+  dot:       { width: 6, height: 6, borderRadius: 3, alignSelf: 'flex-end' },
 })

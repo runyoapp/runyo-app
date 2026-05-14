@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -169,7 +169,8 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
           </Field>
 
           <Field label="Type">
-            <View style={styles.typeGrid}>
+            {/* Horizontal scroll — spec: brief activity edit modal */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -Spacing.lg }} contentContainerStyle={{ paddingHorizontal: Spacing.lg, gap: Spacing.sm, flexDirection: 'row' }}>
               {ACTIVITY_TYPES.map(t => (
                 <TouchableOpacity
                   key={t}
@@ -181,7 +182,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
           </Field>
 
           <Field label="Afstand (km)">
@@ -220,8 +221,11 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
             <Text style={styles.cancelBtnText}>Annuleren</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-            <Text style={styles.deleteBtnText}>Verwijderen</Text>
+          <TouchableOpacity
+            style={[styles.deleteBtn, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}
+            onPress={handleDelete}
+          >
+            <Text style={[styles.deleteBtnText, { color: theme.danger }]}>Verwijderen</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -255,6 +259,6 @@ const styles = StyleSheet.create({
   saveBtnText:      { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: '#fff' },
   cancelBtn:        { alignItems: 'center', padding: Spacing.sm },
   cancelBtnText:    { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted },
-  deleteBtn:        { alignItems: 'center', padding: Spacing.sm },
-  deleteBtnText:    { fontFamily: Fonts.displayMedium, fontSize: 13, color: '#C8336B' },
+  deleteBtn:        { alignItems: 'center', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, marginTop: Spacing.xs },
+  deleteBtnText:    { fontFamily: Fonts.displayMedium, fontSize: 13 },
 })

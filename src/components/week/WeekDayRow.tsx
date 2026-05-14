@@ -22,9 +22,17 @@ export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: 
   const date    = fromDateString(activity.datum)
   const dayName = DAYS_NL[mondayIndex(date)]
 
+  const isRace = activity.type === 'race'
+
   return (
     <TouchableOpacity
-      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && styles.rowPast]}
+      style={[
+        styles.row,
+        { backgroundColor: isRace ? 'rgba(200,51,107,0.06)' : theme.surface },
+        isToday && !isRace && styles.rowToday,
+        isRace && styles.rowRace,
+        isPast && styles.rowPast,
+      ]}
       onPress={onPress}
       onLongPress={() => onLongPress(activity)}
       delayLongPress={400}
@@ -32,13 +40,15 @@ export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: 
     >
       <View style={[styles.bar, { backgroundColor: colors.text }]} />
       <View style={styles.body}>
-        <Text style={styles.dayLabel}>{dayName.toLowerCase()} · {label.toLowerCase()}</Text>
+        <Text style={[styles.dayLabel, isRace && { color: '#C8336B' }]}>
+          {dayName.toLowerCase()} · {label.toLowerCase()}
+        </Text>
         {!!activity.titel && (
           <Text style={styles.title} numberOfLines={1}>{activity.titel}</Text>
         )}
       </View>
       {activity.km != null && (
-        <Text style={styles.km}>{activity.km} km</Text>
+        <Text style={[styles.km, isRace && { color: '#C8336B' }]}>{activity.km} km</Text>
       )}
       <Text style={styles.handle}>⠿</Text>
     </TouchableOpacity>
@@ -53,6 +63,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     marginBottom: 4,
     overflow: 'hidden',
+  },
+  rowRace: {
+    borderWidth: 1,
+    borderColor: 'rgba(200,51,107,0.3)',
   },
   rowToday: {
     borderWidth: 1,

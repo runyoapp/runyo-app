@@ -220,7 +220,6 @@ export function ConnectSection() {
             <View style={styles.greenDot} />
             <View style={styles.connectedInfo}>
               <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
-              <Text style={styles.tabLabel}>Tab: {tabName}</Text>
             </View>
             <TouchableOpacity onPress={() => clearSchema()}>
               <Text style={styles.disconnectText}>Ontkoppelen</Text>
