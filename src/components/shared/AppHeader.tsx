@@ -8,11 +8,13 @@ import { useTheme } from '@/hooks/useTheme'
 import { Logo } from '@/components/shared/Logo'
 import { RacesBar } from '@/components/today/RacesBar'
 import { StatsModal } from '@/screens/StatsModal'
+import { RaceModal } from '@/screens/RaceModal'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
+import type { Activity } from '@/types/activity'
 
 type Props = {
   onAddPress: () => void
-  onRacePress?: (datum: string) => void
+  onRacePress?: (datum: string) => void  // optional extra hook, race modal handled internally
   showRacesBar?: boolean
 }
 
@@ -27,6 +29,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [statsOpen,    setStatsOpen]    = useState(false)
+  const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
 
   async function handleSignOut() {
     setDropdownOpen(false)
@@ -75,7 +78,13 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       {/* Race header + add button */}
       {showRacesBar && (
         <>
-          <RacesBar activities={activities} onRacePress={datum => onRacePress?.(datum)} />
+          <RacesBar
+            activities={activities}
+            onRacePress={activity => {
+              setRaceActivity(activity)
+              onRacePress?.(activity.datum)
+            }}
+          />
           <TouchableOpacity style={styles.addBelowBar} onPress={onAddPress}>
             <Text style={[styles.addBelowText, { color: theme.muted }]}>+ Activiteit toevoegen</Text>
           </TouchableOpacity>
@@ -106,6 +115,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       </Modal>
 
       <StatsModal visible={statsOpen} onClose={() => setStatsOpen(false)} />
+      <RaceModal activity={raceActivity} visible={!!raceActivity} onClose={() => setRaceActivity(null)} />
     </View>
   )
 }

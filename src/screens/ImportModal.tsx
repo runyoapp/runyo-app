@@ -81,17 +81,26 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
   }
 
   async function pickDocument() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv', 'text/plain'],
-      copyToCacheDirectory: true,
-    })
-    if (result.canceled || !result.assets?.[0]) return
-    const asset = result.assets[0]
-    const b64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
-    setFileB64(b64)
-    setFileName(asset.name)
-    setFileMime(asset.mimeType ?? 'application/pdf')
-    setInputMode('file')
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',   // allow all — iOS filters by extension anyway
+        copyToCacheDirectory: true,
+      })
+      if (result.canceled || !result.assets?.[0]) return
+      const asset = result.assets[0]
+      setFileName(asset.name)
+      setFileMime(asset.mimeType ?? 'application/pdf')
+      setInputMode('file')
+      setFileB64('')          // clear while reading
+      setError('')
+      // Read base64 — may take a moment on large PDFs
+      const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      })
+      setFileB64(b64)
+    } catch (e: any) {
+      setError(`Bestand kon niet worden geladen: ${e?.message ?? 'onbekende fout'}`)
+    }
   }
 
   async function pickPhoto() {
@@ -119,7 +128,8 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
   }
 
   function canProceedToConfig() {
-    return inputMode === 'text' ? text.trim().length > 20 : !!fileB64
+    if (inputMode === 'text') return text.trim().length > 20
+    return !!fileName  // file selected (b64 may still be loading)
   }
 
   async function runAI() {
@@ -292,6 +302,12 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
           {inputMode === 'file' && (
             <View style={styles.fileInfo}>
               <Text style={styles.fileInfoName}>{fileName || 'Geen bestand geselecteerd'}</Text>
+              {fileName && !fileB64 && !error && (
+                <Text style={[styles.rePickText, { color: theme.muted }]}>Bestand laden…</Text>
+              )}
+              {fileName && fileB64 && (
+                <Text style={[styles.rePickText, { color: theme.accent }]}>✓ Klaar om te analyseren</Text>
+              )}
               <TouchableOpacity style={styles.rePickBtn} onPress={pickDocument}>
                 <Text style={styles.rePickText}>Ander bestand</Text>
               </TouchableOpacity>

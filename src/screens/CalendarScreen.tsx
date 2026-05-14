@@ -80,7 +80,7 @@ export function CalendarScreen() {
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <AppHeader
         onAddPress={() => setAddModalOpen(true)}
-        showRacesBar={false}
+        showRacesBar={true}
       />
       {/* Month header */}
       <View style={styles.header}>
