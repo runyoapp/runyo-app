@@ -9,7 +9,7 @@ type UiStore = {
   activeModal: ModalName
   modalData: unknown
 
-  setLoading: (loading: boolean, message?: string) => void
+  setLoading: (loading: boolean, message?: string | null) => void
   showToast: (message: string, durationMs?: number) => void
   hideToast: () => void
   openModal: (modal: NonNullable<ModalName>, data?: unknown) => void

@@ -36,7 +36,7 @@ export const DarkTheme = {
   dangerBg:   'rgba(255,107,90,0.08)',
 } as const
 
-export type Theme = typeof LightTheme
+export type Theme = { readonly [K in keyof typeof LightTheme]: string }
 
 export const ActivityColors = {
   run:      { text: '#00B98E', bg: 'rgba(0,185,142,0.12)' },

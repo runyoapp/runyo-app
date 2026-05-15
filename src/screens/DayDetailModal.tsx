@@ -62,32 +62,33 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }, [activity?.id])
 
   if (!activity) return null
+  const act = activity
 
-  const date     = fromDateString(activity.datum)
+  const date     = fromDateString(act.datum)
   const dayLabel = `${DAYS_NL[mondayIndex(date)]} ${date.getDate()} ${MONTHS_FULL_NL[date.getMonth()]}`
-  const colors   = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
-  const typeLabel = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
+  const colors   = ActivityColors[act.type as ActivityType] ?? ActivityColors.run
+  const typeLabel = TYPE_DISPLAY[act.type as ActivityType]?.nl ?? act.type
 
   function resetEdit() {
-    setDatum(activity.datum)
-    setTitel(activity.titel)
-    setType(activity.type as ActivityType)
-    setKm(activity.km != null ? String(activity.km) : '')
-    setDetail(activity.detail)
+    setDatum(act.datum)
+    setTitel(act.titel)
+    setType(act.type as ActivityType)
+    setKm(act.km != null ? String(act.km) : '')
+    setDetail(act.detail)
     setEditing(false)
   }
 
   async function handleSave() {
-    if (!sheetId || !activity.rowIndex) { showToast('Geen schema gekoppeld'); return }
+    if (!sheetId || !act.rowIndex) { showToast('Geen schema gekoppeld'); return }
     const token = await getToken()
     if (!token) return
     setSaving(true)
     try {
       const kmVal = parseFloat(km) || null
-      await updateActivity(sheetId, tabName, token, activity.rowIndex, {
+      await updateActivity(sheetId, tabName, token, act.rowIndex, {
         datum, titel, type, km: kmVal, detail,
       })
-      upsertActivity({ ...activity, datum, titel, type, km: kmVal, detail })
+      upsertActivity({ ...act, datum, titel, type, km: kmVal, detail })
       showToast('✓ Opgeslagen')
       setEditing(false)
       onClose()
@@ -99,8 +100,8 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   async function handleDelete() {
-    if (!sheetId || !activity.rowIndex || !sheetTabId) return
-    Alert.alert('Verwijderen?', activity.titel || typeLabel, [
+    if (!sheetId || !act.rowIndex || !sheetTabId) return
+    Alert.alert('Verwijderen?', act.titel || typeLabel, [
       { text: 'Annuleren', style: 'cancel' },
       {
         text: 'Verwijderen', style: 'destructive',
@@ -108,8 +109,8 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
           const token = await getToken()
           if (!token) return
           try {
-            await deleteActivity(sheetId, sheetTabId, token, activity.rowIndex! - 1)
-            removeActivity(activity.id)
+            await deleteActivity(sheetId, sheetTabId, token, act.rowIndex! - 1)
+            removeActivity(act.id)
             showToast('Verwijderd')
             onClose()
           } catch {

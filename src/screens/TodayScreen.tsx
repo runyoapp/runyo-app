@@ -23,6 +23,7 @@ import { updateActivity } from '@/services/sheets'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import type { Activity } from '@/types/activity'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
 

@@ -38,7 +38,7 @@ export async function appendAndSort(
   sheetId: string,
   tabName: string,
   token: string,
-  activity: Omit<Activity, 'id' | 'createdAt' | 'updatedAt'>,
+  activity: Omit<Activity, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'rowIndex'>,
 ): Promise<void> {
   await appendActivity(sheetId, tabName, token, activity)
   const tabId = await getSheetTabId(sheetId, tabName, token).catch(() => 0)
@@ -49,7 +49,7 @@ export async function appendActivity(
   sheetId: string,
   tabName: string,
   token: string,
-  activity: Omit<Activity, 'id' | 'createdAt' | 'updatedAt'>,
+  activity: Omit<Activity, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'rowIndex'>,
 ): Promise<void> {
   const now = new Date().toISOString()
   const id = `rx_${Date.now()}`
