@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store'
 import type { TokenSet } from '@/types/auth'
 
 const CLIENT_ID   = '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com'
-const BACKEND     = 'https://runyo-auth-production.up.railway.app'
+export const BACKEND = 'https://runyo-auth-production.up.railway.app'
 const REDIRECT_URI = 'https://app.runyo.app/oauth-callback.html'
 const DEEP_LINK   = 'runyo://auth'
 
