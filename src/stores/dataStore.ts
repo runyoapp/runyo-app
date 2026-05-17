@@ -2,8 +2,10 @@ import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Activity, Race, PersonalRecord } from '@/types/activity'
 import type { SchemaEntry } from '@/types/auth'
+import { createSchema, getMySchemas } from '@/services/schemas'
 
 const SCHEMA_KEY = 'runyo_schema'
+const SCHEMA_ID_KEY = 'runyo_schema_id'
 
 export type TabName = 'today' | 'week' | 'plan' | 'calendar'
 
@@ -17,6 +19,9 @@ type DataStore = {
   tabName: string
   sheetFileName: string | null
   sheetTabId: number | null
+
+  // Backend schema id (1.2d tracer — independent from sheetId until 1.2e/2.1 unifies the flow)
+  schemaId: string | null
 
   // Navigation state
   currentTab: TabName
@@ -38,6 +43,9 @@ type DataStore = {
   setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => Promise<void>
   clearSchema: () => Promise<void>
   hydrateSchema: () => Promise<void>
+  // Backend schema actions (1.2d tracer)
+  loadMySchemas: () => Promise<void>
+  createNewSchema: () => Promise<void>
   setTab: (tab: TabName) => void
   setWeekOffset: (offset: number) => void
   setDayOffset: (offset: number) => void
@@ -55,6 +63,8 @@ export const useDataStore = create<DataStore>((set) => ({
   tabName: 'Schema',
   sheetFileName: null,
   sheetTabId: null,
+
+  schemaId: null,
 
   currentTab: 'today',
   weekOffset: 0,
@@ -98,6 +108,23 @@ export const useDataStore = create<DataStore>((set) => ({
     if (!raw) return
     const parsed = JSON.parse(raw)
     set({ sheetId: parsed.sheetId, tabName: parsed.tabName, sheetFileName: parsed.sheetFileName, sheetTabId: parsed.sheetTabId })
+  },
+
+  // TODO(1.2e/2.1): tracer actions — fold into a real schema-aware flow.
+  loadMySchemas: async () => {
+    const list = await getMySchemas()
+    const id = list[0]?.id ?? null
+    set({ schemaId: id })
+    if (id) {
+      await AsyncStorage.setItem(SCHEMA_ID_KEY, id)
+    } else {
+      await AsyncStorage.removeItem(SCHEMA_ID_KEY)
+    }
+  },
+  createNewSchema: async () => {
+    const result = await createSchema()
+    set({ schemaId: result.id })
+    await AsyncStorage.setItem(SCHEMA_ID_KEY, result.id)
   },
 
   setTab: (currentTab) => set({ currentTab }),
