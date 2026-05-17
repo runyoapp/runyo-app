@@ -5,6 +5,7 @@ import { AccountSection } from '@/components/settings/AccountSection'
 import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
 import { PrefsSection } from '@/components/settings/PrefsSection'
+import { SchemaTracerSection } from '@/components/settings/SchemaTracerSection'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -31,6 +32,11 @@ export function SettingsScreen() {
 
         <Section title="Account">
           <AccountSection />
+        </Section>
+
+        {/* TODO(1.2e/2.1): tracer UI — vervang door echte schema-aware flow. */}
+        <Section title="Schema (tracer)">
+          <SchemaTracerSection />
         </Section>
 
         <Section title="Schema">
