@@ -31,8 +31,8 @@ Fase 3 (sequentieel + parallel binnen fase)
 
 | Fase | ID | Titel | Type | Status |
 |------|----|-------|------|--------|
-| 1 | 1.1 | Test- en feedback-infra | AFK | pending |
-| 1 | 1.2 | Backend baseline + eerste schema-tracer | AFK | pending |
+| 1 | 1.1 | Test- en feedback-infra | AFK | completed |
+| 1 | 1.2 | Backend baseline + eerste schema-tracer | AFK | completed |
 | 1 | 1.3 | Deep-module refactor | AFK | pending |
 | 2 | 2.1 | Activity CRUD end-to-end | AFK | pending |
 | 2 | 2.2 | Importer schrijft naar backend | AFK | pending |
