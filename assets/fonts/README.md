@@ -1,5 +1,7 @@
 # Fonts
 
+TTFs zijn gebundeld in deze folder zodat clones direct kunnen builden zonder externe download. Licentie (`OFL.txt`) hoort bij de fontbestanden.
+
 ## Structure
 ```
 assets/fonts/
