@@ -19,8 +19,10 @@ const queryClient = new QueryClient({
 
 export default function App() {
   const hydrateAuth     = useAuthStore(s => s.hydrate)
+  const tokenSet        = useAuthStore(s => s.tokenSet)
   const hydrateSettings = useSettingsStore(s => s.hydrate)
   const hydrateSchema   = useDataStore(s => s.hydrateSchema)
+  const loadMySchemas   = useDataStore(s => s.loadMySchemas)
 
   const [fontsLoaded] = useFonts({
     'Sora':                 require('./assets/fonts/Sora/Sora-Regular.ttf'),
@@ -34,6 +36,14 @@ export default function App() {
   useEffect(() => {
     Promise.all([hydrateAuth(), hydrateSettings(), hydrateSchema()])
   }, [])
+
+  // runyo v4 — once auth is hydrated and a tokenSet is present, load the
+  // backend schemaId so /api/schemas/:id/activities is usable from any screen
+  // (ticket 2.1d). Silent on failure: legacy Sheets-flow remains available.
+  useEffect(() => {
+    if (!tokenSet) return
+    loadMySchemas().catch(() => { /* surface in UI later */ })
+  }, [tokenSet, loadMySchemas])
 
   if (!fontsLoaded) return null
 

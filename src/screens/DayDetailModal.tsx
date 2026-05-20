@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { updateActivity, deleteActivity } from '@/services/sheets'
+import { updateActivity, deleteActivity as deleteSheetActivity } from '@/services/sheets'
+import { patchActivity, deleteActivity as deleteBackendActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -32,10 +34,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export function DayDetailModal({ activity, visible, onClose }: Props) {
   const theme         = useTheme()
+  const queryClient   = useQueryClient()
   const getToken      = useAuthStore(s => s.getToken)
   const sheetId       = useDataStore(s => s.sheetId)
   const tabName       = useDataStore(s => s.tabName)
   const sheetTabId    = useDataStore(s => s.sheetTabId)
+  const schemaId      = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const removeActivity = useDataStore(s => s.removeActivity)
   const showToast     = useUiStore(s => s.showToast)
@@ -79,16 +83,22 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   async function handleSave() {
-    if (!sheetId || !act.rowIndex) { showToast('Geen schema gekoppeld'); return }
-    const token = await getToken()
-    if (!token) return
+    if (!schemaId && (!sheetId || !act.rowIndex)) { showToast('Geen schema gekoppeld'); return }
     setSaving(true)
     try {
       const kmVal = parseFloat(km) || null
-      await updateActivity(sheetId, tabName, token, act.rowIndex, {
-        datum, titel, type, km: kmVal, detail,
-      })
-      upsertActivity({ ...act, datum, titel, type, km: kmVal, detail })
+      if (schemaId) {
+        const updated = await patchActivity(schemaId, act.id, { datum, titel, type, km: kmVal, detail })
+        upsertActivity({ ...act, ...updated })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      } else {
+        const token = await getToken()
+        if (!token) return
+        await updateActivity(sheetId!, tabName, token, act.rowIndex!, {
+          datum, titel, type, km: kmVal, detail,
+        })
+        upsertActivity({ ...act, datum, titel, type, km: kmVal, detail })
+      }
       showToast('✓ Opgeslagen')
       setEditing(false)
       onClose()
@@ -100,17 +110,23 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   async function handleDelete() {
-    if (!sheetId || !act.rowIndex || !sheetTabId) return
+    if (!schemaId && (!sheetId || !act.rowIndex || !sheetTabId)) return
     Alert.alert('Verwijderen?', act.titel || typeLabel, [
       { text: 'Annuleren', style: 'cancel' },
       {
         text: 'Verwijderen', style: 'destructive',
         onPress: async () => {
-          const token = await getToken()
-          if (!token) return
           try {
-            await deleteActivity(sheetId, sheetTabId, token, act.rowIndex! - 1)
-            removeActivity(act.id)
+            if (schemaId) {
+              await deleteBackendActivity(schemaId, act.id)
+              removeActivity(act.id)
+              await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+            } else {
+              const token = await getToken()
+              if (!token) return
+              await deleteSheetActivity(sheetId!, sheetTabId!, token, act.rowIndex! - 1)
+              removeActivity(act.id)
+            }
             showToast('Verwijderd')
             onClose()
           } catch {

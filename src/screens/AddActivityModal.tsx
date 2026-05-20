@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { appendAndSort } from '@/services/sheets'
+import { createActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -19,9 +21,11 @@ type Props = {
 
 export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   const theme          = useTheme()
+  const queryClient    = useQueryClient()
   const getToken       = useAuthStore(s => s.getToken)
   const sheetId        = useDataStore(s => s.sheetId)
   const tabName        = useDataStore(s => s.tabName)
+  const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
 
@@ -37,20 +41,26 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   useState(() => { setDatum(prefillDate ?? today) })
 
   async function handleSave() {
-    if (!sheetId) { showToast('Geen schema gekoppeld'); return }
-    const token = await getToken()
-    if (!token) return
+    if (!schemaId && !sheetId) { showToast('Geen schema gekoppeld'); return }
     setSaving(true)
     try {
       const kmVal = parseFloat(km) || null
-      await appendAndSort(sheetId, tabName, token, {
-        datum, titel, type, km: kmVal, detail, feedback: null, fase: null, raceType: null,
-      })
-      upsertActivity({
-        id: `local_${Date.now()}`, datum, titel, type, km: kmVal, detail,
-        feedback: null, fase: null, rating: null, raceType: null, rowIndex: null,
-        updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
-      })
+      if (schemaId) {
+        const created = await createActivity(schemaId, { datum, titel, type, km: kmVal, detail })
+        upsertActivity(created)
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      } else {
+        const token = await getToken()
+        if (!token) return
+        await appendAndSort(sheetId!, tabName, token, {
+          datum, titel, type, km: kmVal, detail, feedback: null, fase: null, raceType: null,
+        })
+        upsertActivity({
+          id: `local_${Date.now()}`, datum, titel, type, km: kmVal, detail,
+          feedback: null, fase: null, rating: null, raceType: null, rowIndex: null,
+          updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
+        })
+      }
       showToast('✓ Activiteit toegevoegd')
       setTitel(''); setKm(''); setDetail(''); setType('run')
       onClose()
