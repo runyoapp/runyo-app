@@ -82,22 +82,28 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
     setEditing(false)
   }
 
+  // Rows from the Sheets path have a rowIndex; backend rows don't.
+  // Use the row's own provenance, not just store flags — handles edge cases
+  // where the user just swapped sources but the row was loaded under the old one.
+  const isSheetsRow = !!act.rowIndex
+
   async function handleSave() {
-    if (!schemaId && (!sheetId || !act.rowIndex)) { showToast('Geen schema gekoppeld'); return }
+    if (isSheetsRow && (!sheetId || !sheetTabId)) { showToast('Geen schema gekoppeld'); return }
+    if (!isSheetsRow && !schemaId)                { showToast('Geen schema gekoppeld'); return }
     setSaving(true)
     try {
       const kmVal = parseFloat(km) || null
-      if (schemaId) {
-        const updated = await patchActivity(schemaId, act.id, { datum, titel, type, km: kmVal, detail })
-        upsertActivity({ ...act, ...updated })
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      } else {
+      if (isSheetsRow) {
         const token = await getToken()
         if (!token) return
         await updateActivity(sheetId!, tabName, token, act.rowIndex!, {
           datum, titel, type, km: kmVal, detail,
         })
         upsertActivity({ ...act, datum, titel, type, km: kmVal, detail })
+      } else {
+        const updated = await patchActivity(schemaId!, act.id, { datum, titel, type, km: kmVal, detail })
+        upsertActivity({ ...act, ...updated })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       }
       showToast('✓ Opgeslagen')
       setEditing(false)
@@ -110,22 +116,23 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   async function handleDelete() {
-    if (!schemaId && (!sheetId || !act.rowIndex || !sheetTabId)) return
+    if (isSheetsRow && (!sheetId || !sheetTabId)) return
+    if (!isSheetsRow && !schemaId) return
     Alert.alert('Verwijderen?', act.titel || typeLabel, [
       { text: 'Annuleren', style: 'cancel' },
       {
         text: 'Verwijderen', style: 'destructive',
         onPress: async () => {
           try {
-            if (schemaId) {
-              await deleteBackendActivity(schemaId, act.id)
-              removeActivity(act.id)
-              await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-            } else {
+            if (isSheetsRow) {
               const token = await getToken()
               if (!token) return
               await deleteSheetActivity(sheetId!, sheetTabId!, token, act.rowIndex! - 1)
               removeActivity(act.id)
+            } else {
+              await deleteBackendActivity(schemaId!, act.id)
+              removeActivity(act.id)
+              await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
             }
             showToast('Verwijderd')
             onClose()

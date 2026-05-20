@@ -41,18 +41,15 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   useState(() => { setDatum(prefillDate ?? today) })
 
   async function handleSave() {
-    if (!schemaId && !sheetId) { showToast('Geen schema gekoppeld'); return }
+    if (!sheetId && !schemaId) { showToast('Geen schema gekoppeld'); return }
     setSaving(true)
     try {
       const kmVal = parseFloat(km) || null
-      if (schemaId) {
-        const created = await createActivity(schemaId, { datum, titel, type, km: kmVal, detail })
-        upsertActivity(created)
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      } else {
+      // Sheets leads when connected — matches useActivities priority.
+      if (sheetId) {
         const token = await getToken()
         if (!token) return
-        await appendAndSort(sheetId!, tabName, token, {
+        await appendAndSort(sheetId, tabName, token, {
           datum, titel, type, km: kmVal, detail, feedback: null, fase: null, raceType: null,
         })
         upsertActivity({
@@ -60,6 +57,10 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
           feedback: null, fase: null, rating: null, raceType: null, rowIndex: null,
           updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
         })
+      } else if (schemaId) {
+        const created = await createActivity(schemaId, { datum, titel, type, km: kmVal, detail })
+        upsertActivity(created)
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       }
       showToast('✓ Activiteit toegevoegd')
       setTitel(''); setKm(''); setDetail(''); setType('run')

@@ -5,9 +5,10 @@ import { listActivities } from '@/services/activities'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 
-// runyo v4 — when a backend schemaId is set, fetch from /api/schemas/:id/activities;
-// otherwise fall through to the legacy Sheets path. The two are mutually exclusive
-// per dataStore.activities — schemaId wins as soon as it is present (ticket 2.1d).
+// runyo v4 — leader: if a Sheets schema is connected (sheetId), that drives the
+// list — matches the v3 user mental model where the sheet IS the training data.
+// Backend takes over only when no sheet is connected (new v4-native users).
+// The Sheets→backend import flow that unifies them lives in a later ticket.
 
 export function useActivities() {
   const getToken     = useAuthStore(s => s.getToken)
@@ -16,7 +17,7 @@ export function useActivities() {
   const schemaId     = useDataStore(s => s.schemaId)
   const setActivities = useDataStore(s => s.setActivities)
 
-  const useBackend = !!schemaId
+  const useBackend = !!schemaId && !sheetId
 
   const query = useQuery({
     queryKey: useBackend
