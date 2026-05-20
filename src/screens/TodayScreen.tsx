@@ -169,7 +169,7 @@ export function TodayScreen() {
                 key={row.id}
                 activity={row}
                 onPress={() => row.type === 'race' ? setRaceActivity(row) : setSelectedActivity(row)}
-                onFeedbackPress={() => setEditingFeedback(true)}
+                onFeedbackPress={() => setEditingFeedback(v => !v)}
               />
             ))}
 
