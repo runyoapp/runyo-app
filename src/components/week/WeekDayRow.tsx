@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { runOnJS } from 'react-native-reanimated'
 import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -34,27 +33,23 @@ export function WeekDayRow({
 
   const isRace = activity.type === 'race'
 
-  // Pan only activates after holding LONG_PRESS_MS — coexists with the parent
-  // ScrollView because the row doesn't claim the gesture until the long-press
-  // threshold is reached. ScrollView keeps short swipes; long-press wins drag.
+  // runOnJS(true) keeps callbacks on JS thread → no Reanimated worklet runtime
+  // needed (Reanimated 4 + Expo Go has flaky NativeWorklets HostFunction init).
   const pan = Gesture.Pan()
     .activateAfterLongPress(LONG_PRESS_MS)
-    .onStart((e) => {
-      runOnJS(onDragStart)(activity, e.absoluteX, e.absoluteY)
-    })
-    .onUpdate((e) => {
-      runOnJS(onDragMove)(e.absoluteX, e.absoluteY)
-    })
-    .onEnd((e) => {
-      runOnJS(onDragEnd)(e.absoluteX, e.absoluteY, false)
-    })
+    .runOnJS(true)
+    .onStart((e) => onDragStart(activity, e.absoluteX, e.absoluteY))
+    .onUpdate((e) => onDragMove(e.absoluteX, e.absoluteY))
+    .onEnd((e) => onDragEnd(e.absoluteX, e.absoluteY, false))
     .onFinalize((e, success) => {
-      if (!success) runOnJS(onDragEnd)(e.absoluteX, e.absoluteY, true)
+      if (!success) onDragEnd(e.absoluteX, e.absoluteY, true)
     })
 
-  const tap = Gesture.Tap().onEnd((_, success) => {
-    if (success) runOnJS(onPress)()
-  })
+  const tap = Gesture.Tap()
+    .runOnJS(true)
+    .onEnd((_, success) => {
+      if (success) onPress()
+    })
 
   // Pan wins over tap once long-press fires; otherwise tap fires on quick release.
   const composed = Gesture.Exclusive(pan, tap)
