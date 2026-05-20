@@ -100,6 +100,9 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
           datum, titel, type, km: kmVal, detail,
         })
         upsertActivity({ ...act, datum, titel, type, km: kmVal, detail })
+        // Invalidate so useActivities' onData useEffect doesn't re-hydrate
+        // the store with the pre-edit cached Sheets snapshot on next mount.
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       } else {
         const updated = await patchActivity(schemaId!, act.id, { datum, titel, type, km: kmVal, detail })
         upsertActivity({ ...act, ...updated })
@@ -129,6 +132,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
               if (!token) return
               await deleteSheetActivity(sheetId!, sheetTabId!, token, act.rowIndex! - 1)
               removeActivity(act.id)
+              await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
             } else {
               await deleteBackendActivity(schemaId!, act.id)
               removeActivity(act.id)

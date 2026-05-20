@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -19,6 +20,7 @@ type Props = {
 }
 
 export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
+  const queryClient    = useQueryClient()
   const getToken       = useAuthStore(s => s.getToken)
   const sheetId        = useDataStore(s => s.sheetId)
   const tabName        = useDataStore(s => s.tabName)
@@ -77,6 +79,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
           feedback: null, fase: null, raceType,
         })
       }
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       showToast('✓ Race opgeslagen')
       onClose()
     } catch {

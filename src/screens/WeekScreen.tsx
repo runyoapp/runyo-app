@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, PanResponder, Animated } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
@@ -22,7 +23,8 @@ import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
 
 export function WeekScreen() {
-  const insets = useSafeAreaInsets()
+  const insets      = useSafeAreaInsets()
+  const queryClient = useQueryClient()
 
   const getToken  = useAuthStore(s => s.getToken)
   const { weekOffset, setWeekOffset, activities, sheetId, tabName, upsertActivity } = useDataStore(
@@ -78,6 +80,7 @@ export function WeekScreen() {
     try {
       await updateActivity(sheetId, tabName, token, (activity as any).rowIndex ?? 2, { datum: newDate })
       upsertActivity({ ...activity, datum: newDate })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       const mn = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
       showToast(`✓ Verplaatst naar ${newDate.slice(8)} ${mn[parseInt(newDate.slice(5, 7)) - 1]}`)
     } catch {

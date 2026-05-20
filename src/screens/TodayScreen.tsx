@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import { View, Text, StyleSheet, PanResponder, Animated } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
@@ -31,7 +32,8 @@ function buildFeedbackString(rating: number, text: string): string {
 }
 
 export function TodayScreen() {
-  const insets     = useSafeAreaInsets()
+  const insets      = useSafeAreaInsets()
+  const queryClient = useQueryClient()
   // Stores
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
@@ -107,6 +109,7 @@ export function TodayScreen() {
     try {
       await updateActivity(sheetId, tabName, token, (fbRow as any).rowIndex ?? 2, { feedback })
       upsertActivity({ ...fbRow, feedback })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')
     } catch {

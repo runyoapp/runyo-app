@@ -57,6 +57,7 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
           feedback: null, fase: null, rating: null, raceType: null, rowIndex: null,
           updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
         })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       } else if (schemaId) {
         const created = await createActivity(schemaId, { datum, titel, type, km: kmVal, detail })
         upsertActivity(created)
