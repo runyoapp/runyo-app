@@ -5,7 +5,7 @@ import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { appendActivity, updateActivity } from '@/services/sheets'
+import { appendActivity, updateAndSort, getSheetTabId, sortSheet } from '@/services/sheets'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import type { Activity } from '@/types/activity'
 
@@ -24,6 +24,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const getToken       = useAuthStore(s => s.getToken)
   const sheetId        = useDataStore(s => s.sheetId)
   const tabName        = useDataStore(s => s.tabName)
+  const sheetTabId     = useDataStore(s => s.sheetTabId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
 
@@ -69,7 +70,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
       const kmNum  = parseFloat(dist) || null
 
       if (isEdit && activity!.rowIndex) {
-        await updateActivity(sheetId, tabName, token, activity!.rowIndex, {
+        await updateAndSort(sheetId, tabName, sheetTabId, token, activity!.rowIndex, {
           datum: date, titel: name, type: 'race', km: kmNum, detail, raceType,
         })
         upsertActivity({ ...activity!, datum: date, titel: name, km: kmNum, detail, raceType })
@@ -78,6 +79,10 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
           datum: date, titel: name, type: 'race', km: kmNum, detail,
           feedback: null, fase: null, raceType,
         })
+        // appendActivity doesn't sort on its own (only appendAndSort does);
+        // a race insertion can land anywhere chronologically, so sort here.
+        const tabId = sheetTabId ?? await getSheetTabId(sheetId, tabName, token).catch(() => 0)
+        if (tabId) await sortSheet(sheetId, tabId, token).catch(() => {})
       }
       await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       showToast('✓ Race opgeslagen')

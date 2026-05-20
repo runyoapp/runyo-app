@@ -5,7 +5,7 @@ import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { updateActivity, deleteActivity as deleteSheetActivity } from '@/services/sheets'
+import { updateAndSort, deleteActivity as deleteSheetActivity } from '@/services/sheets'
 import { patchActivity, deleteActivity as deleteBackendActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
@@ -96,7 +96,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
       if (isSheetsRow) {
         const token = await getToken()
         if (!token) return
-        await updateActivity(sheetId!, tabName, token, act.rowIndex!, {
+        await updateAndSort(sheetId!, tabName, sheetTabId, token, act.rowIndex!, {
           datum, titel, type, km: kmVal, detail,
         })
         upsertActivity({ ...act, datum, titel, type, km: kmVal, detail })

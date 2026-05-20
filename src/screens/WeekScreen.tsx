@@ -13,7 +13,7 @@ import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
-import { updateActivity } from '@/services/sheets'
+import { updateAndSort } from '@/services/sheets'
 import {
   getWeekDates, getISOWeekNumber, fromDateString, toDateString,
   MONTHS_NL, DAYS_NL, mondayIndex,
@@ -27,13 +27,14 @@ export function WeekScreen() {
   const queryClient = useQueryClient()
 
   const getToken  = useAuthStore(s => s.getToken)
-  const { weekOffset, setWeekOffset, activities, sheetId, tabName, upsertActivity } = useDataStore(
+  const { weekOffset, setWeekOffset, activities, sheetId, tabName, sheetTabId, upsertActivity } = useDataStore(
     useShallow(s => ({
       weekOffset:     s.weekOffset,
       setWeekOffset:  s.setWeekOffset,
       activities:     s.activities,
       sheetId:        s.sheetId,
       tabName:        s.tabName,
+      sheetTabId:     s.sheetTabId,
       upsertActivity: s.upsertActivity,
     }))
   )
@@ -78,7 +79,7 @@ export function WeekScreen() {
     if (!token) return
     showToast('Verplaatsen…')
     try {
-      await updateActivity(sheetId, tabName, token, (activity as any).rowIndex ?? 2, { datum: newDate })
+      await updateAndSort(sheetId, tabName, sheetTabId, token, (activity as any).rowIndex ?? 2, { datum: newDate })
       upsertActivity({ ...activity, datum: newDate })
       await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       const mn = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']

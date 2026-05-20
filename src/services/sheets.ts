@@ -45,6 +45,23 @@ export async function appendAndSort(
   if (tabId) await sortSheet(sheetId, tabId, token).catch(() => {})
 }
 
+// Same as appendAndSort but for in-place edits. We sort even when the
+// edit doesn't touch column A, because the caller doesn't always know
+// whether the field set includes `datum`, and an extra sort is a no-op
+// when the sheet was already in order.
+export async function updateAndSort(
+  sheetId: string,
+  tabName: string,
+  sheetTabId: number | null,
+  token: string,
+  rowIndex: number,
+  activity: Partial<Activity>,
+): Promise<void> {
+  await updateActivity(sheetId, tabName, token, rowIndex, activity)
+  const tabId = sheetTabId ?? await getSheetTabId(sheetId, tabName, token).catch(() => 0)
+  if (tabId) await sortSheet(sheetId, tabId, token).catch(() => {})
+}
+
 export async function appendActivity(
   sheetId: string,
   tabName: string,
@@ -67,7 +84,10 @@ export async function appendActivity(
     activity.raceType ?? '',
   ]
   const range = `${encodeURIComponent(tabName)}!A:K`
-  await fetch(`${BASE}/${sheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+  // USER_ENTERED so Sheets parses our YYYY-MM-DD as a real date cell and
+  // honours the user's existing column-A date format. RAW would store it
+  // as text, breaking sort and mixing badly with existing date cells.
+  await fetch(`${BASE}/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
     method: 'POST',
     headers: { ...authHeader(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [row] }),
@@ -104,7 +124,7 @@ export async function updateActivity(
     activity.raceType ?? current[10],
   ]
 
-  await fetch(`${BASE}/${sheetId}/values/${range}?valueInputOption=RAW`, {
+  await fetch(`${BASE}/${sheetId}/values/${range}?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
     headers: { ...authHeader(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [merged] }),
