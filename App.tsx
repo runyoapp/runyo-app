@@ -3,6 +3,7 @@ import { useFonts } from 'expo-font'
 import { StatusBar } from 'expo-status-bar'
 import { NavigationContainer } from '@react-navigation/native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { View, StyleSheet } from 'react-native'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RootNavigator } from '@/navigation/RootNavigator'
@@ -48,16 +49,18 @@ export default function App() {
   if (!fontsLoaded) return null
 
   return (
-    <View style={styles.root}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <NavigationContainer>
-            <StatusBar style="dark" backgroundColor={LightTheme.bg} />
-            <RootNavigator />
-          </NavigationContainer>
-        </QueryClientProvider>
-      </SafeAreaProvider>
-    </View>
+    <GestureHandlerRootView style={styles.root}>
+      <View style={styles.root}>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <NavigationContainer>
+              <StatusBar style="dark" backgroundColor={LightTheme.bg} />
+              <RootNavigator />
+            </NavigationContainer>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </View>
+    </GestureHandlerRootView>
   )
 }
 
