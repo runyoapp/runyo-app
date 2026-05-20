@@ -37,7 +37,7 @@ export function TodayScreen() {
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const getToken    = useAuthStore(s => s.getToken)
-  const { dayOffset, setDayOffset, activities, sheetId, tabName, sheetTabId, upsertActivity } = useDataStore(
+  const { dayOffset, setDayOffset, activities, sheetId, tabName, sheetTabId, schemaId, upsertActivity } = useDataStore(
     useShallow(s => ({
       dayOffset:      s.dayOffset,
       setDayOffset:   s.setDayOffset,
@@ -45,6 +45,7 @@ export function TodayScreen() {
       sheetId:        s.sheetId,
       tabName:        s.tabName,
       sheetTabId:     s.sheetTabId,
+      schemaId:       s.schemaId,
       upsertActivity: s.upsertActivity,
     }))
   )
@@ -140,7 +141,7 @@ export function TodayScreen() {
         {dayOffset === 0 && <WeatherWidget />}
 
         {/* Main content */}
-        {!sheetId ? (
+        {!sheetId && !schemaId ? (
           <NoSchemaCard
             isSignedIn={isSignedIn}
             onConnect={() => {}}

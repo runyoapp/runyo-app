@@ -16,6 +16,7 @@ export function PlanScreen() {
   const insets     = useSafeAreaInsets()
   const activities = useDataStore(s => s.activities)
   const sheetId    = useDataStore(s => s.sheetId)
+  const schemaId   = useDataStore(s => s.schemaId)
   const theme      = useTheme()
   useActivities()
 
@@ -54,7 +55,7 @@ export function PlanScreen() {
   }
 
   // No schema / no data states
-  if (!sheetId) {
+  if (!sheetId && !schemaId) {
     return (
       <View style={[styles.root, styles.empty, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
         <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
