@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, PanResponder, Animated } from 'react-native'
+import { useState, useRef, useCallback } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -14,20 +14,23 @@ import { RaceModal } from '@/screens/RaceModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateAndSort } from '@/services/sheets'
+import { patchActivity } from '@/services/activities'
 import {
   getWeekDates, getISOWeekNumber, fromDateString, toDateString,
-  MONTHS_NL, DAYS_NL, mondayIndex,
+  MONTHS_NL, DAYS_NL,
 } from '@/utils/date'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
+
+type CellRect = { x: number; y: number; width: number; height: number }
 
 export function WeekScreen() {
   const insets      = useSafeAreaInsets()
   const queryClient = useQueryClient()
 
   const getToken  = useAuthStore(s => s.getToken)
-  const { weekOffset, setWeekOffset, activities, sheetId, tabName, sheetTabId, upsertActivity } = useDataStore(
+  const { weekOffset, setWeekOffset, activities, sheetId, tabName, sheetTabId, schemaId, upsertActivity } = useDataStore(
     useShallow(s => ({
       weekOffset:     s.weekOffset,
       setWeekOffset:  s.setWeekOffset,
@@ -35,6 +38,7 @@ export function WeekScreen() {
       sheetId:        s.sheetId,
       tabName:        s.tabName,
       sheetTabId:     s.sheetTabId,
+      schemaId:       s.schemaId,
       upsertActivity: s.upsertActivity,
     }))
   )
@@ -48,9 +52,17 @@ export function WeekScreen() {
   const [addModalOpen,     setAddModalOpen]     = useState(false)
   const todayStr  = toDateString(new Date())
 
+  // Drag-to-day state
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragPos,    setDragPos]    = useState<{ x: number; y: number } | null>(null)
+  const [hoverDate,  setHoverDate]  = useState<string | null>(null)
+  const draggingActivityRef = useRef<Activity | null>(null)
+  const cellRectsRef        = useRef<Map<string, CellRect>>(new Map())
+  const cellRefs            = useRef<Map<string, View | null>>(new Map())
+
   const swipePan = PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
+    onMoveShouldSetPanResponder: (_, g) => !draggingId && Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
     onPanResponderRelease: (_, g) => {
       if (Math.abs(g.dx) > 50) setWeekOffset(weekOffset + (g.dx < 0 ? 1 : -1))
     },
@@ -74,14 +86,22 @@ export function WeekScreen() {
   const kmLeft = Math.max(0, plannedKm - doneKm)
 
   async function doReschedule(activity: Activity, newDate: string) {
-    if (!sheetId || newDate === activity.datum) return
+    if (newDate === activity.datum) return
     const token = await getToken()
-    if (!token) return
     showToast('Verplaatsen…')
     try {
-      await updateAndSort(sheetId, tabName, sheetTabId, token, (activity as any).rowIndex ?? 2, { datum: newDate })
-      upsertActivity({ ...activity, datum: newDate })
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      if (sheetId) {
+        if (!token) return
+        await updateAndSort(sheetId, tabName, sheetTabId, token, (activity as any).rowIndex ?? 2, { datum: newDate })
+        upsertActivity({ ...activity, datum: newDate })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      } else if (schemaId) {
+        const updated = await patchActivity(schemaId, activity.id, { datum: newDate })
+        upsertActivity(updated)
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      } else {
+        return
+      }
       const mn = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
       showToast(`✓ Verplaatst naar ${newDate.slice(8)} ${mn[parseInt(newDate.slice(5, 7)) - 1]}`)
     } catch {
@@ -89,28 +109,49 @@ export function WeekScreen() {
     }
   }
 
-  function handleLongPress(activity: Activity) {
-    const options = weekDates
-      .filter(d => d !== activity.datum)
-      .map(d => {
-        const date = fromDateString(d)
-        return `${DAYS_NL[mondayIndex(date)]} ${date.getDate()}`
-      })
-
-    Alert.alert(
-      'Verplaatsen naar…',
-      activity.titel ?? activity.type,
-      [
-        ...weekDates
-          .filter(d => d !== activity.datum)
-          .map((d, i) => ({
-            text: options[i],
-            onPress: () => doReschedule(activity, d),
-          })),
-        { text: 'Annuleren', style: 'cancel' },
-      ]
-    )
+  const findHoveredDate = (pageX: number, pageY: number): string | null => {
+    for (const [date, rect] of cellRectsRef.current) {
+      if (pageX >= rect.x && pageX <= rect.x + rect.width &&
+          pageY >= rect.y && pageY <= rect.y + rect.height) {
+        return date
+      }
+    }
+    return null
   }
+
+  const handleDragStart = useCallback((activity: Activity, pageX: number, pageY: number) => {
+    draggingActivityRef.current = activity
+    setDraggingId(activity.id)
+    setDragPos({ x: pageX, y: pageY })
+    setHoverDate(null)
+  }, [])
+
+  const handleDragMove = useCallback((pageX: number, pageY: number) => {
+    setDragPos({ x: pageX, y: pageY })
+    const date = findHoveredDate(pageX, pageY)
+    setHoverDate(date)
+  }, [])
+
+  const handleDragEnd = useCallback((pageX: number, pageY: number, cancelled: boolean) => {
+    const activity = draggingActivityRef.current
+    draggingActivityRef.current = null
+    setDraggingId(null)
+    setDragPos(null)
+    setHoverDate(null)
+    if (cancelled || !activity) return
+    const date = findHoveredDate(pageX, pageY)
+    if (date) void doReschedule(activity, date)
+  }, [sheetId, schemaId, tabName, sheetTabId])
+
+  const measureCell = (date: string) => {
+    const ref = cellRefs.current.get(date)
+    if (!ref) return
+    ref.measureInWindow((x, y, width, height) => {
+      cellRectsRef.current.set(date, { x, y, width, height })
+    })
+  }
+
+  const draggingActivity = draggingActivityRef.current
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -147,14 +188,24 @@ export function WeekScreen() {
         <View style={[styles.progressFill, { width: `${pct}%` }]} />
       </View>
 
-      {/* Day strip */}
+      {/* Day strip — drop targets */}
       <View style={styles.strip}>
         {weekDates.map((date, i) => {
-          const d       = fromDateString(date)
-          const isToday = date === todayStr
-          const hasAct  = activities.some(a => a.datum === date && a.type !== 'rest' && a.type !== 'work')
+          const d         = fromDateString(date)
+          const isToday   = date === todayStr
+          const hasAct    = activities.some(a => a.datum === date && a.type !== 'rest' && a.type !== 'work')
+          const isHovered = hoverDate === date && draggingId !== null
           return (
-            <View key={date} style={[styles.stripDay, isToday && styles.stripDayToday]}>
+            <View
+              key={date}
+              ref={(r) => { cellRefs.current.set(date, r) }}
+              onLayout={() => measureCell(date)}
+              style={[
+                styles.stripDay,
+                isToday && styles.stripDayToday,
+                isHovered && styles.stripDayHover,
+              ]}
+            >
               <Text style={[styles.stripDayName, isToday && styles.stripTextActive]}>{DAYS_NL[i]}</Text>
               <Text style={[styles.stripDayNum,  isToday && styles.stripTextActive]}>{d.getDate()}</Text>
               <View style={[
@@ -171,12 +222,13 @@ export function WeekScreen() {
         style={[styles.scroll, swipeAnim.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!draggingId}
         {...swipePan.panHandlers}
       >
         {weekData.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              {sheetId ? 'Geen trainingen deze week.' : 'Koppel een schema in Instellingen.'}
+              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Koppel een schema in Instellingen.'}
             </Text>
           </View>
         ) : (
@@ -187,14 +239,35 @@ export function WeekScreen() {
                 activity={activity}
                 isToday={date === todayStr}
                 isPast={date < todayStr}
+                isDragging={draggingId === activity.id}
                 onPress={() => activity.type === 'race' ? setRaceActivity(activity) : setSelectedActivity(activity)}
-                onLongPress={handleLongPress}
+                onDragStart={handleDragStart}
+                onDragMove={handleDragMove}
+                onDragEnd={handleDragEnd}
               />
             ))
           )
         )}
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
+
+      {/* Ghost — rendered above everything during drag */}
+      {draggingActivity && dragPos && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.ghost,
+            { left: dragPos.x - 80, top: dragPos.y - 24, backgroundColor: theme.surface, borderColor: LightTheme.accent },
+          ]}
+        >
+          <Text style={styles.ghostTitle} numberOfLines={1}>
+            {draggingActivity.titel || draggingActivity.type}
+          </Text>
+          {draggingActivity.km != null && (
+            <Text style={styles.ghostKm}>{draggingActivity.km} km</Text>
+          )}
+        </View>
+      )}
 
       <DayDetailModal
         activity={selectedActivity}
@@ -232,6 +305,7 @@ const styles = StyleSheet.create({
   strip:           { flexDirection: 'row', paddingHorizontal: Spacing.sm, marginBottom: Spacing.sm },
   stripDay:        { flex: 1, alignItems: 'center', paddingVertical: Spacing.sm, borderRadius: Radius.md, gap: 2 },
   stripDayToday:   { backgroundColor: LightTheme.accent },
+  stripDayHover:   { borderWidth: 2, borderColor: LightTheme.accent, paddingVertical: Spacing.sm - 2 },
   stripDayName:    { fontFamily: Fonts.displayMedium, fontSize: 10, color: LightTheme.muted },
   stripDayNum:     { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
   stripTextActive: { color: '#fff' },
@@ -240,4 +314,31 @@ const styles = StyleSheet.create({
   scrollContent:   { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
   emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center' },
   emptyText:       { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
+  ghost: {
+    position: 'absolute',
+    width: 160,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  ghostTitle: {
+    flex: 1,
+    fontFamily: Fonts.displaySemiBold,
+    fontSize: 13,
+    color: LightTheme.text,
+  },
+  ghostKm: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 12,
+    color: LightTheme.text2,
+  },
 })

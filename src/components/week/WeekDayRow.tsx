@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { useRef } from 'react'
+import { View, Text, StyleSheet, Pressable, PanResponder, type GestureResponderEvent } from 'react-native'
 import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -11,11 +12,19 @@ type Props = {
   activity: Activity
   isToday: boolean
   isPast: boolean
+  isDragging: boolean
   onPress: () => void
-  onLongPress: (activity: Activity) => void
+  onDragStart: (activity: Activity, pageX: number, pageY: number) => void
+  onDragMove: (pageX: number, pageY: number) => void
+  onDragEnd: (pageX: number, pageY: number, cancelled: boolean) => void
 }
 
-export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: Props) {
+const LONG_PRESS_MS = 350
+
+export function WeekDayRow({
+  activity, isToday, isPast, isDragging,
+  onPress, onDragStart, onDragMove, onDragEnd,
+}: Props) {
   const theme   = useTheme()
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label   = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
@@ -24,19 +33,75 @@ export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: 
 
   const isRace = activity.type === 'race'
 
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dragActive     = useRef(false)
+  const movedAway      = useRef(false)
+
+  const clearTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => dragActive.current,
+      onPanResponderTerminationRequest: () => !dragActive.current,
+      onPanResponderGrant: (e: GestureResponderEvent) => {
+        dragActive.current = false
+        movedAway.current  = false
+        const { pageX, pageY } = e.nativeEvent
+        longPressTimer.current = setTimeout(() => {
+          longPressTimer.current = null
+          if (movedAway.current) return
+          dragActive.current = true
+          onDragStart(activity, pageX, pageY)
+        }, LONG_PRESS_MS)
+      },
+      onPanResponderMove: (e, g) => {
+        if (!dragActive.current) {
+          // cancel long-press if finger drifted before threshold
+          if (Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8) {
+            movedAway.current = true
+            clearTimer()
+          }
+          return
+        }
+        onDragMove(e.nativeEvent.pageX, e.nativeEvent.pageY)
+      },
+      onPanResponderRelease: (e) => {
+        clearTimer()
+        if (dragActive.current) {
+          dragActive.current = false
+          onDragEnd(e.nativeEvent.pageX, e.nativeEvent.pageY, false)
+          return
+        }
+        // tap path — only fire onPress if no drag and no drift
+        if (!movedAway.current) onPress()
+      },
+      onPanResponderTerminate: (e) => {
+        clearTimer()
+        if (dragActive.current) {
+          dragActive.current = false
+          onDragEnd(e.nativeEvent.pageX, e.nativeEvent.pageY, true)
+        }
+      },
+    })
+  ).current
+
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.row,
         { backgroundColor: isRace ? 'rgba(200,51,107,0.06)' : theme.surface },
         isToday && !isRace && styles.rowToday,
         isRace && styles.rowRace,
         isPast && styles.rowPast,
+        isDragging && styles.rowGhost,
       ]}
-      onPress={onPress}
-      onLongPress={() => onLongPress(activity)}
-      delayLongPress={400}
-      activeOpacity={0.75}
+      {...panResponder.panHandlers}
     >
       <View style={[styles.bar, { backgroundColor: colors.text }]} />
       <View style={styles.body}>
@@ -51,7 +116,7 @@ export function WeekDayRow({ activity, isToday, isPast, onPress, onLongPress }: 
         <Text style={[styles.km, isRace && { color: '#C8336B' }]}>{activity.km} km</Text>
       )}
       <Text style={styles.handle}>⠿</Text>
-    </TouchableOpacity>
+    </Pressable>
   )
 }
 
@@ -74,6 +139,9 @@ const styles = StyleSheet.create({
   },
   rowPast: {
     opacity: 0.45,
+  },
+  rowGhost: {
+    opacity: 0.3,
   },
   bar: {
     width: 4,
