@@ -34,7 +34,7 @@ Fase 3 (sequentieel + parallel binnen fase)
 | 1 | 1.1 | Test- en feedback-infra | AFK | completed |
 | 1 | 1.2 | Backend baseline + eerste schema-tracer | AFK | completed |
 | 1 | 1.3 | Deep-module refactor | AFK | pending |
-| 2 | 2.1 | Activity CRUD end-to-end | AFK | pending |
+| 2 | 2.1 | Activity CRUD end-to-end | AFK | completed |
 | 2 | 2.2 | Importer schrijft naar backend | AFK | pending |
 | 2 | 2.3 | Auth-breedte (Apple + email) | AFK (subset HITL) | pending |
 | 2 | 2.4 | Edits-flow (drag + delete + rust + feedback) | AFK | pending |
