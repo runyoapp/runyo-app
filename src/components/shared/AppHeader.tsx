@@ -81,8 +81,11 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
           <RacesBar
             activities={activities}
             onRacePress={activity => {
-              setRaceActivity(activity)
-              onRacePress?.(activity.datum)
+              // Parent owns the RaceModal when it provides onRacePress;
+              // otherwise fall back to our internal modal. Two stacked
+              // <Modal> instances would block touches on Today.
+              if (onRacePress) onRacePress(activity.datum)
+              else setRaceActivity(activity)
             }}
           />
           <TouchableOpacity style={styles.addBelowBar} onPress={onAddPress}>

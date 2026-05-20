@@ -1,8 +1,7 @@
-import { useState, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native'
+import { useState, useRef, useMemo } from 'react'
+import { View, Text, StyleSheet, PanResponder, Animated } from 'react-native'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -64,15 +63,23 @@ export function TodayScreen() {
   const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
 
-  const swipe = useRef({ x: 0 })
-  const panResponder = PanResponder.create({
+  // Keep panResponder stable across renders — re-creating it every render
+  // can desync the native gesture handler and leave the scroll view tap-dead
+  // on certain devices. Capture dayOffset/setDayOffset via a ref instead.
+  const swipe   = useRef({ x: 0 })
+  const navRef  = useRef({ dayOffset, setDayOffset })
+  navRef.current = { dayOffset, setDayOffset }
+  const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
     onPanResponderGrant: e => { swipe.current.x = e.nativeEvent.pageX },
     onPanResponderRelease: (_, g) => {
-      if (Math.abs(g.dx) > 50) setDayOffset(dayOffset + (g.dx < 0 ? 1 : -1))
+      if (Math.abs(g.dx) > 50) {
+        const { dayOffset: d, setDayOffset: set } = navRef.current
+        set(d + (g.dx < 0 ? 1 : -1))
+      }
     },
-  })
+  }), [])
 
   // Derived
   const isSignedIn = !!tokenSet

@@ -109,7 +109,7 @@ export function RacesBar({ activities, onRacePress }: Props) {
 
 const styles = StyleSheet.create({
   container:       { marginHorizontal: Spacing.lg, marginBottom: 2, borderRadius: Radius.md, borderWidth: 1, overflow: 'hidden' },
-  mainRow:         { flexDirection: 'row', alignItems: 'center', padding: '12px 14px' as any, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  mainRow:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
   dot:             { width: 8, height: 8, borderRadius: 4, backgroundColor: '#C8336B', flexShrink: 0, shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
   body:            { flex: 1, minWidth: 0 },
   name:            { fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.1 },
