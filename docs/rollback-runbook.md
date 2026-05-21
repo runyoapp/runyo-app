@@ -74,9 +74,9 @@ DNS is een CNAME naar `runyoapp.github.io`. Dit hoef je bij een rollback niet te
 ## Na het dogfooden — checklist voor definitieve go-live
 
 - [ ] 1–2 weken dagelijks gebruikt zonder problemen
-- [ ] Rollback getest in staging (noteer wall-clock-tijd hieronder)
-  - Rollback-tijd: ___
-  - Rollback-ongedaan-tijd: ___
+- [x] Rollback getest (2026-05-21) ✅
+  - Rollback-tijd: ~42 sec (workflow aanpassen → legacy PWA live)
+  - Rollback-ongedaan-tijd: ~1 min 32 sec (expo rebuild + deploy)
 - [x] `app.json` version `4.0.0` ✅
 - [x] DNS `app.runyo.app` → GitHub Pages (CNAME) actief ✅ (live, HTTP 200)
 - [x] HTTPS cert geldig (geen mixed-content warnings) ✅ (HSTS actief)
