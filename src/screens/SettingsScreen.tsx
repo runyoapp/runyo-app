@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import { AccountSection } from '@/components/settings/AccountSection'
 import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
+import { PushSection } from '@/components/settings/PushSection'
 import { PrefsSection } from '@/components/settings/PrefsSection'
 import { SchemaTracerSection } from '@/components/settings/SchemaTracerSection'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
@@ -43,7 +44,11 @@ export function SettingsScreen() {
           <ConnectSection />
         </Section>
 
-        <Section title="Notificaties">
+        <Section title="Push notificaties">
+          <PushSection />
+        </Section>
+
+        <Section title="Telegram notificaties">
           <NotifSection />
         </Section>
 
