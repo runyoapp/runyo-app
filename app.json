@@ -28,8 +28,7 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro",
-      "baseUrl": "/runyo-app"
+      "bundler": "metro"
     },
     "plugins": [
       "expo-secure-store",
