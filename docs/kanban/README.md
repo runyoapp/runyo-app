@@ -31,19 +31,19 @@ Fase 3 (sequentieel + parallel binnen fase)
 
 | Fase | ID | Titel | Type | Status |
 |------|----|-------|------|--------|
-| 1 | 1.1 | Test- en feedback-infra | AFK | completed |
-| 1 | 1.2 | Backend baseline + eerste schema-tracer | AFK | completed |
-| 1 | 1.3 | Deep-module refactor | AFK | pending |
-| 2 | 2.1 | Activity CRUD end-to-end | AFK | completed |
-| 2 | 2.2 | Importer schrijft naar backend | AFK | pending |
-| 2 | 2.3 | Auth-breedte (Apple + email) | AFK (subset HITL) | pending |
-| 2 | 2.4 | Edits-flow (drag + delete + rust + feedback) | AFK | pending |
-| 2 | 2.5 | Native push notifications | AFK (subset HITL) | pending |
-| 2 | 2.6 | Telegram-bot reads from backend | AFK | pending |
-| 3 | 3.1 | Web build + directe cutover | HITL | pending |
-| 3 | 3.2 | Native builds + store submission | HITL | pending |
-| 3 | 3.3 | Sheets sync (optioneel) | AFK (optioneel) | pending |
-| 3 | 3.4 | Manuele QA-pass | HITL | pending |
+| 1 | 1.1 | Test- en feedback-infra | AFK | ✅ completed |
+| 1 | 1.2 | Backend baseline + eerste schema-tracer | AFK | ✅ completed |
+| 1 | 1.3 | Deep-module refactor | AFK | ✅ completed |
+| 2 | 2.1 | Activity CRUD end-to-end | AFK | ✅ completed |
+| 2 | 2.2 | Importer schrijft naar backend | AFK | ✅ completed |
+| 2 | 2.3 | Auth-breedte (email/ww; Apple wacht op account) | AFK (subset HITL) | ✅ completed (gedeeltelijk) |
+| 2 | 2.4 | Edits-flow (drag + delete + rust + feedback) | AFK | ✅ completed |
+| 2 | 2.5 | Native push notifications | AFK (subset HITL) | ✅ completed (APNs wacht op Apple account) |
+| 2 | 2.6 | Telegram-bot reads from backend | AFK | ✅ completed |
+| 3 | 3.1 | Web build + directe cutover | HITL | ✅ completed (dogfood loopt) |
+| 3 | 3.2 | Native builds + store submission | HITL | ⏳ blokkeert op Apple Developer Account |
+| 3 | 3.3 | Sheets sync (optioneel) | AFK (optioneel) | ✅ completed |
+| 3 | 3.4 | Manuele QA-pass | HITL | 🔜 nu uitvoerbaar |
 
 ## Hoe een ticket te claimen
 
