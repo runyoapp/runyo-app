@@ -39,7 +39,7 @@ export function PushSection() {
       if (loaded) setPrefs(loaded)
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   async function save() {
     setSaving(true)
