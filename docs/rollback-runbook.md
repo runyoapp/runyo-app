@@ -77,8 +77,8 @@ DNS is een CNAME naar `runyoapp.github.io`. Dit hoef je bij een rollback niet te
 - [ ] Rollback getest in staging (noteer wall-clock-tijd hieronder)
   - Rollback-tijd: ___
   - Rollback-ongedaan-tijd: ___
-- [ ] `app.json` version `4.0.0` ✅ (al gedaan)
-- [ ] DNS `app.runyo.app` → GitHub Pages (CNAME) actief
-- [ ] HTTPS cert geldig (geen mixed-content warnings)
-- [ ] `legacy-pwa` branch bestaat in origin
-- [ ] CLAUDE.md frontend-sectie geüpdatet ✅ (al gedaan)
+- [x] `app.json` version `4.0.0` ✅
+- [x] DNS `app.runyo.app` → GitHub Pages (CNAME) actief ✅ (live, HTTP 200)
+- [x] HTTPS cert geldig (geen mixed-content warnings) ✅ (HSTS actief)
+- [x] `legacy-pwa` branch bestaat in origin ✅
+- [x] CLAUDE.md frontend-sectie geüpdatet ✅
