@@ -43,6 +43,12 @@ async function generateChallenge(verifier: string): Promise<string> {
 
 // Main sign-in — opens SFSafariViewController (native) or popup (web)
 export async function signInWithGoogle(): Promise<TokenSet> {
+  // Op web: popup meteen openen (synchroon, vóór elke await) zodat iOS Safari
+  // het niet blokkeert als "niet door gebruiker geïnitieerd".
+  const popup = Platform.OS === 'web'
+    ? window.open('', 'google-auth', 'width=520,height=640,left=200,top=100')
+    : null
+
   const verifier  = await generateVerifier()
   const challenge = await generateChallenge(verifier)
 
@@ -60,9 +66,8 @@ export async function signInWithGoogle(): Promise<TokenSet> {
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 
   if (Platform.OS === 'web') {
-    // Sla verifier op voor iOS-redirect-fallback (tab sluit en app herlaadt)
     localStorage.setItem('runyo_oauth_verifier', verifier)
-    const code = await openGooglePopup(authUrl)
+    const code = await openGooglePopup(authUrl, popup)
     localStorage.removeItem('runyo_oauth_verifier')
     return exchangeCode(code, verifier, REDIRECT_URI)
   }
@@ -75,10 +80,10 @@ export async function signInWithGoogle(): Promise<TokenSet> {
   return exchangeCode(code, verifier, REDIRECT_URI)
 }
 
-function openGooglePopup(authUrl: string): Promise<string> {
+function openGooglePopup(authUrl: string, popup: Window | null): Promise<string> {
   return new Promise((resolve, reject) => {
-    const popup = window.open(authUrl, 'google-auth', 'width=520,height=640,left=200,top=100')
     if (!popup) { reject(new Error('Popup geblokkeerd door browser')); return }
+    popup.location.href = authUrl
 
     function cleanup() {
       clearInterval(closedInterval)
