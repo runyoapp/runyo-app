@@ -1,5 +1,8 @@
 // Pure activity-mutation helpers used by DayDetailModal.
 // No UI imports — this module is safe to unit-test in Node/vitest.
+//
+// All exported functions accept plain context objects so callers can
+// pass store snapshots without coupling this module to React/Zustand.
 
 import { deleteActivity as deleteSheetActivity, updateAndSort } from './sheets'
 import { patchActivity, deleteActivity as deleteBackendActivity } from './activities'
@@ -80,3 +83,31 @@ export function validateDeleteContext(
  * Same rules as delete.
  */
 export const validatePatchContext = validateDeleteContext
+
+export type SaveInput = {
+  datum: string
+  titel: string
+  type: import('@/types/activity').ActivityType
+  km: number | null
+  detail: string
+}
+
+/**
+ * Persist an activity edit to the backing store.
+ * Returns the merged activity that should be stored locally.
+ */
+export async function saveActivity(
+  activity: Activity,
+  input: SaveInput,
+  ctx: PatchContext,
+): Promise<Activity> {
+  if (ctx.isSheetsRow) {
+    const token = await ctx.getToken()
+    if (!token) throw new Error('unauthorized')
+    await updateAndSort(ctx.sheetId, ctx.tabName, ctx.sheetTabId, token, activity.rowIndex!, input)
+    return { ...activity, ...input }
+  } else {
+    const updated = await patchActivity(ctx.schemaId, activity.id, input)
+    return { ...activity, ...updated }
+  }
+}

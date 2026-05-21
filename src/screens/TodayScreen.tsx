@@ -1,14 +1,13 @@
-import { useState, useRef, useMemo } from 'react'
-import { View, Text, StyleSheet, PanResponder, Animated } from 'react-native'
+import { useState } from 'react'
+import { View, Text, StyleSheet, Animated } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
-import { useDataStore } from '@/stores/dataStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
+import { useTodayData } from '@/hooks/useTodayData'
+import { useDaySwipe } from '@/hooks/useDaySwipe'
 import { DayStrip } from '@/components/today/DayStrip'
 import { HeroCard, RestCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
@@ -21,7 +20,6 @@ import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
 import { updateActivity } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
-import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import type { Activity } from '@/types/activity'
@@ -35,72 +33,25 @@ function buildFeedbackString(rating: number, text: string): string {
 export function TodayScreen() {
   const insets      = useSafeAreaInsets()
   const queryClient = useQueryClient()
-  // Stores
-  const tokenSet    = useAuthStore(s => s.tokenSet)
-  const setTokenSet = useAuthStore(s => s.setTokenSet)
   const getToken    = useAuthStore(s => s.getToken)
-  const { dayOffset, setDayOffset, activities, sheetId, tabName, sheetTabId, schemaId, upsertActivity } = useDataStore(
-    useShallow(s => ({
-      dayOffset:      s.dayOffset,
-      setDayOffset:   s.setDayOffset,
-      activities:     s.activities,
-      sheetId:        s.sheetId,
-      tabName:        s.tabName,
-      sheetTabId:     s.sheetTabId,
-      schemaId:       s.schemaId,
-      upsertActivity: s.upsertActivity,
-    }))
-  )
-  const lang        = useSettingsStore(s => s.prefs.lang)
   const showToast   = useUiStore(s => s.showToast)
   const theme       = useTheme()
 
+  const {
+    isSignedIn, dateStr, dayLabel, dayOffset, setDayOffset,
+    sheetId, tabName, sheetTabId, schemaId,
+    upsertActivity, activities,
+    activeRows, isRest, fbRow, tmrRow,
+  } = useTodayData()
 
-  // Data
-  const { isLoading, refetch } = useActivities()
+  const { isLoading } = useActivities()
+  const swipeAnim     = useSwipeAnimation(dayOffset)
+  const panHandlers   = useDaySwipe(dayOffset, setDayOffset)
 
-  // Local UI state
-  const swipeAnim = useSwipeAnimation(dayOffset)
   const [editingFeedback,  setEditingFeedback]  = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
-
-  // Keep panResponder stable across renders — re-creating it every render
-  // can desync the native gesture handler and leave the scroll view tap-dead
-  // on certain devices. Capture dayOffset/setDayOffset via a ref instead.
-  const swipe   = useRef({ x: 0 })
-  const navRef  = useRef({ dayOffset, setDayOffset })
-  navRef.current = { dayOffset, setDayOffset }
-  const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
-    onPanResponderGrant: e => { swipe.current.x = e.nativeEvent.pageX },
-    onPanResponderRelease: (_, g) => {
-      if (Math.abs(g.dx) > 50) {
-        const { dayOffset: d, setDayOffset: set } = navRef.current
-        set(d + (g.dx < 0 ? 1 : -1))
-      }
-    },
-  }), [])
-
-  // Derived
-  const isSignedIn = !!tokenSet
-  const selectedDate = dateFromOffset(dayOffset)
-  const dateStr      = toDateString(selectedDate)
-  const dayLabel     = formatDayLabel(selectedDate, dayOffset, lang)
-
-  const todayRows  = activities.filter(a => a.datum === dateStr)
-  const activeRows = todayRows.filter(a => a.type !== 'rest')
-  const mainRow    = activeRows[0] ?? todayRows[0] ?? null
-  const isRest     = !mainRow || mainRow.type === 'rest'
-  const fbRow      = activeRows.find(a => a.type !== 'work') ?? null
-
-  const tmrDate = addDays(new Date(), 1)
-  const tmrStr  = toDateString(tmrDate)
-  const tmrRow  = dayOffset === 0
-    ? activities.find(a => a.datum === tmrStr && a.type !== 'rest') ?? null
-    : null
 
   async function handleFeedback(rating: number, text: string) {
     if (!fbRow) return
@@ -117,9 +68,9 @@ export function TodayScreen() {
         await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       } else {
         const updated = await patchActivity(schemaId!, fbRow.id, { /* feedback not in ActivityPatchInput yet */ } as any)
-        // feedback field is not in the backend schema yet — optimistic update only
+        // feedback field not in backend schema yet — optimistic update only
         upsertActivity({ ...fbRow, feedback })
-        void updated  // suppress unused var; remove when backend supports feedback
+        void updated  // remove when backend supports feedback
         await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       }
       setEditingFeedback(false)
@@ -143,9 +94,8 @@ export function TodayScreen() {
         style={[styles.scroll, swipeAnim.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        {...panResponder.panHandlers}
+        {...panHandlers}
       >
-        {/* Day strip — always visible */}
         <DayStrip
           dayOffset={dayOffset}
           activities={activities}
@@ -154,20 +104,14 @@ export function TodayScreen() {
           onNextWeek={() => setDayOffset(dayOffset + 7)}
         />
 
-        {/* Day label */}
         <View style={styles.kickerRow}>
           <Text style={styles.kicker}>{dayLabel}</Text>
         </View>
 
-        {/* Weather (today only) */}
         {dayOffset === 0 && <WeatherWidget />}
 
-        {/* Main content */}
         {!sheetId && !schemaId ? (
-          <NoSchemaCard
-            isSignedIn={isSignedIn}
-            onConnect={() => {}}
-          />
+          <NoSchemaCard isSignedIn={isSignedIn} onConnect={() => {}} />
         ) : isLoading ? (
           <View style={styles.loadingRow}>
             <Text style={styles.loadingText}>Laden…</Text>
@@ -185,7 +129,6 @@ export function TodayScreen() {
               />
             ))}
 
-            {/* Feedback — only show when explicitly opened */}
             {fbRow && fbRow.feedback && !editingFeedback && (
               <FeedbackDisplay
                 feedback={fbRow.feedback}
@@ -202,12 +145,8 @@ export function TodayScreen() {
           </>
         )}
 
-        {/* Tomorrow card */}
         {tmrRow && (
-          <TomorrowCard
-            activity={tmrRow}
-            onPress={() => setDayOffset(1)}
-          />
+          <TomorrowCard activity={tmrRow} onPress={() => setDayOffset(1)} />
         )}
 
         <View style={{ height: 100 }} />
@@ -234,25 +173,11 @@ export function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: LightTheme.bg },
-  scroll: { flex: 1 },
+  root:          { flex: 1, backgroundColor: LightTheme.bg },
+  scroll:        { flex: 1 },
   scrollContent: { paddingTop: Spacing.sm },
-  kickerRow: {
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
-  kicker: {
-    fontFamily: Fonts.displaySemiBold,
-    fontSize: 14,
-    color: LightTheme.text2,
-  },
-  loadingRow: {
-    padding: Spacing.xl,
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontFamily: Fonts.mono,
-    fontSize: 13,
-    color: LightTheme.muted,
-  },
+  kickerRow:     { paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
+  kicker:        { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text2 },
+  loadingRow:    { padding: Spacing.xl, alignItems: 'center' },
+  loadingText:   { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
 })
