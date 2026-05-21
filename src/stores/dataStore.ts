@@ -46,6 +46,7 @@ type DataStore = {
   // Backend schema actions (1.2d tracer)
   loadMySchemas: () => Promise<void>
   createNewSchema: () => Promise<void>
+  activateImport: (schemaId: string) => Promise<void>
   setTab: (tab: TabName) => void
   setWeekOffset: (offset: number) => void
   setDayOffset: (offset: number) => void
@@ -125,6 +126,11 @@ export const useDataStore = create<DataStore>((set) => ({
     const result = await createSchema()
     set({ schemaId: result.id })
     await AsyncStorage.setItem(SCHEMA_ID_KEY, result.id)
+  },
+  activateImport: async (schemaId) => {
+    set({ schemaId, sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null })
+    await AsyncStorage.setItem(SCHEMA_ID_KEY, schemaId)
+    await AsyncStorage.removeItem(SCHEMA_KEY)
   },
 
   setTab: (currentTab) => set({ currentTab }),

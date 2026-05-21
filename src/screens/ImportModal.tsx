@@ -4,18 +4,19 @@ import {
   TextInput, Switch,
 } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
+import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
-import { pickFile, pickPhoto, analyseSchema, confirmImport } from '@/services/import'
+import { pickFile, pickPhoto, analyseSchema, analyseSchemaFromUrl, importToBackend } from '@/services/import'
 import type { ParsedRow, AnalyseResult } from '@/services/import'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 
 const DAY_LABELS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 
-type Step = 'source' | 'picked' | 'processing' | 'preview' | 'success'
-type Source = 'pdf' | 'excel' | 'foto'
+type Step = 'source' | 'excel-choice' | 'url-input' | 'picked' | 'processing' | 'preview' | 'success'
+type Source = 'pdf' | 'excel' | 'foto' | 'url'
 
 function CircleProgress({ pct, size = 80, color }: { pct: number; size: number; color: string }) {
   const r    = (size - 12) / 2
@@ -45,14 +46,17 @@ function InfoCard({ label, value, p }: { label: string; value: string; p: any })
 }
 
 export function ImportModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const p         = useTheme()
-  const getToken  = useAuthStore(s => s.getToken)
-  const setSchema = useDataStore(s => s.setSchema)
+  const p              = useTheme()
+  const getToken       = useAuthStore(s => s.getToken)
+  const activateImport = useDataStore(s => s.activateImport)
+  const queryClient    = useQueryClient()
 
   const [step,        setStep]        = useState<Step>('source')
+  const [source,      setSource]      = useState<Source>('pdf')
   const [fileName,    setFileName]    = useState('')
   const [fileB64,     setFileB64]     = useState('')
   const [fileMime,    setFileMime]    = useState('')
+  const [urlInput,    setUrlInput]    = useState('')
   const [progress,    setProgress]    = useState(0)
   const [result,      setResult]      = useState<AnalyseResult | null>(null)
   const [error,       setError]       = useState('')
@@ -62,16 +66,17 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
   const [showConfig,  setShowConfig]  = useState(false)
 
   function reset() {
-    setStep('source'); setFileName(''); setFileB64(''); setFileMime(''); setProgress(0)
-    setResult(null); setError(''); setShowConfig(false)
+    setStep('source'); setSource('pdf'); setFileName(''); setFileB64(''); setFileMime('')
+    setUrlInput(''); setProgress(0); setResult(null); setError(''); setShowConfig(false)
     setStartDate(new Date().toISOString().split('T')[0])
     setRunDays([0, 2, 4]); setKeepRest(true)
   }
 
-  async function handleSourceTap(src: Source) {
+  async function handleFileTap(src: 'pdf' | 'excel' | 'foto') {
     try {
       const picked = src === 'foto' ? await pickPhoto(false) : await pickFile()
       if (!picked) return
+      setSource(src)
       setFileName(picked.fileName)
       setFileMime(picked.fileMime)
       setFileB64(picked.fileB64)
@@ -81,11 +86,24 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
     }
   }
 
+  function handleUrlConfirm() {
+    if (!urlInput.trim()) { setError('Vul een URL in.'); return }
+    setSource('url')
+    setFileName(urlInput.trim())
+    setStep('picked')
+    setError('')
+  }
+
   async function analyse() {
-    if (!fileB64) { setError('Wacht tot het bestand geladen is.'); return }
     setStep('processing'); setProgress(0); setError('')
     try {
-      const analysed = await analyseSchema(fileB64, fileMime, startDate, runDays, keepRest, getToken, setProgress)
+      let analysed: AnalyseResult
+      if (source === 'url') {
+        analysed = await analyseSchemaFromUrl(urlInput.trim(), startDate, runDays, keepRest, getToken, setProgress)
+      } else {
+        if (!fileB64) { setError('Wacht tot het bestand geladen is.'); setStep('picked'); return }
+        analysed = await analyseSchema(fileB64, fileMime, startDate, runDays, keepRest, getToken, setProgress)
+      }
       setResult(analysed)
       setProgress(100)
       setStep('preview')
@@ -98,7 +116,9 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
     if (!result) return
     setStep('processing'); setProgress(0)
     try {
-      await confirmImport(result.rows, result.schemaTitle, getToken, setSchema, setProgress)
+      const { schemaId, activities } = await importToBackend(result.rows, getToken, setProgress)
+      await activateImport(schemaId)
+      queryClient.setQueryData(['activities', 'backend', schemaId], activities)
       setStep('success')
     } catch (e: any) {
       setError(e.message ?? 'Importeren mislukt'); setStep('preview')
@@ -114,7 +134,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
         <View style={styles.column}>
           <Text style={[styles.sectionLabel, { color: p.muted }]}>kies je bron</Text>
 
-          <TouchableOpacity style={[styles.tile, styles.tilePrimary, { backgroundColor: p.accent, borderColor: p.accent }]} onPress={() => handleSourceTap('pdf')}>
+          <TouchableOpacity style={[styles.tile, styles.tilePrimary, { backgroundColor: p.accent, borderColor: p.accent }]} onPress={() => handleFileTap('pdf')}>
             <View style={styles.tileBody}>
               <Text style={[styles.tileTitle, { color: p.accentInk }]}>PDF</Text>
               <Text style={[styles.tileSub, { color: p.accentInk, opacity: 0.8 }]}>van je coach of trainingsplan</Text>
@@ -122,15 +142,15 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={[styles.tileArrow, { color: p.accentInk }]}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => handleSourceTap('excel')}>
+          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => setStep('excel-choice')}>
             <View style={styles.tileBody}>
               <Text style={[styles.tileTitle, { color: p.text }]}>Excel / sheet</Text>
-              <Text style={[styles.tileSub, { color: p.muted }]}>spreadsheet of .csv</Text>
+              <Text style={[styles.tileSub, { color: p.muted }]}>spreadsheet, .csv of link</Text>
             </View>
             <Text style={[styles.tileArrow, { color: p.muted }]}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => handleSourceTap('foto')}>
+          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => handleFileTap('foto')}>
             <View style={styles.tileBody}>
               <Text style={[styles.tileTitle, { color: p.text }]}>Foto</Text>
               <Text style={[styles.tileSub, { color: p.muted }]}>whiteboard, briefje, schermafdruk</Text>
@@ -139,6 +159,65 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
           </TouchableOpacity>
 
           {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
+        </View>
+      )}
+
+      {step === 'excel-choice' && (
+        <View style={styles.column}>
+          <Text style={[styles.sectionLabel, { color: p.muted }]}>Excel / sheet</Text>
+
+          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => handleFileTap('excel')}>
+            <View style={styles.tileBody}>
+              <Text style={[styles.tileTitle, { color: p.text }]}>Bestand kiezen</Text>
+              <Text style={[styles.tileSub, { color: p.muted }]}>.xlsx of .csv van je apparaat</Text>
+            </View>
+            <Text style={[styles.tileArrow, { color: p.muted }]}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.tile, { backgroundColor: p.surface, borderColor: p.border }]} onPress={() => setStep('url-input')}>
+            <View style={styles.tileBody}>
+              <Text style={[styles.tileTitle, { color: p.text }]}>Link invullen</Text>
+              <Text style={[styles.tileSub, { color: p.muted }]}>Google Sheets of andere URL</Text>
+            </View>
+            <Text style={[styles.tileArrow, { color: p.muted }]}>›</Text>
+          </TouchableOpacity>
+
+          {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
+
+          <TouchableOpacity onPress={() => setStep('source')} style={styles.backBtn}>
+            <Text style={[styles.backBtnText, { color: p.muted }]}>← terug</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {step === 'url-input' && (
+        <View style={[styles.column, styles.centered]}>
+          <Text style={[styles.sectionLabel, { color: p.muted }]}>plak de URL van je schema</Text>
+
+          <TextInput
+            style={[styles.urlInput, { color: p.text, borderColor: p.border, backgroundColor: p.surface }]}
+            value={urlInput}
+            onChangeText={v => { setUrlInput(v); setError('') }}
+            placeholder="https://docs.google.com/spreadsheets/…"
+            placeholderTextColor={p.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+
+          {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.ctaBtn, { backgroundColor: p.accent }, !urlInput.trim() && { opacity: 0.45 }]}
+            onPress={handleUrlConfirm}
+            disabled={!urlInput.trim()}
+          >
+            <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>doorgaan →</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setStep('excel-choice')} style={styles.backBtn}>
+            <Text style={[styles.backBtnText, { color: p.muted }]}>← terug</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -153,9 +232,9 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={[styles.docFileName, { color: p.muted }]}>{fileName}</Text>
           </View>
 
-          <Text style={[styles.fileNameBig, { color: p.text }]}>{fileName}</Text>
-          {!fileB64 && <Text style={[styles.loadingHint, { color: p.muted }]}>bestand laden…</Text>}
-          {fileB64  && <Text style={[styles.loadingHint, { color: p.accent }]}>✓ klaar om te analyseren</Text>}
+          <Text style={[styles.fileNameBig, { color: p.text }]} numberOfLines={2}>{fileName}</Text>
+          {source !== 'url' && !fileB64 && <Text style={[styles.loadingHint, { color: p.muted }]}>bestand laden…</Text>}
+          {(source === 'url' || fileB64) && <Text style={[styles.loadingHint, { color: p.accent }]}>✓ klaar om te analyseren</Text>}
 
           {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
@@ -188,14 +267,14 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
           )}
 
           <TouchableOpacity
-            style={[styles.ctaBtn, { backgroundColor: p.accent }, !fileB64 && { opacity: 0.45 }]}
+            style={[styles.ctaBtn, { backgroundColor: p.accent }, (source !== 'url' && !fileB64) && { opacity: 0.45 }]}
             onPress={analyse}
-            disabled={!fileB64}
+            disabled={source !== 'url' && !fileB64}
           >
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>schema analyseren →</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setStep('source')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => setStep(source === 'url' ? 'url-input' : source === 'excel' ? 'excel-choice' : 'source')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← andere bron kiezen</Text>
           </TouchableOpacity>
         </View>
@@ -266,6 +345,7 @@ const styles = StyleSheet.create({
   tileTitle:        { fontFamily: Fonts.displaySemiBold, fontSize: 13 },
   tileSub:          { fontFamily: Fonts.displayMedium, fontSize: 11, marginTop: 2 },
   tileArrow:        { fontFamily: Fonts.display, fontSize: 18 },
+  urlInput:         { width: '100%', fontFamily: Fonts.mono, fontSize: 12, borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: 10 },
   docPreview:       { width: 140, borderRadius: 8, padding: 14, gap: 6, borderWidth: 1, transform: [{ rotate: '-2deg' }], shadowColor: '#0E1F1A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
   docLine:          { height: 5, borderRadius: 2 },
   docFileName:      { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1, marginTop: 4 },

@@ -5,9 +5,10 @@
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system/legacy'
-import { appendActivity, verifyOrFixHeaders, getSheetTabId, sortSheet } from './sheets'
-import { createNewSheet } from './drive'
-import type { ActivityType } from '@/constants/activities'
+import * as xlsx from 'xlsx'
+import { createSchema } from './schemas'
+import { createActivity } from './activities'
+import type { Activity, ActivityType } from '@/types/activity'
 
 export const IMPORT_BACKEND = 'https://runyo-auth-production.up.railway.app'
 
@@ -31,6 +32,12 @@ Dan PIEK: (hoogste weekvolume in km, bijv. "65 km").
 Dan RAPPORT: (max 3 zinnen plain language).
 Dan direct de JSON array, geen markdown.`
 
+const XLSX_MIMES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'text/csv',
+]
+
 export type ParsedRow = {
   datum: string
   type: string
@@ -52,6 +59,12 @@ export type AnalyseResult = {
   piekStr: string
   rapport: string
   rows: ParsedRow[]
+}
+
+export function excelToText(base64: string): string {
+  const wb = xlsx.read(base64, { type: 'base64' })
+  const sheet = wb.Sheets[wb.SheetNames[0]]
+  return xlsx.utils.sheet_to_csv(sheet)
 }
 
 export async function pickFile(): Promise<PickResult | null> {
@@ -129,15 +142,26 @@ export async function analyseSchema(
   const userText = `Begindatum: ${startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${keepRest ? 'ja' : 'nee'}.`
 
   const isImage = fileMime === 'image/jpeg' || fileMime === 'image/png'
-  const userContent = isImage
-    ? [
-        { type: 'image', source: { type: 'base64', media_type: fileMime, data: fileB64 } },
-        { type: 'text', text: userText },
-      ]
-    : [
-        { type: 'document', source: { type: 'base64', media_type: fileMime, data: fileB64 } },
-        { type: 'text', text: userText },
-      ]
+  const isExcel = XLSX_MIMES.includes(fileMime)
+
+  let userContent: object[]
+  if (isImage) {
+    userContent = [
+      { type: 'image', source: { type: 'base64', media_type: fileMime, data: fileB64 } },
+      { type: 'text', text: userText },
+    ]
+  } else if (isExcel) {
+    const csvText = excelToText(fileB64)
+    userContent = [
+      { type: 'text', text: csvText },
+      { type: 'text', text: userText },
+    ]
+  } else {
+    userContent = [
+      { type: 'document', source: { type: 'base64', media_type: fileMime, data: fileB64 } },
+      { type: 'text', text: userText },
+    ]
+  }
 
   let pct = 0
   const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 85); onProgress(pct) }, 200)
@@ -160,45 +184,62 @@ export async function analyseSchema(
   }
 }
 
-export async function confirmImport(
-  rows: ParsedRow[],
-  schemaTitle: string,
+export async function analyseSchemaFromUrl(
+  url: string,
+  startDate: string,
+  runDays: number[],
+  keepRest: boolean,
   getToken: () => Promise<string | null>,
-  setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => Promise<void>,
   onProgress: (pct: number) => void,
-): Promise<void> {
-  const token = await getToken()
-  if (!token) throw new Error('Niet ingelogd')
-
-  const d = new Date()
-  const MONTHS = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
-  const titlePart = schemaTitle ? `${schemaTitle} ` : ''
-  const baseName = `runyo schema ${titlePart}${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-
-  const entry = await createNewSheet(token, baseName)
-  await verifyOrFixHeaders(entry.id, 'Schema', token)
+): Promise<AnalyseResult> {
+  const DAY_LABELS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
+  const dayNames = DAY_LABELS.filter((_, i) => runDays.includes(i)).join(', ')
+  const userText = `Begindatum: ${startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${keepRest ? 'ja' : 'nee'}.`
 
   let pct = 0
-  const timer = setInterval(() => { pct = Math.min(pct + 2, 90); onProgress(pct) }, 300)
+  const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 85); onProgress(pct) }, 200)
+
   try {
-    for (const row of rows) {
-      await appendActivity(entry.id, 'Schema', token, {
-        datum: row.datum,
-        type: row.type as ActivityType,
-        titel: row.titel,
-        detail: row.detail,
-        km: row.km,
-        feedback: null,
-        fase: row.fase,
-        raceType: null,
-      })
-    }
+    const token = await getToken()
+    const res = await fetch(`${IMPORT_BACKEND}/ai/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({
+        url,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
+      }),
+    })
+    if (!res.ok) throw new Error(`Fout ${res.status}`)
+    const json = await res.json() as { content: { text: string }[] }
+    const raw = json.content?.[0]?.text ?? ''
+
+    onProgress(95)
+    return parseRawResponse(raw)
   } finally {
-    clearInterval(timer)
+    clearInterval(progressTimer)
+  }
+}
+
+export async function importToBackend(
+  rows: ParsedRow[],
+  getToken: () => Promise<string | null>,
+  onProgress: (pct: number) => void,
+): Promise<{ schemaId: string; activities: Activity[] }> {
+  const { id: schemaId } = await createSchema()
+
+  const activities: Activity[] = []
+  for (const row of rows) {
+    const activity = await createActivity(schemaId, {
+      datum: row.datum,
+      type: row.type as ActivityType,
+      titel: row.titel || null,
+      detail: row.detail || null,
+      km: row.km,
+    })
+    activities.push(activity)
   }
 
-  const tabId = await getSheetTabId(entry.id, 'Schema', token).catch(() => 0)
-  if (tabId) await sortSheet(entry.id, tabId, token).catch(() => {})
-  await setSchema(entry.id, 'Schema', entry.name, tabId)
   onProgress(100)
+  return { schemaId, activities }
 }
