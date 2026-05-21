@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native'
+import { useState, useEffect, useRef } from 'react'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { updateAndSort, deleteActivity as deleteSheetActivity } from '@/services/sheets'
-import { patchActivity, deleteActivity as deleteBackendActivity } from '@/services/activities'
+import { updateAndSort } from '@/services/sheets'
+import { patchActivity } from '@/services/activities'
+import { commitDelete, markAsRest, validateDeleteContext } from '@/services/activityEdit'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -44,8 +45,12 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const removeActivity = useDataStore(s => s.removeActivity)
   const showToast     = useUiStore(s => s.showToast)
 
-  const [editing, setEditing]   = useState(false)
-  const [saving,  setSaving]    = useState(false)
+  const [editing,  setEditing]  = useState(false)
+  const [saving,   setSaving]   = useState(false)
+  const [marking,  setMarking]  = useState(false)
+  // Holds a snapshot for the undo window
+  const pendingDelete = useRef<Activity | null>(null)
+  const deleteTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Edit fields — sync whenever the activity changes
   const [datum,  setDatum]  = useState('')
@@ -118,34 +123,79 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
     }
   }
 
-  async function handleDelete() {
-    if (isSheetsRow && (!sheetId || !sheetTabId)) return
-    if (!isSheetsRow && !schemaId) return
-    Alert.alert('Verwijderen?', act.titel || typeLabel, [
-      { text: 'Annuleren', style: 'cancel' },
-      {
-        text: 'Verwijderen', style: 'destructive',
-        onPress: async () => {
-          try {
-            if (isSheetsRow) {
-              const token = await getToken()
-              if (!token) return
-              await deleteSheetActivity(sheetId!, sheetTabId!, token, act.rowIndex! - 1)
-              removeActivity(act.id)
-              await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-            } else {
-              await deleteBackendActivity(schemaId!, act.id)
-              removeActivity(act.id)
-              await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-            }
-            showToast('Verwijderd')
-            onClose()
-          } catch {
-            showToast('Verwijderen mislukt')
-          }
-        },
+  function handleDelete() {
+    const err = validateDeleteContext(isSheetsRow, sheetId, sheetTabId, schemaId)
+    if (err) { showToast(err); return }
+
+    // Cancel any previous pending delete before starting a new one
+    if (deleteTimer.current) clearTimeout(deleteTimer.current)
+
+    pendingDelete.current = act
+    removeActivity(act.id)
+    onClose()
+
+    showToast('Verwijderd', 5000, {
+      label: 'Ongedaan',
+      onPress: () => {
+        if (deleteTimer.current) clearTimeout(deleteTimer.current)
+        const snapshot = pendingDelete.current
+        if (snapshot) upsertActivity(snapshot)
+        pendingDelete.current = null
       },
-    ])
+    })
+
+    deleteTimer.current = setTimeout(async () => {
+      const snapshot = pendingDelete.current
+      if (!snapshot) return   // undo was pressed
+      pendingDelete.current = null
+      try {
+        await commitDelete(snapshot, {
+          isSheetsRow,
+          sheetId: sheetId!,
+          sheetTabId: sheetTabId!,
+          tabName,
+          schemaId: schemaId!,
+          getToken,
+        })
+        if (isSheetsRow) {
+          await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+        } else {
+          await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+        }
+      } catch {
+        // Commit failed — restore the activity so the user doesn't lose data
+        upsertActivity(snapshot)
+        showToast('Verwijderen mislukt')
+      }
+    }, 5000)
+  }
+
+  async function handleMarkAsRest() {
+    const err = validateDeleteContext(isSheetsRow, sheetId, sheetTabId, schemaId)
+    if (err) { showToast(err); return }
+    setMarking(true)
+    try {
+      const updated = await markAsRest(act, {
+        isSheetsRow,
+        sheetId: sheetId!,
+        sheetTabId,
+        tabName,
+        schemaId: schemaId!,
+        getToken,
+      })
+      upsertActivity(updated)
+      if (isSheetsRow) {
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      }
+      showToast('Gemarkeerd als rustdag')
+      onClose()
+    } catch {
+      showToast('Markeren mislukt')
+    } finally {
+      setMarking(false)
+    }
   }
 
   return (
@@ -249,6 +299,18 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
             <Text style={styles.cancelBtnText}>Annuleren</Text>
           </TouchableOpacity>
 
+          {act.type !== 'rest' && (
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              onPress={handleMarkAsRest}
+              disabled={marking}
+            >
+              <Text style={[styles.secondaryBtnText, { color: theme.muted }]}>
+                {marking ? 'Bezig…' : 'Markeer als rustdag'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[styles.deleteBtn, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}
             onPress={handleDelete}
@@ -287,6 +349,8 @@ const styles = StyleSheet.create({
   saveBtnText:      { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: '#fff' },
   cancelBtn:        { alignItems: 'center', padding: Spacing.sm },
   cancelBtnText:    { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted },
+  secondaryBtn:     { alignItems: 'center', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1 },
+  secondaryBtnText: { fontFamily: Fonts.displayMedium, fontSize: 13 },
   deleteBtn:        { alignItems: 'center', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, marginTop: Spacing.xs },
   deleteBtnText:    { fontFamily: Fonts.displayMedium, fontSize: 13 },
 })

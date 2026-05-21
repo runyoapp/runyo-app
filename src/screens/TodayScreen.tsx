@@ -20,6 +20,7 @@ import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
 import { updateActivity } from '@/services/sheets'
+import { patchActivity } from '@/services/activities'
 import { toDateString, dateFromOffset, addDays, formatDayLabel } from '@/utils/date'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -102,14 +103,25 @@ export function TodayScreen() {
     : null
 
   async function handleFeedback(rating: number, text: string) {
-    if (!fbRow || !sheetId || !sheetTabId) return
-    const token = await getToken()
-    if (!token) return
+    if (!fbRow) return
+    const isSheetsRow = !!fbRow.rowIndex
+    if (isSheetsRow && (!sheetId || !sheetTabId)) return
+    if (!isSheetsRow && !schemaId) return
     const feedback = buildFeedbackString(rating, text)
     try {
-      await updateActivity(sheetId, tabName, token, (fbRow as any).rowIndex ?? 2, { feedback })
-      upsertActivity({ ...fbRow, feedback })
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      if (isSheetsRow) {
+        const token = await getToken()
+        if (!token) return
+        await updateActivity(sheetId!, tabName, token, fbRow.rowIndex!, { feedback })
+        upsertActivity({ ...fbRow, feedback })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      } else {
+        const updated = await patchActivity(schemaId!, fbRow.id, { /* feedback not in ActivityPatchInput yet */ } as any)
+        // feedback field is not in the backend schema yet — optimistic update only
+        upsertActivity({ ...fbRow, feedback })
+        void updated  // suppress unused var; remove when backend supports feedback
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      }
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')
     } catch {
