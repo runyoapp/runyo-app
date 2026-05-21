@@ -1,6 +1,6 @@
 import * as WebBrowser from 'expo-web-browser'
 import * as Crypto from 'expo-crypto'
-import * as SecureStore from 'expo-secure-store'
+import * as SecureStore from './storage'
 import type { TokenSet } from '@/types/auth'
 
 const CLIENT_ID   = '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com'
