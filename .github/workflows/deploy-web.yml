@@ -27,7 +27,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx expo export --platform web
-      - run: cp CNAME dist/
+      - run: cp CNAME dist/ && cp oauth-callback.html dist/
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:

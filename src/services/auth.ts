@@ -1,6 +1,7 @@
 import * as WebBrowser from 'expo-web-browser'
 import * as Crypto from 'expo-crypto'
 import * as SecureStore from './storage'
+import { Platform } from 'react-native'
 import type { TokenSet } from '@/types/auth'
 
 const CLIENT_ID   = '360342745908-n5l0071jgfb76nn0qtj65d9rcmolgbqf.apps.googleusercontent.com'
@@ -40,10 +41,10 @@ async function generateChallenge(verifier: string): Promise<string> {
   return digest.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
-// Main sign-in — opens SFSafariViewController, catches runyo://auth deep link
+// Main sign-in — opens SFSafariViewController (native) or popup (web)
 export async function signInWithGoogle(): Promise<TokenSet> {
-  const verifier   = await generateVerifier()
-  const challenge  = await generateChallenge(verifier)
+  const verifier  = await generateVerifier()
+  const challenge = await generateChallenge(verifier)
 
   const params = new URLSearchParams({
     client_id:             CLIENT_ID,
@@ -57,15 +58,44 @@ export async function signInWithGoogle(): Promise<TokenSet> {
   })
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
-  const result  = await WebBrowser.openAuthSessionAsync(authUrl, DEEP_LINK)
 
+  if (Platform.OS === 'web') {
+    const code = await openGooglePopup(authUrl)
+    return exchangeCode(code, verifier, REDIRECT_URI)
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(authUrl, DEEP_LINK)
   if (result.type !== 'success') throw new Error('Auth cancelled')
-
   const url  = new URL(result.url)
   const code = url.searchParams.get('code')
   if (!code) throw new Error('No code in redirect URL')
-
   return exchangeCode(code, verifier, REDIRECT_URI)
+}
+
+function openGooglePopup(authUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const popup = window.open(authUrl, 'google-auth', 'width=520,height=640,left=200,top=100')
+    if (!popup) { reject(new Error('Popup geblokkeerd door browser')); return }
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      if (event.data?.type !== 'OAUTH_CODE') return
+      cleanup()
+      if (event.data.error) reject(new Error(event.data.error))
+      else resolve(event.data.code)
+    }
+
+    const interval = setInterval(() => {
+      if (popup.closed) { cleanup(); reject(new Error('Auth cancelled')) }
+    }, 500)
+
+    function cleanup() {
+      clearInterval(interval)
+      window.removeEventListener('message', onMessage)
+    }
+
+    window.addEventListener('message', onMessage)
+  })
 }
 
 export async function exchangeCode(
