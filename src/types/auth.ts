@@ -3,6 +3,7 @@ export type TokenSet = {
   refreshToken: string | null
   expiry: number       // Unix ms timestamp
   email: string
+  authMethod?: 'google' | 'email' | 'apple'
 }
 
 export type AuthState =

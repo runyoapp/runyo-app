@@ -130,23 +130,37 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 export async function loadStoredTokenSet(): Promise<TokenSet | null> {
+  // Probeer Google-token eerst; dan email-token als fallback.
   const [token, expiryStr, refresh, email] = await Promise.all([
     SecureStore.getItemAsync(KEYS.token),
     SecureStore.getItemAsync(KEYS.expiry),
     SecureStore.getItemAsync(KEYS.refresh),
     SecureStore.getItemAsync(KEYS.email),
   ])
-  if (!token || !email) return null
-  return {
-    accessToken:  token,
-    refreshToken: refresh ?? null,
-    expiry:       parseInt(expiryStr ?? '0', 10),
-    email,
+  if (token && email) {
+    return { accessToken: token, refreshToken: refresh ?? null, expiry: parseInt(expiryStr ?? '0', 10), email, authMethod: 'google' }
   }
+
+  const [eToken, eExpiryStr, eEmail] = await Promise.all([
+    SecureStore.getItemAsync(EMAIL_KEYS.token),
+    SecureStore.getItemAsync(EMAIL_KEYS.expiry),
+    SecureStore.getItemAsync(EMAIL_KEYS.email),
+  ])
+  if (eToken && eEmail) {
+    const expiry = parseInt(eExpiryStr ?? '0', 10)
+    if (Date.now() < expiry) {
+      return { accessToken: eToken, refreshToken: null, expiry, email: eEmail, authMethod: 'email' }
+    }
+  }
+
+  return null
 }
 
 export async function signOut(): Promise<void> {
-  await Promise.all(Object.values(KEYS).map(k => SecureStore.deleteItemAsync(k)))
+  await Promise.all([
+    ...Object.values(KEYS).map(k => SecureStore.deleteItemAsync(k)),
+    ...Object.values(EMAIL_KEYS).map(k => SecureStore.deleteItemAsync(k)),
+  ])
 }
 
 async function storeTokenSet(tokenSet: TokenSet): Promise<void> {
@@ -164,4 +178,55 @@ async function fetchEmail(accessToken: string): Promise<string> {
   })
   const data = await res.json() as { email?: string }
   return data.email ?? ''
+}
+
+// ── Email/wachtwoord auth ──────────────────────────────────────────────────────
+
+const EMAIL_KEYS = {
+  token:  'eauth_token',
+  expiry: 'eauth_expiry',
+  email:  'eauth_email',
+}
+
+export type EmailAuthError = 'INVALID_CREDENTIALS' | 'EMAIL_IN_USE' | 'WEAK_PASSWORD' | 'NETWORK_ERROR'
+
+export async function signUpWithEmail(email: string, password: string): Promise<TokenSet> {
+  const res = await fetch(`${BACKEND}/auth/email-signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!res.ok) {
+    const body = await res.json() as { error?: string }
+    if (res.status === 409) throw Object.assign(new Error(body.error ?? 'E-mailadres al in gebruik'), { code: 'EMAIL_IN_USE' as EmailAuthError })
+    if (res.status === 422) throw Object.assign(new Error(body.error ?? 'Wachtwoord te zwak'), { code: 'WEAK_PASSWORD' as EmailAuthError })
+    throw Object.assign(new Error(body.error ?? 'Aanmelden mislukt'), { code: 'NETWORK_ERROR' as EmailAuthError })
+  }
+  const data = await res.json() as { userId: string; token: string }
+  return storeEmailTokenSet(email.toLowerCase(), data.token)
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<TokenSet> {
+  const res = await fetch(`${BACKEND}/auth/email-signin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!res.ok) {
+    const body = await res.json() as { error?: string }
+    if (res.status === 401) throw Object.assign(new Error(body.error ?? 'Ongeldig e-mailadres of wachtwoord'), { code: 'INVALID_CREDENTIALS' as EmailAuthError })
+    throw Object.assign(new Error(body.error ?? 'Inloggen mislukt'), { code: 'NETWORK_ERROR' as EmailAuthError })
+  }
+  const data = await res.json() as { userId: string; token: string }
+  return storeEmailTokenSet(email.toLowerCase(), data.token)
+}
+
+async function storeEmailTokenSet(email: string, token: string): Promise<TokenSet> {
+  const expiry = Date.now() + 90 * 24 * 60 * 60 * 1000
+  await Promise.all([
+    SecureStore.setItemAsync(EMAIL_KEYS.token,  token),
+    SecureStore.setItemAsync(EMAIL_KEYS.expiry, String(expiry)),
+    SecureStore.setItemAsync(EMAIL_KEYS.email,  email),
+  ])
+  return { accessToken: token, refreshToken: null, expiry, email, authMethod: 'email' }
 }
