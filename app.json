@@ -2,7 +2,7 @@
   "expo": {
     "name": "runyo",
     "slug": "runyo",
-    "version": "3.50.0",
+    "version": "4.0.0",
     "orientation": "portrait",
     "scheme": "runyo",
     "icon": "./assets/icon.png",
@@ -27,7 +27,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-secure-store",

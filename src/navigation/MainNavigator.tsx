@@ -7,7 +7,9 @@ import { TodayScreen } from '@/screens/TodayScreen'
 import { WeekScreen } from '@/screens/WeekScreen'
 import { PlanScreen } from '@/screens/PlanScreen'
 import { CalendarScreen } from '@/screens/CalendarScreen'
-import { Fonts, GlassBg } from '@/constants/theme'
+import { Fonts, GlassBg, LightTheme, DarkTheme, Spacing } from '@/constants/theme'
+import { useIsDesktop } from '@/hooks/useBreakpoint'
+import { useTheme } from '@/hooks/useTheme'
 
 export type MainTabParamList = {
   Today:    undefined
@@ -68,17 +70,59 @@ function FloatingTabBar({ state, navigation }: any) {
   )
 }
 
-export function MainNavigator() {
+function DesktopSidebar({ state, navigation }: any) {
+  const theme    = useTheme()
+  const insets   = useSafeAreaInsets()
+
   return (
-    <Tab.Navigator
-      tabBar={props => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tab.Screen name="Today"    component={TodayScreen} />
-      <Tab.Screen name="Week"     component={WeekScreen} />
-      <Tab.Screen name="Plan"     component={PlanScreen} />
-      <Tab.Screen name="Calendar" component={CalendarScreen} />
-    </Tab.Navigator>
+    <View style={[
+      sidebarStyles.sidebar,
+      { backgroundColor: theme.surface, borderRightColor: theme.border, paddingTop: insets.top + Spacing.lg },
+    ]}>
+      <Text style={[sidebarStyles.logo, { color: theme.accent }]}>runyo</Text>
+      <View style={sidebarStyles.items}>
+        {state.routes.map((route: any, index: number) => {
+          const focused = state.index === index
+          return (
+            <TouchableOpacity
+              key={route.key}
+              style={[sidebarStyles.item, focused && { backgroundColor: theme.accentGlow }]}
+              onPress={() => navigation.navigate(route.name)}
+              activeOpacity={0.8}
+            >
+              <Text style={[
+                sidebarStyles.itemLabel,
+                { color: focused ? theme.accent : theme.text2 },
+                focused && sidebarStyles.itemLabelActive,
+              ]}>
+                {TAB_LABELS[route.name]}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
+export function MainNavigator() {
+  const isDesktop = useIsDesktop()
+
+  return (
+    <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
+      <Tab.Navigator
+        tabBar={props => isDesktop
+          ? <DesktopSidebar {...props} />
+          : <FloatingTabBar {...props} />
+        }
+        screenOptions={{ headerShown: false }}
+      >
+        <Tab.Screen name="Today"    component={TodayScreen} />
+        <Tab.Screen name="Week"     component={WeekScreen} />
+        <Tab.Screen name="Plan"     component={PlanScreen} />
+        <Tab.Screen name="Calendar" component={CalendarScreen} />
+      </Tab.Navigator>
+    </View>
   )
 }
 
@@ -118,6 +162,37 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   tabLabelActive: {
+    fontFamily: Fonts.displayBold,
+  },
+})
+
+const sidebarStyles = StyleSheet.create({
+  sidebar: {
+    width: 200,
+    borderRightWidth: 1,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  logo: {
+    fontFamily: Fonts.displayBold,
+    fontSize: 20,
+    letterSpacing: -0.5,
+    marginBottom: Spacing.xl,
+  },
+  items: {
+    gap: 4,
+  },
+  item: {
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 8,
+  },
+  itemLabel: {
+    fontFamily: Fonts.displayMedium,
+    fontSize: 14,
+    letterSpacing: -0.1,
+  },
+  itemLabelActive: {
     fontFamily: Fonts.displayBold,
   },
 })

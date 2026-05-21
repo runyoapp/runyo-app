@@ -21,6 +21,7 @@ import {
 } from '@/utils/date'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { PageContainer } from '@/components/shared/PageContainer'
 import type { Activity } from '@/types/activity'
 
 type CellRect = { x: number; y: number; width: number; height: number }
@@ -155,6 +156,7 @@ export function WeekScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
+      <PageContainer>
       <AppHeader onAddPress={() => setAddModalOpen(true)} />
       {/* Week nav header */}
       <View style={styles.header}>
@@ -250,6 +252,7 @@ export function WeekScreen() {
         )}
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
+      </PageContainer>
 
       {/* Ghost — rendered above everything during drag */}
       {draggingActivity && dragPos && (

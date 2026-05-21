@@ -10,6 +10,7 @@ import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { PhaseBlock } from '@/components/plan/PhaseBlock'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { PageContainer } from '@/components/shared/PageContainer'
 import type { Activity } from '@/types/activity'
 
 export function PlanScreen() {
@@ -75,6 +76,7 @@ export function PlanScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
+      <PageContainer>
       <AppHeader onAddPress={() => setAddModalOpen(true)} />
       <ScrollView
         ref={scrollRef}
@@ -116,6 +118,7 @@ export function PlanScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+      </PageContainer>
 
       <DayDetailModal
         activity={selectedActivity}

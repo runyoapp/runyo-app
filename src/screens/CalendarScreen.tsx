@@ -11,6 +11,7 @@ import { RaceCard } from '@/components/calendar/RaceCard'
 import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { PageContainer } from '@/components/shared/PageContainer'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { MONTHS_FULL_NL } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
@@ -78,6 +79,7 @@ export function CalendarScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
+      <PageContainer>
       <AppHeader
         onAddPress={() => setAddModalOpen(true)}
         showRacesBar={true}
@@ -162,6 +164,7 @@ export function CalendarScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+      </PageContainer>
 
       <RaceModal
         activity={raceActivity}

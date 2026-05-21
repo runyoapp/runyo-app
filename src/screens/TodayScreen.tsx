@@ -22,6 +22,7 @@ import { updateActivity } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { PageContainer } from '@/components/shared/PageContainer'
 import type { Activity } from '@/types/activity'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
@@ -82,6 +83,7 @@ export function TodayScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
+      <PageContainer>
       <AppHeader
         onAddPress={() => setAddModalOpen(true)}
         onRacePress={datum => {
@@ -151,6 +153,7 @@ export function TodayScreen() {
 
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
+      </PageContainer>
 
       <Toast />
       <DayDetailModal
