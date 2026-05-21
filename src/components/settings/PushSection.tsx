@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View, Text, Switch, TouchableOpacity, TextInput, StyleSheet } from 'react-native'
+import { View, Text, Switch, TouchableOpacity, TextInput, StyleSheet, Platform } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { registerForPushNotifications, loadPushPrefs, savePushPrefs, openNotificationSettings } from '@/services/pushNotifications'
@@ -20,6 +20,19 @@ const DEFAULTS: Prefs = {
 }
 
 export function PushSection() {
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.deniedText}>
+          Push notificaties zijn alleen beschikbaar in de runyo-app op iOS of Android.
+        </Text>
+      </View>
+    )
+  }
+  return <PushSectionNative />
+}
+
+function PushSectionNative() {
   const getToken  = useAuthStore(s => s.getToken)
   const showToast = useUiStore(s => s.showToast)
 
