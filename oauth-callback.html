@@ -1,31 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><title>Inloggen…</title>
-<style>body{background:#0a0a0a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:14px}</style>
+<style>body{background:#F1EEE6;color:#0E1F1A;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:14px}</style>
 </head>
 <body>
-<div>Inloggen… dit venster sluit automatisch.</div>
+<div>Inloggen… even geduld.</div>
 <script>
-  const p=new URLSearchParams(window.location.search);
-  const code=p.get('code');
-  const error=p.get('error');
-  if(window.opener){
-    // Popup flow (web): stuur code terug via postMessage
+  var p    = new URLSearchParams(window.location.search);
+  var code = p.get('code');
+  var err  = p.get('error');
+
+  if (window.opener) {
+    // Desktop popup flow: stuur code terug en sluit tab
     window.opener.postMessage(
-      code ? {type:'OAUTH_CODE',code} : {type:'OAUTH_CODE',error:error||'Onbekende fout'},
+      code ? {type:'OAUTH_CODE',code:code} : {type:'OAUTH_CODE',error:err||'Onbekende fout'},
       window.location.origin
     );
-  } else if(code && !window.opener) {
-    // Native app flow: redirect via deep link so SFSafariViewController can catch it
-    const nativeUrl='runyo://auth?code='+encodeURIComponent(code);
-    window.location.replace(nativeUrl);
-    // Fallback for PWA redirect flow (iOS PWA, no deep link)
-    setTimeout(function(){
-      localStorage.setItem('oauth_return_code', code);
-      window.location.replace(window.location.origin + '/');
-    }, 1000);
+    window.close();
   } else {
-    if(error) window.location.replace(window.location.origin + '/');
+    // iOS Safari / nieuw-tabblad flow: sla code op in localStorage.
+    // Tab 1 luistert via storage-event en rondt de auth af.
+    if (code) localStorage.setItem('runyo_oauth_code', code);
+    window.location.replace(window.location.origin + '/');
   }
 </script>
 </body>

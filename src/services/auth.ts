@@ -60,7 +60,10 @@ export async function signInWithGoogle(): Promise<TokenSet> {
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 
   if (Platform.OS === 'web') {
+    // Sla verifier op voor iOS-redirect-fallback (tab sluit en app herlaadt)
+    localStorage.setItem('runyo_oauth_verifier', verifier)
     const code = await openGooglePopup(authUrl)
+    localStorage.removeItem('runyo_oauth_verifier')
     return exchangeCode(code, verifier, REDIRECT_URI)
   }
 
@@ -77,6 +80,13 @@ function openGooglePopup(authUrl: string): Promise<string> {
     const popup = window.open(authUrl, 'google-auth', 'width=520,height=640,left=200,top=100')
     if (!popup) { reject(new Error('Popup geblokkeerd door browser')); return }
 
+    function cleanup() {
+      clearInterval(closedInterval)
+      window.removeEventListener('message', onMessage)
+      window.removeEventListener('storage', onStorage)
+    }
+
+    // Desktop: callback stuurt code via postMessage
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type !== 'OAUTH_CODE') return
@@ -85,16 +95,22 @@ function openGooglePopup(authUrl: string): Promise<string> {
       else resolve(event.data.code)
     }
 
-    const interval = setInterval(() => {
+    // iOS Safari: callback slaat code op in localStorage en redirect;
+    // storage-event vuurt in het originele tabblad
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'runyo_oauth_code' || !event.newValue) return
+      const code = event.newValue
+      localStorage.removeItem('runyo_oauth_code')
+      cleanup()
+      resolve(code)
+    }
+
+    const closedInterval = setInterval(() => {
       if (popup.closed) { cleanup(); reject(new Error('Auth cancelled')) }
     }, 500)
 
-    function cleanup() {
-      clearInterval(interval)
-      window.removeEventListener('message', onMessage)
-    }
-
     window.addEventListener('message', onMessage)
+    window.addEventListener('storage', onStorage)
   })
 }
 
