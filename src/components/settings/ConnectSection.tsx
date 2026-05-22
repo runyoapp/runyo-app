@@ -133,6 +133,8 @@ export function ConnectSection() {
   const sheetId       = useDataStore(s => s.sheetId)
   const sheetFileName = useDataStore(s => s.sheetFileName)
   const tabName       = useDataStore(s => s.tabName)
+  const schemaId      = useDataStore(s => s.schemaId)
+  const schemaName    = useDataStore(s => s.schemaName)
   const setSchema     = useDataStore(s => s.setSchema)
   const clearSchema   = useDataStore(s => s.clearSchema)
   const showToast     = useUiStore(s => s.showToast)
@@ -141,8 +143,9 @@ export function ConnectSection() {
   const [creating,    setCreating]    = useState(false)
   const [importOpen,  setImportOpen]  = useState(false)
 
-  const isSignedIn  = !!tokenSet
-  const isConnected = isSignedIn && !!sheetId
+  const isSignedIn         = !!tokenSet
+  const isConnectedSheet   = isSignedIn && !!sheetId
+  const isConnectedBackend = isSignedIn && !!schemaId && !sheetId
 
   function togglePanel(p: Panel) {
     setPanel(prev => prev === p ? null : p)
@@ -216,8 +219,8 @@ export function ConnectSection() {
   if (isSignedIn) {
     return (
       <View style={styles.container}>
-        {/* Connected schema display */}
-        {isConnected && (
+        {/* Connected schema display — Sheets */}
+        {isConnectedSheet && (
           <View style={styles.connectedRow}>
             <View style={styles.greenDot} />
             <View style={styles.connectedInfo}>
@@ -226,6 +229,16 @@ export function ConnectSection() {
             <TouchableOpacity onPress={() => clearSchema()}>
               <Text style={styles.disconnectText}>Ontkoppelen</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Connected schema display — backend import */}
+        {isConnectedBackend && (
+          <View style={styles.connectedRow}>
+            <View style={styles.greenDot} />
+            <View style={styles.connectedInfo}>
+              <Text style={styles.fileName}>{schemaName ?? 'Geïmporteerd schema'}</Text>
+            </View>
           </View>
         )}
 

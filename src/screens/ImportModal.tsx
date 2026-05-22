@@ -140,7 +140,7 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
     setStep('processing'); setProgress(0)
     try {
       const { schemaId, activities } = await importToBackend(result.rows, getToken, setProgress)
-      await activateImport(schemaId)
+      await activateImport(schemaId, result.schemaTitle || 'Geïmporteerd schema')
       queryClient.setQueryData(['activities', 'backend', schemaId], activities)
       setStep('success')
     } catch (e: any) {

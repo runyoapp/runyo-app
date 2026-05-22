@@ -22,6 +22,7 @@ type DataStore = {
 
   // Backend schema id (1.2d tracer — independent from sheetId until 1.2e/2.1 unifies the flow)
   schemaId: string | null
+  schemaName: string | null
 
   // Navigation state
   currentTab: TabName
@@ -46,7 +47,7 @@ type DataStore = {
   // Backend schema actions (1.2d tracer)
   loadMySchemas: () => Promise<void>
   createNewSchema: () => Promise<void>
-  activateImport: (schemaId: string) => Promise<void>
+  activateImport: (schemaId: string, schemaName: string) => Promise<void>
   setTab: (tab: TabName) => void
   setWeekOffset: (offset: number) => void
   setDayOffset: (offset: number) => void
@@ -66,6 +67,7 @@ export const useDataStore = create<DataStore>((set) => ({
   sheetTabId: null,
 
   schemaId: null,
+  schemaName: null,
 
   currentTab: 'today',
   weekOffset: 0,
@@ -106,6 +108,9 @@ export const useDataStore = create<DataStore>((set) => ({
   },
   hydrateSchema: async () => {
     const raw = await AsyncStorage.getItem(SCHEMA_KEY)
+    const storedSchemaId   = await AsyncStorage.getItem(SCHEMA_ID_KEY)
+    const storedSchemaName = await AsyncStorage.getItem('runyo_schema_name')
+    if (storedSchemaId) set({ schemaId: storedSchemaId, schemaName: storedSchemaName ?? null })
     if (!raw) return
     const parsed = JSON.parse(raw)
     set({ sheetId: parsed.sheetId, tabName: parsed.tabName, sheetFileName: parsed.sheetFileName, sheetTabId: parsed.sheetTabId })
@@ -127,9 +132,10 @@ export const useDataStore = create<DataStore>((set) => ({
     set({ schemaId: result.id })
     await AsyncStorage.setItem(SCHEMA_ID_KEY, result.id)
   },
-  activateImport: async (schemaId) => {
-    set({ schemaId, sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null })
+  activateImport: async (schemaId, schemaName) => {
+    set({ schemaId, schemaName, sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null })
     await AsyncStorage.setItem(SCHEMA_ID_KEY, schemaId)
+    await AsyncStorage.setItem('runyo_schema_name', schemaName ?? '')
     await AsyncStorage.removeItem(SCHEMA_KEY)
   },
 
