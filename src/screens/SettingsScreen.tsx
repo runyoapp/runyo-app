@@ -5,7 +5,6 @@ import { AccountSection } from '@/components/settings/AccountSection'
 import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
 import { PushSection } from '@/components/settings/PushSection'
-import { SheetsSyncSection } from '@/components/settings/SheetsSyncSection'
 import { PrefsSection } from '@/components/settings/PrefsSection'
 import { SchemaTracerSection } from '@/components/settings/SchemaTracerSection'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
@@ -43,10 +42,6 @@ export function SettingsScreen() {
 
         <Section title="Schema">
           <ConnectSection />
-        </Section>
-
-        <Section title="Sheets synchronisatie">
-          <SheetsSyncSection />
         </Section>
 
         <Section title="Push notificaties">

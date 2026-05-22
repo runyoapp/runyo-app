@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { listRecentSheets, createNewSheet, todaySchemaName } from '@/services/drive'
-import { getSheetTabId, verifyOrFixHeaders } from '@/services/sheets'
+import { getSheetTabId, verifyOrFixHeaders, syncActivitiesToSheet } from '@/services/sheets'
 import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -135,6 +135,7 @@ export function ConnectSection() {
   const tabName       = useDataStore(s => s.tabName)
   const schemaId      = useDataStore(s => s.schemaId)
   const schemaName    = useDataStore(s => s.schemaName)
+  const activities    = useDataStore(s => s.activities)
   const setSchema     = useDataStore(s => s.setSchema)
   const clearSchema   = useDataStore(s => s.clearSchema)
   const showToast     = useUiStore(s => s.showToast)
@@ -142,6 +143,22 @@ export function ConnectSection() {
   const [panel,       setPanel]       = useState<Panel>(null)
   const [creating,    setCreating]    = useState(false)
   const [importOpen,  setImportOpen]  = useState(false)
+  const [syncing,     setSyncing]     = useState(false)
+
+  async function handleSync() {
+    if (!sheetId) return
+    setSyncing(true)
+    try {
+      const token = await getToken()
+      if (!token) { showToast('Niet ingelogd'); return }
+      const { synced } = await syncActivitiesToSheet(sheetId, tabName, token, activities)
+      showToast(`✓ ${synced} activiteiten gesynchroniseerd`)
+    } catch {
+      showToast('Synchronisatie mislukt')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const isSignedIn         = !!tokenSet
   const isConnectedSheet   = isSignedIn && !!sheetId
@@ -221,15 +238,20 @@ export function ConnectSection() {
       <View style={styles.container}>
         {/* Connected schema display — Sheets */}
         {isConnectedSheet && (
-          <View style={styles.connectedRow}>
-            <View style={styles.greenDot} />
-            <View style={styles.connectedInfo}>
-              <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
+          <>
+            <View style={styles.connectedRow}>
+              <View style={styles.greenDot} />
+              <View style={styles.connectedInfo}>
+                <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
+              </View>
+              <TouchableOpacity onPress={() => clearSchema()}>
+                <Text style={styles.disconnectText}>Ontkoppelen</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => clearSchema()}>
-              <Text style={styles.disconnectText}>Ontkoppelen</Text>
+            <TouchableOpacity style={styles.exportBtn} onPress={handleSync} disabled={syncing}>
+              <Text style={styles.exportBtnText}>{syncing ? 'Bezig…' : '→ Sheets'}</Text>
             </TouchableOpacity>
-          </View>
+          </>
         )}
 
         {/* Connected schema display — backend import */}
@@ -310,6 +332,8 @@ const styles = StyleSheet.create({
   fileName:       { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
   tabLabel:       { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, marginTop: 2 },
   disconnectText: { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted, textDecorationLine: 'underline' },
+  exportBtn:      { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: LightTheme.bgAlt, borderWidth: 1, borderColor: LightTheme.border, alignSelf: 'flex-start' },
+  exportBtnText:  { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
 
   // Buttons
   btnRow:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
