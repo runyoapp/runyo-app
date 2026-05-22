@@ -188,6 +188,28 @@ export async function getSheetTabId(
   return sheet.properties.sheetId
 }
 
+// Haalt spreadsheet-titel, echte tabbladnaam en tab-id op in één request.
+// Valt terug op eerste tabblad als preferredTab niet bestaat.
+export async function getSpreadsheetMeta(
+  sheetId: string,
+  preferredTab: string,
+  token: string,
+): Promise<{ title: string; tabName: string; tabId: number }> {
+  const res = await fetch(`${BASE}/${sheetId}?fields=properties.title,sheets.properties`, {
+    headers: authHeader(token),
+  })
+  if (!res.ok) throw new Error(`Sheets API error ${res.status}`)
+  const data = await res.json() as {
+    properties: { title: string }
+    sheets: { properties: { sheetId: number; title: string } }[]
+  }
+  const title   = data.properties?.title ?? 'Google Sheet'
+  const matched = data.sheets.find(s => s.properties.title === preferredTab)
+  const tab     = matched ?? data.sheets[0]
+  if (!tab) throw new Error('Sheet heeft geen tabbladen')
+  return { title, tabName: tab.properties.title, tabId: tab.properties.sheetId }
+}
+
 export function activitiesToSheetRows(activities: Activity[]): string[][] {
   return [...activities]
     .sort((a, b) => a.datum.localeCompare(b.datum))

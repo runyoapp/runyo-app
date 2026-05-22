@@ -1,14 +1,30 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { listRecentSheets, createNewSheet, todaySchemaName } from '@/services/drive'
-import { getSheetTabId, verifyOrFixHeaders } from '@/services/sheets'
+import { getSpreadsheetMeta, verifyOrFixHeaders } from '@/services/sheets'
 import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import type { SchemaEntry } from '@/types/auth'
+
+const HISTORY_KEY = 'runyo_schema_history'
+
+async function loadHistory(): Promise<SchemaEntry[]> {
+  try {
+    const raw = await AsyncStorage.getItem(HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+async function saveToHistory(entry: SchemaEntry): Promise<void> {
+  const prev = await loadHistory()
+  const next = [entry, ...prev.filter(e => e.id !== entry.id)].slice(0, 10)
+  await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+}
 
 // ── Connect tile — matches PWA .connect-tile exactly ──────────────────────
 
@@ -59,9 +75,12 @@ function SchemaBrowser({ onSelect }: { onSelect: (s: SchemaEntry) => void }) {
     if (loaded) return
     setLoading(true)
     try {
-      const token = await getToken()
-      if (!token) return
-      setSheets(await listRecentSheets(token))
+      const [history, token] = await Promise.all([loadHistory(), getToken()])
+      const drive = token ? await listRecentSheets(token).catch(() => []) : []
+      // Merge: history first (preserves URL-linked sheets), then Drive results not already in history
+      const seen  = new Set(history.map(e => e.id))
+      const merged = [...history, ...drive.filter(e => !seen.has(e.id))]
+      setSheets(merged)
       setLoaded(true)
     } finally {
       setLoading(false)
@@ -152,11 +171,14 @@ export function ConnectSection() {
     if (!token) return
     showToast('Schema koppelen…')
     try {
-      const tabId = await getSheetTabId(entry.id, 'Schema', token).catch(() => 0)
-      await verifyOrFixHeaders(entry.id, 'Schema', token).catch(() => {})
-      await setSchema(entry.id, 'Schema', entry.name, tabId)
+      const { title, tabName, tabId } = await getSpreadsheetMeta(entry.id, 'Schema', token)
+      const name = entry.name === 'Google Sheet' ? title : entry.name
+      await verifyOrFixHeaders(entry.id, tabName, token).catch(() => {})
+      await setSchema(entry.id, tabName, name, tabId)
+      await saveToHistory({ id: entry.id, name, url: entry.url, ts: Date.now() })
       setPanel(null)
-      showToast(`✓ ${entry.name} gekoppeld`)
+      setUrlOpen(false)
+      showToast(`✓ ${name} gekoppeld`)
     } catch {
       showToast('Koppelen mislukt')
     }
