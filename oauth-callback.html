@@ -10,16 +10,24 @@
   var code = p.get('code');
   var err  = p.get('error');
 
+  var sent = false;
   if (window.opener) {
-    // Desktop popup flow: stuur code terug en sluit tab
-    window.opener.postMessage(
-      code ? {type:'OAUTH_CODE',code:code} : {type:'OAUTH_CODE',error:err||'Onbekende fout'},
-      window.location.origin
-    );
+    try {
+      // Desktop popup: stuur code via postMessage terug naar opener
+      window.opener.postMessage(
+        code ? {type:'OAUTH_CODE',code:code} : {type:'OAUTH_CODE',error:err||'Onbekende fout'},
+        window.location.origin
+      );
+      sent = true;
+    } catch(e) {
+      // COOP heeft window.opener geblokkeerd — val terug op localStorage
+    }
+  }
+  if (sent) {
     window.close();
   } else {
-    // iOS Safari / nieuw-tabblad flow: sla code op in localStorage.
-    // Tab 1 luistert via storage-event en rondt de auth af.
+    // iOS Safari / COOP-geblokkeerd: sla code op in localStorage.
+    // Origineel tabblad luistert via storage-event en rondt de auth af.
     if (code) localStorage.setItem('runyo_oauth_code', code);
     window.location.replace(window.location.origin + '/');
   }
