@@ -18,6 +18,7 @@ import { Toast } from '@/components/shared/Toast'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
+import { ImportModal } from '@/screens/ImportModal'
 import { updateActivity } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
@@ -53,6 +54,7 @@ export function TodayScreen() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
+  const [importVisible,    setImportVisible]    = useState(false)
 
   async function handleFeedback(rating: number, text: string) {
     if (!fbRow) return
@@ -113,7 +115,7 @@ export function TodayScreen() {
         {dayOffset === 0 && <WeatherWidget />}
 
         {!sheetId && !schemaId ? (
-          <NoSchemaCard isSignedIn={isSignedIn} onConnect={() => {}} />
+          <NoSchemaCard isSignedIn={isSignedIn} onConnect={() => setImportVisible(true)} />
         ) : isLoading ? (
           <View style={styles.loadingRow}>
             <Text style={styles.loadingText}>Laden…</Text>
@@ -170,6 +172,10 @@ export function TodayScreen() {
         activity={raceActivity}
         visible={!!raceActivity}
         onClose={() => setRaceActivity(null)}
+      />
+      <ImportModal
+        visible={importVisible}
+        onClose={() => setImportVisible(false)}
       />
     </View>
   )
