@@ -81,7 +81,7 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
             style={styles.input}
             value={datum}
             onChangeText={setDatum}
-            placeholder="YYYY-MM-DD"
+            placeholder="bijv. 2026-06-01"
             placeholderTextColor={LightTheme.faint}
             keyboardType="numbers-and-punctuation"
           />

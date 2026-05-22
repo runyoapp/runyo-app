@@ -1,14 +1,15 @@
 import { useState, useMemo, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
+import { ImportModal } from '@/screens/ImportModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
 import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { PhaseBlock } from '@/components/plan/PhaseBlock'
-import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
 import type { Activity } from '@/types/activity'
@@ -48,6 +49,7 @@ export function PlanScreen() {
   const [openFase,          setOpenFase]          = useState<string | null>(defaultOpen)
   const [selectedActivity,  setSelectedActivity]  = useState<Activity | null>(null)
   const [addModalOpen,      setAddModalOpen]      = useState(false)
+  const [importOpen,        setImportOpen]        = useState(false)
   const scrollRef = useRef<ScrollView>(null)
   const todayRowY = useRef<number>(0)
 
@@ -60,7 +62,11 @@ export function PlanScreen() {
     return (
       <View style={[styles.root, styles.empty, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
         <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
-        <Text style={styles.emptySub}>Koppel je schema via Instellingen.</Text>
+        <Text style={styles.emptySub}>Importeer je trainingsplan om te beginnen.</Text>
+        <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
+          <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
+        </TouchableOpacity>
+        <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
       </View>
     )
   }
@@ -129,6 +135,10 @@ export function PlanScreen() {
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
       />
+      <ImportModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
     </View>
   )
 }
@@ -138,5 +148,7 @@ const styles = StyleSheet.create({
   phases:     { paddingHorizontal: Spacing.lg },
   empty:      { alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
-  emptySub:   { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted },
+  emptySub:   { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
+  emptyBtn:   { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
+  emptyBtnText: { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
 })

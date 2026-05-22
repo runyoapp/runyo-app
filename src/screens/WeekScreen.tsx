@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated } from 'react-native'
+import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -51,6 +52,7 @@ export function WeekScreen() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
+  const [importOpen,       setImportOpen]       = useState(false)
   const todayStr  = toDateString(new Date())
 
   // Drag-to-day state
@@ -230,8 +232,13 @@ export function WeekScreen() {
         {weekData.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Koppel een schema in Instellingen.'}
+              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
             </Text>
+            {!sheetId && !schemaId && (
+              <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
+                <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           weekData.map(({ date, rows }) =>
@@ -281,6 +288,10 @@ export function WeekScreen() {
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
       />
+      <ImportModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
       <RaceModal
         activity={raceActivity}
         visible={!!raceActivity}
@@ -293,7 +304,7 @@ export function WeekScreen() {
 const styles = StyleSheet.create({
   root:            { flex: 1, backgroundColor: LightTheme.bg },
   header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.md },
-  navBtn:          { width: 36, alignItems: 'center' },
+  navBtn:          { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   navArrow:        { fontFamily: Fonts.display, fontSize: 24, color: LightTheme.muted },
   headerCenter:    { flex: 1, alignItems: 'center' },
   weekNum:         { fontFamily: Fonts.displayBold, fontSize: 16, color: LightTheme.text },
@@ -315,8 +326,10 @@ const styles = StyleSheet.create({
   stripDot:        { width: 4, height: 4, borderRadius: 2 },
   scroll:          { flex: 1 },
   scrollContent:   { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
-  emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center' },
+  emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center', gap: Spacing.md },
   emptyText:       { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
+  emptyBtn:        { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
+  emptyBtnText:    { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
   ghost: {
     position: 'absolute',
     width: 160,
