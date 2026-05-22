@@ -72,6 +72,11 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
     setRunDays([0, 2, 4]); setKeepRest(true)
   }
 
+  function goBack(to: Step) {
+    setError('')
+    setStep(to)
+  }
+
   async function handleFileTap(src: 'pdf' | 'excel' | 'foto') {
     try {
       const picked = src === 'foto' ? await pickPhoto(false) : await pickFile()
@@ -184,7 +189,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
 
           {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
-          <TouchableOpacity onPress={() => setStep('source')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => goBack('source')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← terug</Text>
           </TouchableOpacity>
         </View>
@@ -215,7 +220,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>doorgaan →</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setStep('excel-choice')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => goBack('excel-choice')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← terug</Text>
           </TouchableOpacity>
         </View>
@@ -274,7 +279,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>schema analyseren →</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setStep(source === 'url' ? 'url-input' : source === 'excel' ? 'excel-choice' : 'source')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => goBack(source === 'url' ? 'url-input' : source === 'excel' ? 'excel-choice' : 'source')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← andere bron kiezen</Text>
           </TouchableOpacity>
         </View>
