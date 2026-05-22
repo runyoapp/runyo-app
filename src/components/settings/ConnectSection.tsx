@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -126,6 +127,7 @@ type Panel = 'history' | 'new' | 'url' | null
 
 export function ConnectSection() {
   const theme         = useTheme()
+  const navigation    = useNavigation<any>()
   const getToken      = useAuthStore(s => s.getToken)
   const tokenSet      = useAuthStore(s => s.tokenSet)
   const sheetId       = useDataStore(s => s.sheetId)
@@ -249,7 +251,14 @@ export function ConnectSection() {
         {/* Nieuw trainingsschema — always the 3 tiles */}
         {panel === 'new' && newSchemaPanel}
 
-        <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
+        <ImportModal
+          visible={importOpen}
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => {
+            setImportOpen(false)
+            navigation.navigate('Main')
+          }}
+        />
       </View>
     )
   }

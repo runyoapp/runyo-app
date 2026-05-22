@@ -45,7 +45,7 @@ function InfoCard({ label, value, p }: { label: string; value: string; p: any })
   )
 }
 
-export function ImportModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean; onClose: () => void; onSuccess?: () => void }) {
   const p              = useTheme()
   const getToken       = useAuthStore(s => s.getToken)
   const activateImport = useDataStore(s => s.activateImport)
@@ -350,7 +350,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
           </View>
           <Text style={[styles.successTitle, { color: p.text }]}>klaar</Text>
           <Text style={[styles.successSub, { color: p.muted }]}>je schema loopt nu mee.</Text>
-          <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: p.accent, marginTop: 32 }]} onPress={() => { reset(); onClose() }}>
+          <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: p.accent, marginTop: 32 }]} onPress={() => { reset(); onSuccess ? onSuccess() : onClose() }}>
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>naar vandaag →</Text>
           </TouchableOpacity>
         </View>
