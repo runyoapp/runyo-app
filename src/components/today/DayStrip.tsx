@@ -80,7 +80,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   navBtn: {
-    width: 28,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

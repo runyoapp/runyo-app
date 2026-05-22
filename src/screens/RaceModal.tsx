@@ -105,7 +105,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
       </Field>
 
       <Field label="Datum">
-        <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={LightTheme.faint} keyboardType="numbers-and-punctuation" />
+        <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="bijv. 2026-06-01" placeholderTextColor={LightTheme.faint} keyboardType="numbers-and-punctuation" />
       </Field>
 
       <Field label="Afstand">

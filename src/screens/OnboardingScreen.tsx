@@ -1,22 +1,26 @@
+import { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 
 export function OnboardingScreen() {
-  const setOnboardingDone = useSettingsStore(s => s.setOnboardingDone)
+  const setOnboardingDone  = useSettingsStore(s => s.setOnboardingDone)
+  const [importVisible, setImportVisible] = useState(false)
 
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>runyo</Text>
       <Text style={styles.tagline}>Train · Race · Repeat</Text>
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.btnPrimary} onPress={setOnboardingDone}>
+        <TouchableOpacity style={styles.btnPrimary} onPress={() => setImportVisible(true)}>
           <Text style={styles.btnPrimaryText}>Koppel trainingsschema</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnSecondary} onPress={setOnboardingDone}>
           <Text style={styles.btnSecondaryText}>Eerst verkennen</Text>
         </TouchableOpacity>
       </View>
+      <ImportModal visible={importVisible} onClose={() => { setImportVisible(false); setOnboardingDone() }} />
     </View>
   )
 }

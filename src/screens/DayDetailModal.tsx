@@ -56,7 +56,7 @@ function EditForm({ act, onSave, onCancel, onDelete, onMarkAsRest, saving, marki
     <View style={styles.editForm}>
       <Field label="Datum">
         <TextInput style={styles.input} value={datum} onChangeText={setDatum}
-          placeholder="YYYY-MM-DD" placeholderTextColor={LightTheme.faint} />
+          placeholder="bijv. 2026-06-01" placeholderTextColor={LightTheme.faint} />
       </Field>
 
       <Field label="Titel">

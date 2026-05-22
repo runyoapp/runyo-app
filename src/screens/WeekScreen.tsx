@@ -11,6 +11,7 @@ import { useActivities } from '@/hooks/useActivities'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
+import { ImportModal } from '@/screens/ImportModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateAndSort } from '@/services/sheets'
@@ -51,6 +52,7 @@ export function WeekScreen() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
+  const [importVisible,    setImportVisible]    = useState(false)
   const todayStr  = toDateString(new Date())
 
   // Drag-to-day state
@@ -230,8 +232,13 @@ export function WeekScreen() {
         {weekData.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Koppel een schema in Instellingen.'}
+              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Nog geen schema gekoppeld.'}
             </Text>
+            {!sheetId && !schemaId && (
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => setImportVisible(true)}>
+                <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           weekData.map(({ date, rows }) =>
@@ -286,6 +293,10 @@ export function WeekScreen() {
         visible={!!raceActivity}
         onClose={() => setRaceActivity(null)}
       />
+      <ImportModal
+        visible={importVisible}
+        onClose={() => setImportVisible(false)}
+      />
     </View>
   )
 }
@@ -293,7 +304,7 @@ export function WeekScreen() {
 const styles = StyleSheet.create({
   root:            { flex: 1, backgroundColor: LightTheme.bg },
   header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.md },
-  navBtn:          { width: 36, alignItems: 'center' },
+  navBtn:          { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   navArrow:        { fontFamily: Fonts.display, fontSize: 24, color: LightTheme.muted },
   headerCenter:    { flex: 1, alignItems: 'center' },
   weekNum:         { fontFamily: Fonts.displayBold, fontSize: 16, color: LightTheme.text },
@@ -315,8 +326,10 @@ const styles = StyleSheet.create({
   stripDot:        { width: 4, height: 4, borderRadius: 2 },
   scroll:          { flex: 1 },
   scrollContent:   { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
-  emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center' },
+  emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center', gap: Spacing.md },
   emptyText:       { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
+  emptyBtn:        { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, backgroundColor: LightTheme.accent, borderRadius: 10 },
+  emptyBtnText:    { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
   ghost: {
     position: 'absolute',
     width: 160,

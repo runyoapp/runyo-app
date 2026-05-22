@@ -36,10 +36,11 @@ export function SettingsScreen() {
           <AccountSection />
         </Section>
 
-        {/* TODO(1.2e/2.1): tracer UI — vervang door echte schema-aware flow. */}
-        <Section title="Schema (tracer)">
-          <SchemaTracerSection />
-        </Section>
+        {__DEV__ && (
+          <Section title="Schema (tracer)">
+            <SchemaTracerSection />
+          </Section>
+        )}
 
         <Section title="Schema">
           <ConnectSection />
