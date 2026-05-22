@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
   TextInput, Switch,
@@ -63,13 +63,31 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
   const [startDate,   setStartDate]   = useState(new Date().toISOString().split('T')[0])
   const [runDays,     setRunDays]     = useState([0, 2, 4])
   const [keepRest,    setKeepRest]    = useState(true)
-  const [showConfig,  setShowConfig]  = useState(false)
+  const [showConfig,    setShowConfig]    = useState(false)
+  const [loadingPhrase, setLoadingPhrase] = useState('schema lezen…')
+
+  useEffect(() => {
+    if (step !== 'processing' || progress < 85) return
+    const phrases = [
+      'schema lezen…',
+      'activiteiten tellen…',
+      'planning verwerken…',
+      'weken indelen…',
+      'bijna klaar…',
+    ]
+    let i = 0
+    const t = setInterval(() => {
+      i = (i + 1) % phrases.length
+      setLoadingPhrase(phrases[i])
+    }, 2200)
+    return () => clearInterval(t)
+  }, [step, progress])
 
   function reset() {
     setStep('source'); setSource('pdf'); setFileName(''); setFileB64(''); setFileMime('')
     setUrlInput(''); setProgress(0); setResult(null); setError(''); setShowConfig(false)
     setStartDate(new Date().toISOString().split('T')[0])
-    setRunDays([0, 2, 4]); setKeepRest(true)
+    setRunDays([0, 2, 4]); setKeepRest(true); setLoadingPhrase('schema lezen…')
   }
 
   function goBack(to: Step) {
@@ -288,8 +306,10 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
       {step === 'processing' && (
         <View style={[styles.column, styles.centered, { paddingVertical: 48 }]}>
           <CircleProgress pct={progress} size={96} color={p.accent} />
-          <Text style={[styles.processingTitle, { color: p.text }]}>schema lezen…</Text>
-          <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
+          <Text style={[styles.processingTitle, { color: p.text }]}>{loadingPhrase}</Text>
+          {progress < 85 && (
+            <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
+          )}
         </View>
       )}
 
