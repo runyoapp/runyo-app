@@ -18,8 +18,6 @@ export type Activity = {
   rowIndex: number | null   // 1-based sheet row index (null for unsaved)
 }
 
-export type RawSheetRow = (string | number)[]
-
 export type PersonalRecord = {
   distance: string     // e.g. "5k", "10k", "HM", "M"
   time: string         // e.g. "22:30"

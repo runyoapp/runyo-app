@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -105,40 +105,6 @@ function SchemaBrowser({ onSelect }: { onSelect: (s: SchemaEntry) => void }) {
   )
 }
 
-// ── URL linker ─────────────────────────────────────────────────────────────
-
-function extractSheetId(url: string): string | null {
-  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-  return m ? m[1] : (url.length > 10 ? url.trim() : null)
-}
-
-function UrlLinker({ onLink }: { onLink: (entry: SchemaEntry) => void }) {
-  const [url, setUrl] = useState('')
-
-  function handleLink() {
-    const id = extractSheetId(url)
-    if (!id) { return }
-    onLink({ id, name: 'Google Sheet', url, ts: Date.now() })
-  }
-
-  return (
-    <View style={styles.urlLinker}>
-      <TextInput
-        style={styles.urlInput}
-        value={url}
-        onChangeText={setUrl}
-        placeholder="Plak hier de Google Sheets URL"
-        placeholderTextColor={LightTheme.faint}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <TouchableOpacity style={styles.urlBtn} onPress={handleLink}>
-        <Text style={styles.urlBtnText}>Koppelen</Text>
-      </TouchableOpacity>
-    </View>
-  )
-}
-
 // ── Main ConnectSection ────────────────────────────────────────────────────
 
 type Panel = 'history' | 'new' | 'url' | null
@@ -154,10 +120,9 @@ export function ConnectSection() {
   const clearSchema   = useDataStore(s => s.clearSchema)
   const showToast     = useUiStore(s => s.showToast)
 
-  const [panel,       setPanel]       = useState<Panel>(null)
-  const [urlOpen,     setUrlOpen]     = useState(false)
-  const [creating,    setCreating]    = useState(false)
-  const [importOpen,  setImportOpen]  = useState(false)
+  const [panel,      setPanel]      = useState<Panel>(null)
+  const [creating,   setCreating]   = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const isSignedIn  = !!tokenSet
   const isConnected = isSignedIn && !!sheetId
@@ -177,7 +142,6 @@ export function ConnectSection() {
       await setSchema(entry.id, tabName, name, tabId)
       await saveToHistory({ id: entry.id, name, url: entry.url, ts: Date.now() })
       setPanel(null)
-      setUrlOpen(false)
       showToast(`✓ ${name} gekoppeld`)
     } catch {
       showToast('Koppelen mislukt')
@@ -215,13 +179,6 @@ export function ConnectSection() {
         sub="PDF, Excel, foto of van je coach — gratis proberen"
         onPress={() => setImportOpen(true)}
       />
-      <ConnectTile
-        icon="🔗"
-        title="Koppel Google Sheets"
-        sub="Plak een Google Sheets URL"
-        onPress={() => setUrlOpen(o => !o)}
-      />
-      {urlOpen && <UrlLinker onLink={linkSheet} />}
       <ConnectTile
         icon="＋"
         title="Leeg schema aanmaken"
@@ -327,12 +284,6 @@ const styles = StyleSheet.create({
   sheetName:      { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
   sheetChevron:   { fontFamily: Fonts.display, fontSize: 18, color: LightTheme.faint },
   emptyText:      { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },
-
-  // URL linker
-  urlLinker:      { gap: Spacing.sm },
-  urlInput:       { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border },
-  urlBtn:         { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
-  urlBtnText:     { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
 
   // Hints
   signedInHint:   { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },

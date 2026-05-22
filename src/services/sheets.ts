@@ -1,6 +1,4 @@
-import type { Activity, RawSheetRow } from '@/types/activity'
-import type { ActivityType } from '@/constants/activities'
-import { TYPE_NL_MAP } from '@/constants/activities'
+import type { Activity } from '@/types/activity'
 
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 
@@ -8,31 +6,6 @@ const REQUIRED_HEADERS = ['datum', 'type', 'titel', 'detail', 'km', 'feedback', 
 
 function authHeader(token: string) {
   return { Authorization: `Bearer ${token}` }
-}
-
-export async function fetchActivities(
-  sheetId: string,
-  tabName: string,
-  token: string,
-): Promise<Activity[]> {
-  const range = `${encodeURIComponent(tabName)}!A:K`
-  const res = await fetch(
-    `${BASE}/${sheetId}/values/${range}?valueRenderOption=UNFORMATTED_VALUE`,
-    { headers: authHeader(token) },
-  )
-  if (!res.ok) throw new Error(`Sheets read failed: ${res.status}`)
-  const data = await res.json() as { values?: (string | number)[][] }
-  const rows = data.values ?? []
-  if (rows.length < 2) return []
-
-  const headers = rows[0].map(h => String(h).toLowerCase().trim())
-  return rows.slice(1)
-    .map((row, i) => {
-      const activity = mapRow(row, headers)
-      if (activity) activity.rowIndex = i + 2  // header=1, first data=2
-      return activity
-    })
-    .filter(Boolean) as Activity[]
 }
 
 export async function appendAndSort(
@@ -280,47 +253,3 @@ export async function verifyOrFixHeaders(
   })
 }
 
-function normalizeType(raw: string): ActivityType {
-  const lower = raw.toLowerCase().trim()
-  return TYPE_NL_MAP[lower] ?? (lower as ActivityType) ?? 'run'
-}
-
-// Converteert Google Sheets serienummer naar YYYY-MM-DD.
-// Sheets telt dagen vanaf 31 dec 1899 (met fictieve schrikkeljaarfout in 1900,
-// die voor moderne datums gecorrigeerd wordt via de Unix-epoch offset 25569).
-function serialToIso(serial: number): string {
-  const d = new Date((serial - 25569) * 86400 * 1000)
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
-}
-
-function mapRow(row: RawSheetRow, headers: string[]): Activity | null {
-  const raw = (key: string) => row[headers.indexOf(key)] ?? ''
-  const str = (key: string) => String(raw(key))
-
-  const datumRaw = raw('datum')
-  let datum: string | null = null
-  if (typeof datumRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(datumRaw)) {
-    datum = datumRaw
-  } else if (typeof datumRaw === 'number' && datumRaw > 1000) {
-    datum = serialToIso(datumRaw)
-  }
-  if (!datum) return null
-
-  const kmRaw = raw('km')
-
-  return {
-    id:        str('id') || `rx_${datum}_${Math.random().toString(36).slice(2)}`,
-    datum,
-    type:      normalizeType(str('type') || 'run'),
-    titel:     str('titel'),
-    detail:    str('detail'),
-    km:        (typeof kmRaw === 'number' ? kmRaw : parseFloat(kmRaw as string)) || null,
-    feedback:  str('feedback') || null,
-    fase:      str('fase') || null,
-    rating:    null,
-    updatedAt: str('updated_at') || new Date().toISOString(),
-    createdAt: str('created_at') || new Date().toISOString(),
-    raceType:  str('race_type') || null,
-    rowIndex:  null,  // set by caller after mapping with index
-  }
-}
