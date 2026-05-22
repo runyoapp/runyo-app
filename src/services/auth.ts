@@ -112,7 +112,12 @@ function openGooglePopup(authUrl: string, popup: Window | null): Promise<string>
 
     const closedInterval = setInterval(() => {
       try {
-        if (popup.closed) { cleanup(); reject(new Error('Auth cancelled')) }
+        if (popup.closed) {
+          clearInterval(closedInterval)
+          // 300ms grace: laat een gekoppeld postMessage-event nog afleveren
+          // voordat we opgeven (Promise negeert reject als al resolved)
+          setTimeout(() => { cleanup(); reject(new Error('Auth cancelled')) }, 300)
+        }
       } catch {
         // COOP blokkeert popup.closed — negeer, auth verloopt via storage-event
       }

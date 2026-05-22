@@ -136,6 +136,7 @@ export function ConnectSection() {
   const showToast     = useUiStore(s => s.showToast)
 
   const [panel,       setPanel]       = useState<Panel>(null)
+  const [urlOpen,     setUrlOpen]     = useState(false)
   const [creating,    setCreating]    = useState(false)
   const [importOpen,  setImportOpen]  = useState(false)
 
@@ -196,9 +197,9 @@ export function ConnectSection() {
         icon="🔗"
         title="Koppel Google Sheets"
         sub="Plak een Google Sheets URL"
-        onPress={() => togglePanel(panel === 'url' ? null : 'url')}
+        onPress={() => setUrlOpen(o => !o)}
       />
-      {panel === 'url' && <UrlLinker onLink={linkSheet} />}
+      {urlOpen && <UrlLinker onLink={linkSheet} />}
       <ConnectTile
         icon="＋"
         title="Leeg schema aanmaken"
