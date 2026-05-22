@@ -28,6 +28,7 @@ jobs:
       - run: npm ci
       - run: npx expo export --platform web
       - run: cp CNAME dist/ && cp oauth-callback.html dist/
+      - run: sed -i 's|</head>|<script>if("serviceWorker"in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}</script></head>|' dist/index.html
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
