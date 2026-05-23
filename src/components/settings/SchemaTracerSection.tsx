@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'rea
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
+import { createSchema } from '@/services/schemas'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -12,10 +13,9 @@ import { useTheme } from '@/hooks/useTheme'
 export function SchemaTracerSection() {
   const theme           = useTheme()
   const tokenSet        = useAuthStore(s => s.tokenSet)
-  const schemaId        = useDataStore(s => s.schemaId)
-  const loadMySchemas   = useDataStore(s => s.loadMySchemas)
-  const createNewSchema = useDataStore(s => s.createNewSchema)
-  const showToast       = useUiStore(s => s.showToast)
+  const schemaId      = useDataStore(s => s.schemaId)
+  const loadMySchemas = useDataStore(s => s.loadMySchemas)
+  const showToast     = useUiStore(s => s.showToast)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export function SchemaTracerSection() {
   async function handleCreate() {
     setLoading(true)
     try {
-      await createNewSchema()
+      await createSchema()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'onbekend'
       showToast(`schema aanmaken mislukt: ${msg}`)
