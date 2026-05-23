@@ -1,4 +1,4 @@
-const BACKEND = 'https://runyo-auth-production.up.railway.app'
+export const BACKEND = 'https://runyo-auth-production.up.railway.app'
 
 export type ImportResult = {
   rows: {
@@ -26,6 +26,33 @@ export async function runAiImport(prompt: string): Promise<ImportResult> {
   const jsonMatch = text.match(/```json\n?([\s\S]*?)```/) ?? text.match(/(\[[\s\S]*\])/)
   const parsed = JSON.parse(jsonMatch?.[1] ?? text) as ImportResult['rows']
   return { rows: parsed }
+}
+
+export type ImportLogEntry = {
+  ts:           string
+  ip:           string
+  email:        string | null
+  fileName:     string | null
+  fileMime:     string | null
+  fileSize:     number | null
+  ok:           boolean
+  error:        string | null
+  inputTokens:  number | null
+  outputTokens: number | null
+  rowCount:     number | null
+  schemaTitle:  string | null
+  rawPreview:   string | null
+  hasFile:      boolean
+}
+
+export async function getImportLog(): Promise<ImportLogEntry[]> {
+  const res = await fetch(`${BACKEND}/ai/import-log`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json() as Promise<ImportLogEntry[]>
+}
+
+export function importLogFileUrl(index: number): string {
+  return `${BACKEND}/ai/import-log/${index}/file`
 }
 
 export async function logDebug(entry: Record<string, unknown>): Promise<void> {

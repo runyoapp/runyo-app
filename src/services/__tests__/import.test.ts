@@ -124,6 +124,7 @@ describe('analyseSchema (Excel mime)', () => {
     await analyseSchema(
       'FAKEB64==',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'test.xlsx',
       '2026-06-01',
       [0, 2, 4],
       true,

@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { AccountSection } from '@/components/settings/AccountSection'
 import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
@@ -9,11 +10,16 @@ import { PrefsSection } from '@/components/settings/PrefsSection'
 import { SchemaTracerSection } from '@/components/settings/SchemaTracerSection'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { useAuthStore } from '@/stores/authStore'
+import type { RootStackParamList } from '@/navigation/RootNavigator'
+
+const ADMIN_EMAIL = 'info@runyo.app'
 
 export function SettingsScreen() {
   const insets     = useSafeAreaInsets()
-  const navigation = useNavigation()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const theme      = useTheme()
+  const email      = useAuthStore(s => s.tokenSet?.email)
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -56,6 +62,19 @@ export function SettingsScreen() {
         <Section title="Voorkeuren">
           <PrefsSection />
         </Section>
+
+        {email === ADMIN_EMAIL && (
+          <Section title="Admin">
+            <TouchableOpacity
+              style={adminStyles.row}
+              onPress={() => navigation.navigate('ImportLog')}
+              activeOpacity={0.7}
+            >
+              <Text style={[adminStyles.label, { color: theme.text }]}>importeerlog</Text>
+              <Text style={[adminStyles.arrow, { color: theme.muted }]}>›</Text>
+            </TouchableOpacity>
+          </Section>
+        )}
       </ScrollView>
     </View>
   )
@@ -85,4 +104,10 @@ const sectionStyles = StyleSheet.create({
   container: { marginBottom: Spacing.xl },
   title:     { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: Spacing.sm },
   body:      { backgroundColor: LightTheme.surface, borderRadius: 12, padding: Spacing.lg },
+})
+
+const adminStyles = StyleSheet.create({
+  row:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  label: { fontFamily: Fonts.displayMedium, fontSize: 15 },
+  arrow: { fontFamily: Fonts.display, fontSize: 20 },
 })

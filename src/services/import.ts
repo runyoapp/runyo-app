@@ -149,6 +149,7 @@ export function parseRawResponse(raw: string): AnalyseResult {
 export async function analyseSchema(
   fileB64: string,
   fileMime: string,
+  fileName: string,
   startDate: string,
   runDays: number[],
   keepRest: boolean,
@@ -187,7 +188,11 @@ export async function analyseSchema(
     const res = await fetch(`${IMPORT_BACKEND}/ai/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ system: SYSTEM_PROMPT, messages: [{ role: 'user', content: userContent }] }),
+      body: JSON.stringify({
+        _meta: { fileName, fileMime, fileB64 },
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userContent }],
+      }),
     })
     if (!res.ok) throw new Error(`Fout ${res.status}`)
     const json = await res.json() as { content: { text: string }[] }
@@ -219,6 +224,7 @@ export async function analyseSchemaFromUrl(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({
+        _meta: { fileName: url, fileMime: 'text/csv', fileB64: null },
         url,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],

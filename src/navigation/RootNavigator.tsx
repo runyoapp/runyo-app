@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { MainNavigator } from './MainNavigator'
 import { OnboardingScreen } from '@/screens/OnboardingScreen'
 import { SettingsScreen } from '@/screens/SettingsScreen'
+import { ImportLogScreen } from '@/screens/ImportLogScreen'
 import { LoginScreen } from '@/screens/LoginScreen'
 import { EmailAuthScreen } from '@/screens/EmailAuthScreen'
 
@@ -13,6 +14,7 @@ export type RootStackParamList = {
   Onboarding: undefined
   Main: undefined
   Settings: undefined
+  ImportLog: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -43,6 +45,11 @@ export function RootNavigator() {
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}
+            options={{ headerShown: false, presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="ImportLog"
+            component={ImportLogScreen}
             options={{ headerShown: false, presentation: 'modal' }}
           />
         </>

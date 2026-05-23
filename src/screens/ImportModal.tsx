@@ -125,7 +125,7 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
         analysed = await analyseSchemaFromUrl(urlInput.trim(), startDate, runDays, keepRest, getToken, setProgress)
       } else {
         if (!fileB64) { setError('Wacht tot het bestand geladen is.'); setStep('picked'); return }
-        analysed = await analyseSchema(fileB64, fileMime, startDate, runDays, keepRest, getToken, setProgress)
+        analysed = await analyseSchema(fileB64, fileMime, fileName, startDate, runDays, keepRest, getToken, setProgress)
       }
       setResult(analysed)
       setProgress(100)
