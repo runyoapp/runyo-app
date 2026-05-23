@@ -12,24 +12,33 @@ import type { Activity, ActivityType } from '@/types/activity'
 
 export const IMPORT_BACKEND = 'https://runyo-auth-production.up.railway.app'
 
-export const SYSTEM_PROMPT = `Je krijgt een trainingsschema (PDF, afbeelding, Excel of tekst).
+export const SYSTEM_PROMPT = `Je bent een schema-formatter. Zet een trainingsschema PRECIES over naar het app-formaat.
 
-Eerste stap: Scan naar weken en dagroosters. Sla inleidingen en algemene adviezen over.
+JE TAAK: Letterlijk kopiëren en formatteren — NIET interpreteren, herschrijven of aanpassen.
 
-Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 170 tekens), km (number|null), fase ("" altijd leeg).
+WAT JE NOOIT MAG VERANDEREN:
+- Snelheden, tempo's (min/km of km/h), hartslagen (bpm), zones
+- Afstanden (converteer alleen miles → km, pas de waarden zelf niet aan)
+- Rustdagen, hersteldagen en lege dagen — houd ze precies aan
+- Volgorde van trainingsdagen en structuur van elke training
+
+WAT JE WEL MAG:
+- Vertalen van Engels naar Nederlands (maar behoud alle waarden letterlijk)
+- Miles → km omrekenen (× 1.609, afgerond op 1 decimaal)
+- Meerdere sessies op één dag samenvoegen in één item
+
+Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 500 tekens — kopieer zo letterlijk mogelijk), km (number|null), fase ("" altijd leeg).
 
 Regels:
-1. Volg exact de weken en dagen. Ontbrekende dagen → rust.
-2. Begindatum = eerste dag week 1. Elke week +7 dagen.
-3. REST/Off → type rust. Cross-Training → mobiliteit.
-4. Meerdere sessies per dag: combineer in één item.
-5. km: miles × 1.609, afronden op 1 decimaal. Geen afstand → null.
-6. Output: chronologisch, één entry per dag.
+1. Begindatum opgegeven door gebruiker = dag 1 van week 1. Elke week +7 dagen.
+2. Ontbrekende of lege dagen → type rust.
+3. REST / Off / Vrij → type rust. Cross-Training → mobiliteit.
+4. Output: chronologisch, één entry per dag, alle weken volledig.
 
-Schrijf eerst TITEL: (max 30 tekens).
+Schrijf eerst TITEL: (max 30 tekens — naam van het schema).
 Dan WEKEN: (getal, bijv. "12").
 Dan PIEK: (hoogste weekvolume in km, bijv. "65 km").
-Dan RAPPORT: (max 3 zinnen plain language).
+Dan RAPPORT: (max 2 zinnen, beschrijf het schema neutraal).
 Dan direct de JSON array, geen markdown.`
 
 const XLSX_MIMES = [
@@ -137,9 +146,7 @@ export async function analyseSchema(
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
 ): Promise<AnalyseResult> {
-  const DAY_LABELS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
-  const dayNames = DAY_LABELS.filter((_, i) => runDays.includes(i)).join(', ')
-  const userText = `Begindatum: ${startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${keepRest ? 'ja' : 'nee'}.`
+  const userText = `Begindatum: ${startDate}.`
 
   const isImage = fileMime === 'image/jpeg' || fileMime === 'image/png'
   const isExcel = XLSX_MIMES.includes(fileMime)
@@ -192,9 +199,7 @@ export async function analyseSchemaFromUrl(
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
 ): Promise<AnalyseResult> {
-  const DAY_LABELS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
-  const dayNames = DAY_LABELS.filter((_, i) => runDays.includes(i)).join(', ')
-  const userText = `Begindatum: ${startDate}. Hardloopdagen: ${dayNames}. Rustdagen behouden: ${keepRest ? 'ja' : 'nee'}.`
+  const userText = `Begindatum: ${startDate}.`
 
   let pct = 0
   const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 85); onProgress(pct) }, 200)
