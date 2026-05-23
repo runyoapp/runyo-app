@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Activity, Race, PersonalRecord } from '@/types/activity'
 import type { SchemaEntry } from '@/types/auth'
-import { createSchema, getMySchemas } from '@/services/schemas'
+import { createSchema, getMySchemas, activateSchema } from '@/services/schemas'
 
 const SCHEMA_KEY = 'runyo_schema'
 const SCHEMA_ID_KEY = 'runyo_schema_id'
@@ -44,9 +44,9 @@ type DataStore = {
   setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => Promise<void>
   clearSchema: () => Promise<void>
   hydrateSchema: () => Promise<void>
-  // Backend schema actions (1.2d tracer)
+  // Backend schema actions
   loadMySchemas: () => Promise<void>
-  createNewSchema: () => Promise<void>
+  activateSchemaById: (id: string, name: string) => Promise<void>
   activateImport: (schemaId: string, schemaName: string) => Promise<void>
   setTab: (tab: TabName) => void
   setWeekOffset: (offset: number) => void
@@ -116,21 +116,24 @@ export const useDataStore = create<DataStore>((set) => ({
     set({ sheetId: parsed.sheetId, tabName: parsed.tabName, sheetFileName: parsed.sheetFileName, sheetTabId: parsed.sheetTabId })
   },
 
-  // TODO(1.2e/2.1): tracer actions — fold into a real schema-aware flow.
   loadMySchemas: async () => {
     const list = await getMySchemas()
-    const id = list[0]?.id ?? null
-    set({ schemaId: id })
-    if (id) {
-      await AsyncStorage.setItem(SCHEMA_ID_KEY, id)
+    const active = list.find(s => s.isActive) ?? list[0] ?? null
+    if (active) {
+      set({ schemaId: active.id, schemaName: active.name })
+      await AsyncStorage.setItem(SCHEMA_ID_KEY, active.id)
+      await AsyncStorage.setItem('runyo_schema_name', active.name)
     } else {
+      set({ schemaId: null, schemaName: null })
       await AsyncStorage.removeItem(SCHEMA_ID_KEY)
+      await AsyncStorage.removeItem('runyo_schema_name')
     }
   },
-  createNewSchema: async () => {
-    const result = await createSchema()
-    set({ schemaId: result.id })
-    await AsyncStorage.setItem(SCHEMA_ID_KEY, result.id)
+  activateSchemaById: async (id, name) => {
+    await activateSchema(id)
+    set({ schemaId: id, schemaName: name })
+    await AsyncStorage.setItem(SCHEMA_ID_KEY, id)
+    await AsyncStorage.setItem('runyo_schema_name', name)
   },
   activateImport: async (schemaId, schemaName) => {
     set({ schemaId, schemaName, sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null })
