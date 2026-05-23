@@ -119,8 +119,17 @@ export function parseRawResponse(raw: string): AnalyseResult {
   const rapport     = rapportM?.[1]?.trim() ?? ''
 
   let parsed: ParsedRow[] | null = null
-  const m = raw.match(/\[[\s\S]*\]/)
-  if (m) { try { parsed = JSON.parse(m[0]) } catch {} }
+  // Zoek de JSON-array op: gebruik '[{' en '}]' om tekst met losse [...] te omzeilen
+  const startIdx = raw.lastIndexOf('[{')
+  const endIdx   = raw.lastIndexOf('}]')
+  if (startIdx !== -1 && endIdx > startIdx) {
+    try { parsed = JSON.parse(raw.slice(startIdx, endIdx + 2)) } catch {}
+  }
+  // Fallback: probeer de eerste [...] in de tekst
+  if (!parsed) {
+    const m = raw.match(/\[[\s\S]*\]/)
+    if (m) { try { parsed = JSON.parse(m[0]) } catch {} }
+  }
   if (!Array.isArray(parsed) || !parsed.length) throw new Error('Geen schema gevonden.')
 
   const rows = parsed
