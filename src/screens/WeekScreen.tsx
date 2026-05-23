@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated } from 'react-native'
+import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,7 +12,6 @@ import { useActivities } from '@/hooks/useActivities'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
-import { ImportModal } from '@/screens/ImportModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
 import { updateAndSort } from '@/services/sheets'
@@ -52,7 +52,7 @@ export function WeekScreen() {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [raceActivity,     setRaceActivity]     = useState<Activity | null>(null)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
-  const [importVisible,    setImportVisible]    = useState(false)
+  const [importOpen,       setImportOpen]       = useState(false)
   const todayStr  = toDateString(new Date())
 
   // Drag-to-day state
@@ -232,10 +232,10 @@ export function WeekScreen() {
         {weekData.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>
-              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Nog geen schema gekoppeld.'}
+              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
             </Text>
             {!sheetId && !schemaId && (
-              <TouchableOpacity style={styles.emptyBtn} onPress={() => setImportVisible(true)}>
+              <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
                 <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
               </TouchableOpacity>
             )}
@@ -288,14 +288,14 @@ export function WeekScreen() {
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
       />
+      <ImportModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
       <RaceModal
         activity={raceActivity}
         visible={!!raceActivity}
         onClose={() => setRaceActivity(null)}
-      />
-      <ImportModal
-        visible={importVisible}
-        onClose={() => setImportVisible(false)}
       />
     </View>
   )
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   scrollContent:   { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xs },
   emptyState:      { paddingTop: Spacing.xxl, alignItems: 'center', gap: Spacing.md },
   emptyText:       { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
-  emptyBtn:        { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, backgroundColor: LightTheme.accent, borderRadius: 10 },
+  emptyBtn:        { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
   emptyBtnText:    { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
   ghost: {
     position: 'absolute',

@@ -5,22 +5,25 @@ import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 
 export function OnboardingScreen() {
-  const setOnboardingDone  = useSettingsStore(s => s.setOnboardingDone)
-  const [importVisible, setImportVisible] = useState(false)
+  const setOnboardingDone = useSettingsStore(s => s.setOnboardingDone)
+  const [importOpen, setImportOpen] = useState(false)
 
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>runyo</Text>
       <Text style={styles.tagline}>Train · Race · Repeat</Text>
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.btnPrimary} onPress={() => setImportVisible(true)}>
+        <TouchableOpacity style={styles.btnPrimary} onPress={() => setImportOpen(true)}>
           <Text style={styles.btnPrimaryText}>Koppel trainingsschema</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnSecondary} onPress={setOnboardingDone}>
           <Text style={styles.btnSecondaryText}>Eerst verkennen</Text>
         </TouchableOpacity>
       </View>
-      <ImportModal visible={importVisible} onClose={() => { setImportVisible(false); setOnboardingDone() }} />
+      <ImportModal
+        visible={importOpen}
+        onClose={() => { setImportOpen(false); setOnboardingDone() }}
+      />
     </View>
   )
 }

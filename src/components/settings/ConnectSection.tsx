@@ -1,32 +1,17 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { listRecentSheets, createNewSheet, todaySchemaName } from '@/services/drive'
-import { getSpreadsheetMeta, getSheetTabId, verifyOrFixHeaders } from '@/services/sheets'
+import { syncActivitiesToSheet } from '@/services/sheets'
+import { createSchema, getMySchemas, renameSchema, deleteSchema } from '@/services/schemas'
+import type { Schema } from '@/services/schemas'
 import { ImportModal } from '@/screens/ImportModal'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import type { SchemaEntry } from '@/types/auth'
 
-const HISTORY_KEY = 'runyo_schema_history'
-
-async function loadHistory(): Promise<SchemaEntry[]> {
-  try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
-}
-
-async function saveToHistory(entry: SchemaEntry): Promise<void> {
-  const prev = await loadHistory()
-  const next = [entry, ...prev.filter(e => e.id !== entry.id)].slice(0, 10)
-  await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next))
-}
-
-// ── Connect tile — matches PWA .connect-tile exactly ──────────────────────
+// ── Connect tile ───────────────────────────────────────────────────────────
 
 type TileProps = {
   primary?: boolean
@@ -63,103 +48,173 @@ function ConnectTile({ primary, icon, title, badge, sub, onPress }: TileProps) {
   )
 }
 
-// ── Sheet browser (for "Gekoppelde schema's") ──────────────────────────────
+// ── Mijn schema's panel ────────────────────────────────────────────────────
 
-function SchemaBrowser({ onSelect }: { onSelect: (s: SchemaEntry) => void }) {
-  const getToken = useAuthStore(s => s.getToken)
-  const [sheets,  setSheets]  = useState<SchemaEntry[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loaded,  setLoaded]  = useState(false)
+type MySchemasListProps = {
+  schemas: Schema[]
+  activeId: string | null
+  sheetId: string | null
+  renamingId: string | null
+  renameValue: string
+  deleteConfirmId: string | null
+  onActivate: (schema: Schema) => void
+  onRenameStart: (schema: Schema) => void
+  onRenameChange: (value: string) => void
+  onRenameCommit: (schema: Schema) => void
+  onDeleteRequest: (id: string) => void
+  onDeleteCancel: () => void
+  onDeleteConfirm: (id: string) => void
+  onSync: () => void
+}
 
-  async function load() {
-    if (loaded) return
-    setLoading(true)
-    try {
-      const [history, token] = await Promise.all([loadHistory(), getToken()])
-      const drive = token ? await listRecentSheets(token).catch(() => []) : []
-      // Merge: history first (preserves URL-linked sheets), then Drive results not already in history
-      const seen  = new Set(history.map(e => e.id))
-      const merged = [...history, ...drive.filter(e => !seen.has(e.id))]
-      setSheets(merged)
-      setLoaded(true)
-    } finally {
-      setLoading(false)
-    }
+function MySchemasList({
+  schemas,
+  activeId,
+  sheetId,
+  renamingId,
+  renameValue,
+  deleteConfirmId,
+  onActivate,
+  onRenameStart,
+  onRenameChange,
+  onRenameCommit,
+  onDeleteRequest,
+  onDeleteCancel,
+  onDeleteConfirm,
+  onSync,
+}: MySchemasListProps) {
+  if (!schemas.length) {
+    return <Text style={styles.emptyText}>Geen schema's gevonden.</Text>
   }
 
-  // Auto-load on mount
-  if (!loaded && !loading) load()
-
-  if (loading) return <ActivityIndicator color={LightTheme.accent} style={{ marginTop: Spacing.md }} />
-  if (!sheets.length) return <Text style={styles.emptyText}>Geen schema's gevonden.</Text>
-
   return (
-    <View style={styles.browser}>
-      {sheets.map(s => (
-        <TouchableOpacity key={s.id} style={styles.sheetRow} onPress={() => onSelect(s)}>
-          <Text style={styles.sheetName} numberOfLines={1}>{s.name}</Text>
-          <Text style={styles.sheetChevron}>›</Text>
-        </TouchableOpacity>
-      ))}
+    <View style={styles.schemaList}>
+      {schemas.map(schema => {
+        const isActive = schema.id === activeId
+        const isRenaming = renamingId === schema.id
+        const isDeleting = deleteConfirmId === schema.id
+
+        return (
+          <View key={schema.id} style={styles.schemaRow}>
+            <TouchableOpacity
+              style={styles.schemaRowMain}
+              onPress={() => !isRenaming && !isDeleting && onActivate(schema)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.schemaDot, isActive && styles.schemaDotActive]} />
+              {isRenaming ? (
+                <TextInput
+                  style={styles.renameInput}
+                  value={renameValue}
+                  onChangeText={onRenameChange}
+                  onBlur={() => onRenameCommit(schema)}
+                  onSubmitEditing={() => onRenameCommit(schema)}
+                  autoFocus
+                />
+              ) : (
+                <Text style={styles.schemaName} numberOfLines={1}>{schema.name}</Text>
+              )}
+            </TouchableOpacity>
+
+            {isDeleting ? (
+              <View style={styles.deleteConfirm}>
+                <Text style={styles.deleteConfirmText}>Verwijderen?</Text>
+                <TouchableOpacity onPress={onDeleteCancel}>
+                  <Text style={styles.deleteConfirmBtn}>✕</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onDeleteConfirm(schema.id)}>
+                  <Text style={[styles.deleteConfirmBtn, styles.deleteConfirmYes]}>✓</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.schemaActions}>
+                <TouchableOpacity onPress={() => onRenameStart(schema)} hitSlop={8}>
+                  <Text style={styles.schemaActionIcon}>✏</Text>
+                </TouchableOpacity>
+                {sheetId && isActive && (
+                  <TouchableOpacity onPress={onSync} hitSlop={8}>
+                    <Text style={styles.schemaActionIcon}>→</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => onDeleteRequest(schema.id)} hitSlop={8}>
+                  <Text style={[styles.schemaActionIcon, styles.schemaActionDelete]}>🗑</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )
+      })}
     </View>
   )
 }
 
 // ── Main ConnectSection ────────────────────────────────────────────────────
 
-type Panel = 'history' | 'new' | 'url' | null
+type Panel = 'schemas' | null
 
 export function ConnectSection() {
-  const theme         = useTheme()
-  const getToken      = useAuthStore(s => s.getToken)
-  const tokenSet      = useAuthStore(s => s.tokenSet)
-  const sheetId       = useDataStore(s => s.sheetId)
-  const sheetFileName = useDataStore(s => s.sheetFileName)
-  const tabName       = useDataStore(s => s.tabName)
-  const setSchema     = useDataStore(s => s.setSchema)
-  const clearSchema   = useDataStore(s => s.clearSchema)
-  const showToast     = useUiStore(s => s.showToast)
+  const theme            = useTheme()
+  const navigation       = useNavigation<any>()
+  const getToken         = useAuthStore(s => s.getToken)
+  const tokenSet         = useAuthStore(s => s.tokenSet)
+  const sheetId          = useDataStore(s => s.sheetId)
+  const sheetFileName    = useDataStore(s => s.sheetFileName)
+  const tabName          = useDataStore(s => s.tabName)
+  const schemaId         = useDataStore(s => s.schemaId)
+  const schemaName       = useDataStore(s => s.schemaName)
+  const activities       = useDataStore(s => s.activities)
+  const clearSchema      = useDataStore(s => s.clearSchema)
+  const activateImport   = useDataStore(s => s.activateImport)
+  const activateSchemaById = useDataStore(s => s.activateSchemaById)
+  const showToast        = useUiStore(s => s.showToast)
 
-  const [panel,      setPanel]      = useState<Panel>(null)
-  const [creating,   setCreating]   = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
+  const [panel,           setPanel]          = useState<Panel>(null)
+  const [importOpen,      setImportOpen]      = useState(false)
+  const [syncing,         setSyncing]         = useState(false)
+  const [creating,        setCreating]        = useState(false)
 
-  const isSignedIn  = !!tokenSet
-  const isConnected = isSignedIn && !!sheetId
+  // Mijn schema's state
+  const [schemas,         setSchemas]         = useState<Schema[]>([])
+  const [schemasLoading,  setSchemasLoading]  = useState(false)
+  const [renamingId,      setRenamingId]      = useState<string | null>(null)
+  const [renameValue,     setRenameValue]     = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  async function handleSync() {
+    if (!sheetId) return
+    setSyncing(true)
+    try {
+      const token = await getToken()
+      if (!token) { showToast('Niet ingelogd'); return }
+      const { synced } = await syncActivitiesToSheet(sheetId, tabName, token, activities)
+      showToast(`✓ ${synced} activiteiten gesynchroniseerd`)
+    } catch {
+      showToast('Synchronisatie mislukt')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function loadSchemas() {
+    if (schemasLoading) return
+    setSchemasLoading(true)
+    try {
+      setSchemas(await getMySchemas())
+    } finally {
+      setSchemasLoading(false)
+    }
+  }
 
   function togglePanel(p: Panel) {
     setPanel(prev => prev === p ? null : p)
   }
 
-  async function linkSheet(entry: SchemaEntry) {
-    const token = await getToken()
-    if (!token) return
-    showToast('Schema koppelen…')
-    try {
-      const { title, tabName, tabId } = await getSpreadsheetMeta(entry.id, 'Schema', token)
-      const name = entry.name === 'Google Sheet' ? title : entry.name
-      await verifyOrFixHeaders(entry.id, tabName, token).catch(() => {})
-      await setSchema(entry.id, tabName, name, tabId)
-      await saveToHistory({ id: entry.id, name, url: entry.url, ts: Date.now() })
-      setPanel(null)
-      showToast(`✓ ${name} gekoppeld`)
-    } catch {
-      showToast('Koppelen mislukt')
-    }
-  }
-
   async function handleCreateNew() {
-    const token = await getToken()
-    if (!token) return
     setCreating(true)
     try {
-      const name  = todaySchemaName()
-      const entry = await createNewSheet(token, name)
-      await verifyOrFixHeaders(entry.id, 'Schema', token)
-      const tabId = await getSheetTabId(entry.id, 'Schema', token).catch(() => 0)
-      await setSchema(entry.id, 'Schema', entry.name, tabId)
-      setPanel(null)
-      showToast(`✓ ${entry.name} aangemaakt`)
+      const { id } = await createSchema('Leeg schema')
+      await activateImport(id, 'Leeg schema')
+      showToast('✓ Leeg schema aangemaakt')
     } catch {
       showToast('Aanmaken mislukt')
     } finally {
@@ -167,74 +222,151 @@ export function ConnectSection() {
     }
   }
 
-  // ── The 3 new-schema tiles ────────────────────────────────────────────────
+  async function handleActivate(schema: Schema) {
+    if (schema.id === schemaId) return
+    try {
+      await activateSchemaById(schema.id, schema.name)
+      showToast(`✓ ${schema.name} actief`)
+    } catch {
+      showToast('Wisselen mislukt')
+    }
+  }
 
-  const newSchemaPanel = (
-    <View style={styles.panelContent}>
-      <ConnectTile
-        primary
-        icon="✦"
-        title="Importeer eigen schema"
-        badge="Aanbevolen"
-        sub="PDF, Excel, foto of van je coach — gratis proberen"
-        onPress={() => setImportOpen(true)}
-      />
-      <ConnectTile
-        icon="＋"
-        title="Leeg schema aanmaken"
-        sub={`Nieuw leeg schema met datum als naam`}
-        onPress={creating ? () => {} : handleCreateNew}
-      />
-      {creating && <ActivityIndicator color={LightTheme.accent} />}
-    </View>
-  )
+  function handleRenameStart(schema: Schema) {
+    setDeleteConfirmId(null)
+    setRenamingId(schema.id)
+    setRenameValue(schema.name)
+  }
 
-  // ── Signed in (connected or not) — same layout ──────────────────────────
+  async function handleRenameCommit(schema: Schema) {
+    if (!renameValue.trim() || renameValue.trim() === schema.name) {
+      setRenamingId(null)
+      return
+    }
+    const newName = renameValue.trim()
+    setRenamingId(null)
+    try {
+      await renameSchema(schema.id, newName)
+      setSchemas(prev => prev.map(s => s.id === schema.id ? { ...s, name: newName } : s))
+      if (schema.id === schemaId) await activateImport(schema.id, newName)
+    } catch {
+      showToast('Hernoemen mislukt')
+    }
+  }
+
+  async function handleDeleteConfirm(id: string) {
+    setDeleteConfirmId(null)
+    try {
+      await deleteSchema(id)
+      setSchemas(prev => prev.filter(s => s.id !== id))
+      if (id === schemaId) {
+        await activateImport('', '')
+        showToast('Schema verwijderd')
+      } else {
+        showToast('Schema verwijderd')
+      }
+    } catch {
+      showToast('Verwijderen mislukt')
+    }
+  }
+
+  const isSignedIn         = !!tokenSet
+  const isConnectedSheet   = isSignedIn && !!sheetId
+  const isConnectedBackend = isSignedIn && !!schemaId && !sheetId
 
   if (isSignedIn) {
     return (
       <View style={styles.container}>
-        {/* Connected schema display */}
-        {isConnected && (
+        {/* Connected schema display — Sheets (legacy path) */}
+        {isConnectedSheet && (
+          <>
+            <View style={styles.connectedRow}>
+              <View style={styles.greenDot} />
+              <View style={styles.connectedInfo}>
+                <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
+              </View>
+              <TouchableOpacity onPress={() => clearSchema()}>
+                <Text style={styles.disconnectText}>Ontkoppelen</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.exportBtn} onPress={handleSync} disabled={syncing}>
+              <Text style={styles.exportBtnText}>{syncing ? 'Bezig…' : '→ Sheets'}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Connected schema display — backend */}
+        {isConnectedBackend && (
           <View style={styles.connectedRow}>
             <View style={styles.greenDot} />
             <View style={styles.connectedInfo}>
-              <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
+              <Text style={styles.fileName}>{schemaName ?? 'Schema'}</Text>
             </View>
-            <TouchableOpacity onPress={() => clearSchema()}>
-              <Text style={styles.disconnectText}>Ontkoppelen</Text>
-            </TouchableOpacity>
           </View>
         )}
 
-        {/* Always-visible buttons */}
+        {/* Mijn schema's chip-knop */}
         <View style={styles.btnRow}>
           <TouchableOpacity
-            style={[styles.btnSave, panel === 'history' && styles.btnSaveActive]}
-            onPress={() => togglePanel('history')}
+            style={[styles.btnSave, panel === 'schemas' && styles.btnSaveActive]}
+            onPress={() => { togglePanel('schemas'); if (panel !== 'schemas') loadSchemas() }}
           >
-            <Text style={styles.btnSaveText}>Gekoppelde schema's</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btnSave, panel === 'new' && styles.btnSaveActive]}
-            onPress={() => togglePanel('new')}
-          >
-            <Text style={styles.btnSaveText}>+ Nieuw trainingsschema</Text>
+            <Text style={styles.btnSaveText}>Mijn schema's</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Gekoppelde schema's panel */}
-        {panel === 'history' && <SchemaBrowser onSelect={linkSheet} />}
+        {/* Mijn schema's panel */}
+        {panel === 'schemas' && (
+          schemasLoading
+            ? <ActivityIndicator color={LightTheme.accent} />
+            : (
+              <MySchemasList
+                schemas={schemas}
+                activeId={schemaId}
+                sheetId={sheetId}
+                renamingId={renamingId}
+                renameValue={renameValue}
+                deleteConfirmId={deleteConfirmId}
+                onActivate={handleActivate}
+                onRenameStart={handleRenameStart}
+                onRenameChange={setRenameValue}
+                onRenameCommit={handleRenameCommit}
+                onDeleteRequest={(id) => { setRenamingId(null); setDeleteConfirmId(id) }}
+                onDeleteCancel={() => setDeleteConfirmId(null)}
+                onDeleteConfirm={handleDeleteConfirm}
+                onSync={handleSync}
+              />
+            )
+        )}
 
-        {/* Nieuw trainingsschema — always the 3 tiles */}
-        {panel === 'new' && newSchemaPanel}
+        {/* Tiles — altijd zichtbaar */}
+        <ConnectTile
+          primary
+          icon="✦"
+          title="Importeer eigen schema"
+          badge="Aanbevolen"
+          sub="PDF, Excel, foto of link"
+          onPress={() => setImportOpen(true)}
+        />
+        <ConnectTile
+          icon="＋"
+          title="Leeg schema aanmaken"
+          sub="Start met een leeg schema"
+          onPress={creating ? () => {} : handleCreateNew}
+        />
+        {creating && <ActivityIndicator color={LightTheme.accent} />}
 
-        <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
+        <ImportModal
+          visible={importOpen}
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => {
+            setImportOpen(false)
+            navigation.navigate('Main')
+          }}
+        />
       </View>
     )
   }
-
-  // ── Not signed in ─────────────────────────────────────────────────────────
 
   return (
     <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
@@ -266,8 +398,9 @@ const styles = StyleSheet.create({
   greenDot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.accent, flexShrink: 0 },
   connectedInfo:  { flex: 1 },
   fileName:       { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
-  tabLabel:       { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, marginTop: 2 },
   disconnectText: { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted, textDecorationLine: 'underline' },
+  exportBtn:      { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: LightTheme.bgAlt, borderWidth: 1, borderColor: LightTheme.border, alignSelf: 'flex-start' },
+  exportBtnText:  { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
 
   // Buttons
   btnRow:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
@@ -275,18 +408,25 @@ const styles = StyleSheet.create({
   btnSaveActive:  { borderColor: LightTheme.accent },
   btnSaveText:    { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
 
-  // Panel
-  panelContent:   { gap: Spacing.sm },
+  // Schema list
+  schemaList:         { borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: LightTheme.border },
+  schemaRow:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: LightTheme.border, backgroundColor: LightTheme.surface },
+  schemaRowMain:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minWidth: 0 },
+  schemaDot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.border, flexShrink: 0 },
+  schemaDotActive:    { backgroundColor: LightTheme.accent },
+  schemaName:         { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
+  renameInput:        { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text, padding: 0 },
+  schemaActions:      { flexDirection: 'row', gap: Spacing.sm, marginLeft: Spacing.sm },
+  schemaActionIcon:   { fontSize: 16, color: LightTheme.muted },
+  schemaActionDelete: { color: LightTheme.muted },
 
-  // Schema browser
-  browser:        { borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: LightTheme.border },
-  sheetRow:       { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: LightTheme.border, backgroundColor: LightTheme.surface },
-  sheetName:      { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  sheetChevron:   { fontFamily: Fonts.display, fontSize: 18, color: LightTheme.faint },
+  // Delete confirm
+  deleteConfirm:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: Spacing.sm },
+  deleteConfirmText: { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
+  deleteConfirmBtn:  { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.muted },
+  deleteConfirmYes:  { color: '#e53e3e' },
+
+  // Misc
   emptyText:      { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },
-
-  // Hints
-  signedInHint:   { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
-  signedInEmail:  { fontFamily: Fonts.displaySemiBold, color: LightTheme.text },
   notSignedIn:    { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
 })

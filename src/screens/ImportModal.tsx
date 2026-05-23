@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
   TextInput, Switch,
@@ -45,7 +45,7 @@ function InfoCard({ label, value, p }: { label: string; value: string; p: any })
   )
 }
 
-export function ImportModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean; onClose: () => void; onSuccess?: () => void }) {
   const p              = useTheme()
   const getToken       = useAuthStore(s => s.getToken)
   const activateImport = useDataStore(s => s.activateImport)
@@ -63,13 +63,36 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
   const [startDate,   setStartDate]   = useState(new Date().toISOString().split('T')[0])
   const [runDays,     setRunDays]     = useState([0, 2, 4])
   const [keepRest,    setKeepRest]    = useState(true)
-  const [showConfig,  setShowConfig]  = useState(false)
+  const [showConfig,    setShowConfig]    = useState(false)
+  const [loadingPhrase, setLoadingPhrase] = useState('schema lezen…')
+
+  useEffect(() => {
+    if (step !== 'processing' || progress < 85) return
+    const phrases = [
+      'schema lezen…',
+      'activiteiten tellen…',
+      'planning verwerken…',
+      'weken indelen…',
+      'bijna klaar…',
+    ]
+    let i = 0
+    const t = setInterval(() => {
+      i = (i + 1) % phrases.length
+      setLoadingPhrase(phrases[i])
+    }, 2200)
+    return () => clearInterval(t)
+  }, [step, progress])
 
   function reset() {
     setStep('source'); setSource('pdf'); setFileName(''); setFileB64(''); setFileMime('')
     setUrlInput(''); setProgress(0); setResult(null); setError(''); setShowConfig(false)
     setStartDate(new Date().toISOString().split('T')[0])
-    setRunDays([0, 2, 4]); setKeepRest(true)
+    setRunDays([0, 2, 4]); setKeepRest(true); setLoadingPhrase('schema lezen…')
+  }
+
+  function goBack(to: Step) {
+    setError('')
+    setStep(to)
   }
 
   async function handleFileTap(src: 'pdf' | 'excel' | 'foto') {
@@ -117,7 +140,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
     setStep('processing'); setProgress(0)
     try {
       const { schemaId, activities } = await importToBackend(result.rows, getToken, setProgress)
-      await activateImport(schemaId)
+      await activateImport(schemaId, result.schemaTitle || 'Geïmporteerd schema')
       queryClient.setQueryData(['activities', 'backend', schemaId], activities)
       setStep('success')
     } catch (e: any) {
@@ -184,7 +207,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
 
           {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
-          <TouchableOpacity onPress={() => setStep('source')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => goBack('source')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← terug</Text>
           </TouchableOpacity>
         </View>
@@ -215,7 +238,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>doorgaan →</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setStep('excel-choice')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => goBack('excel-choice')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← terug</Text>
           </TouchableOpacity>
         </View>
@@ -274,7 +297,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>schema analyseren →</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setStep(source === 'url' ? 'url-input' : source === 'excel' ? 'excel-choice' : 'source')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => goBack(source === 'url' ? 'url-input' : source === 'excel' ? 'excel-choice' : 'source')} style={styles.backBtn}>
             <Text style={[styles.backBtnText, { color: p.muted }]}>← andere bron kiezen</Text>
           </TouchableOpacity>
         </View>
@@ -283,8 +306,10 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
       {step === 'processing' && (
         <View style={[styles.column, styles.centered, { paddingVertical: 48 }]}>
           <CircleProgress pct={progress} size={96} color={p.accent} />
-          <Text style={[styles.processingTitle, { color: p.text }]}>schema lezen…</Text>
-          <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
+          <Text style={[styles.processingTitle, { color: p.text }]}>{loadingPhrase}</Text>
+          {progress < 85 && (
+            <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
+          )}
         </View>
       )}
 
@@ -325,7 +350,7 @@ export function ImportModal({ visible, onClose }: { visible: boolean; onClose: (
           </View>
           <Text style={[styles.successTitle, { color: p.text }]}>klaar</Text>
           <Text style={[styles.successSub, { color: p.muted }]}>je schema loopt nu mee.</Text>
-          <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: p.accent, marginTop: 32 }]} onPress={() => { reset(); onClose() }}>
+          <TouchableOpacity style={[styles.ctaBtn, { backgroundColor: p.accent, marginTop: 32 }]} onPress={() => { reset(); onSuccess ? onSuccess() : onClose() }}>
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>naar vandaag →</Text>
           </TouchableOpacity>
         </View>

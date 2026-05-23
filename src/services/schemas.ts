@@ -3,6 +3,8 @@ import { BACKEND, getAccessToken } from './auth'
 export type Schema = {
   id: string
   userId: string
+  name: string
+  isActive: boolean
   createdAt: string
 }
 
@@ -12,19 +14,19 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` }
 }
 
-function ensureOk(status: number): void {
+function ensureOk(status: number, context: string): void {
   if (status === 401) throw new Error('unauthorized')
-  if (status >= 400) throw new Error(`schemas request failed: ${status}`)
+  if (status >= 400) throw new Error(`${context} request failed: ${status}`)
 }
 
-export async function createSchema(): Promise<{ id: string }> {
+export async function createSchema(name = 'Leeg schema'): Promise<{ id: string }> {
   const headers = await authHeaders()
   const res = await fetch(`${BACKEND}/api/schemas`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ name }),
   })
-  ensureOk(res.status)
+  ensureOk(res.status, 'create schema')
   return await res.json() as { id: string }
 }
 
@@ -34,6 +36,34 @@ export async function getMySchemas(): Promise<Schema[]> {
     method: 'GET',
     headers,
   })
-  ensureOk(res.status)
+  ensureOk(res.status, 'get schemas')
   return await res.json() as Schema[]
+}
+
+export async function renameSchema(id: string, name: string): Promise<void> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${id}/name`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  ensureOk(res.status, 'rename schema')
+}
+
+export async function activateSchema(id: string): Promise<void> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${id}/activate`, {
+    method: 'PATCH',
+    headers,
+  })
+  ensureOk(res.status, 'activate schema')
+}
+
+export async function deleteSchema(id: string): Promise<void> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${id}`, {
+    method: 'DELETE',
+    headers,
+  })
+  ensureOk(res.status, 'delete schema')
 }
