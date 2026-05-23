@@ -7,6 +7,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { appendAndSort } from '@/services/sheets'
 import { createActivity } from '@/services/activities'
+import { createSchema } from '@/services/schemas'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -26,6 +27,7 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   const sheetId        = useDataStore(s => s.sheetId)
   const tabName        = useDataStore(s => s.tabName)
   const schemaId       = useDataStore(s => s.schemaId)
+  const activateImport = useDataStore(s => s.activateImport)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
 
@@ -41,9 +43,14 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   useState(() => { setDatum(prefillDate ?? today) })
 
   async function handleSave() {
-    if (!sheetId && !schemaId) { showToast('Geen schema gekoppeld'); return }
     setSaving(true)
     try {
+      let activeSchemaId = schemaId
+      if (!sheetId && !activeSchemaId) {
+        const { id } = await createSchema('Mijn schema')
+        await activateImport(id, 'Mijn schema')
+        activeSchemaId = id
+      }
       const kmVal = parseFloat(km) || null
       // Sheets leads when connected — matches useActivities priority.
       if (sheetId) {
@@ -58,10 +65,10 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
           updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
         })
         await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else if (schemaId) {
-        const created = await createActivity(schemaId, { datum, titel, type, km: kmVal, detail })
+      } else if (activeSchemaId) {
+        const created = await createActivity(activeSchemaId, { datum, titel, type, km: kmVal, detail })
         upsertActivity(created)
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activeSchemaId] })
       }
       showToast('✓ Activiteit toegevoegd')
       setTitel(''); setKm(''); setDetail(''); setType('run')
