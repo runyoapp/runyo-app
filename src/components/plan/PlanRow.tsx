@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, RefObject } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -12,10 +12,10 @@ type Props = {
   isToday: boolean
   isPast: boolean
   onEdit: (activity: Activity) => void
-  onLayout?: (e: any) => void
+  viewRef?: RefObject<View>
 }
 
-export function PlanRow({ datum, rows, isToday, isPast, onEdit, onLayout }: Props) {
+export function PlanRow({ datum, rows, isToday, isPast, onEdit, viewRef }: Props) {
   const theme    = useTheme()
   const [expanded, setExpanded] = useState(isToday)
   const d        = fromDateString(datum)
@@ -31,9 +31,9 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit, onLayout }: Prop
 
   return (
     <TouchableOpacity
+      ref={viewRef as RefObject<any>}
       style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && styles.rowPast]}
       onPress={() => setExpanded(e => !e)}
-      onLayout={onLayout}
       activeOpacity={0.8}
     >
       {/* Collapsed header */}

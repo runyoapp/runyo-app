@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, findNodeHandle } from 'react-native'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportModal } from '@/screens/ImportModal'
@@ -52,7 +52,7 @@ export function PlanScreen() {
   const [importOpen,        setImportOpen]        = useState(false)
   const [showRest,          setShowRest]          = useState(false)
   const scrollRef     = useRef<ScrollView>(null)
-  const todayRowY     = useRef<number>(0)
+  const todayRowRef   = useRef<View>(null)
   const hasScrolled   = useRef(false)
 
   // C66: rustdagen standaard verborgen
@@ -105,16 +105,24 @@ export function PlanScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* U41: scroll naar eerstvolgende training bij mount */}
+          {/* U41: scroll naar eerstvolgende training bij mount
+              Strategie: onContentSizeChange wacht tot de lijst gemeten is,
+              dan measureLayout van de vandaag-rij t.o.v. de ScrollView-node. */}
           <ScrollView
             ref={scrollRef}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               if (hasScrolled.current) return
-              if (todayRowY.current > 0) {
-                hasScrolled.current = true
-                scrollRef.current?.scrollTo({ y: Math.max(0, todayRowY.current - 80), animated: false })
-              }
+              const scrollNode = findNodeHandle(scrollRef.current)
+              if (!scrollNode || !todayRowRef.current) return
+              todayRowRef.current.measureLayout(
+                scrollNode,
+                (_left, top) => {
+                  hasScrolled.current = true
+                  scrollRef.current?.scrollTo({ y: Math.max(0, top - 80), animated: false })
+                },
+                () => {},
+              )
             }}
           >
             <SchemaHeader activities={activities} />
@@ -130,7 +138,7 @@ export function PlanScreen() {
                     today={today}
                     onToggle={() => toggle(fase)}
                     onEdit={setSelectedActivity}
-                    onTodayLayout={(y: number) => { todayRowY.current = y }}
+                    todayRowRef={todayRowRef}
                   />
                 ))
               ) : (
@@ -141,6 +149,7 @@ export function PlanScreen() {
                   today={today}
                   onToggle={() => {}}
                   onEdit={setSelectedActivity}
+                  todayRowRef={todayRowRef}
                 />
               )}
             </View>
