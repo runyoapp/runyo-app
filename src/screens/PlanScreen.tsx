@@ -102,7 +102,10 @@ export function PlanScreen() {
                     ? e => {
                         if (hasScrolled.current) return
                         hasScrolled.current = true
-                        scrollRef.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 80), animated: false })
+                        const y = e.nativeEvent.layout.y
+                        requestAnimationFrame(() => {
+                          scrollRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: false })
+                        })
                       }
                     : undefined}
                 >
