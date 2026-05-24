@@ -57,33 +57,33 @@ export function PlanScreen() {
     setOpenFase(prev => prev === fase ? null : fase)
   }
 
-  // No schema / no data states
-  if (!sheetId && !schemaId) {
-    return (
-      <View style={[styles.root, styles.empty, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
-        <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
-        <Text style={styles.emptySub}>Importeer je trainingsplan om te beginnen.</Text>
-        <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
-          <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
-        </TouchableOpacity>
-        <ImportModal visible={importOpen} onClose={() => setImportOpen(false)} />
-      </View>
-    )
-  }
-
-  if (!activities.length) {
-    return (
-      <View style={[styles.root, styles.empty, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
-        <Text style={styles.emptyTitle}>Geen data</Text>
-        <Text style={styles.emptySub}>Je schema is leeg of wordt geladen.</Text>
-      </View>
-    )
-  }
+  // U39: header altijd renderen — empty-state onder de header
+  const noSchema = !sheetId && !schemaId
+  const noData   = !noSchema && !activities.length
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <PageContainer>
       <AppHeader onAddPress={() => setAddModalOpen(true)} />
+
+      {noSchema && (
+        <View style={[styles.empty, { flex: 1 }]}>
+          <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
+          <Text style={styles.emptySub}>Importeer je trainingsplan om te beginnen.</Text>
+          <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
+            <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {noData && (
+        <View style={[styles.empty, { flex: 1 }]}>
+          <Text style={styles.emptyTitle}>Geen data</Text>
+          <Text style={styles.emptySub}>Je schema is leeg of wordt geladen.</Text>
+        </View>
+      )}
+
+      {!noSchema && !noData && (
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
@@ -124,6 +124,7 @@ export function PlanScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+      )}
       </PageContainer>
 
       <DayDetailModal
