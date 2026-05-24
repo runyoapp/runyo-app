@@ -30,6 +30,7 @@ export function PlanScreen() {
   const [showRest,         setShowRest]         = useState(false)
   const scrollRef   = useRef<ScrollView>(null)
   const hasScrolled = useRef(false)
+  const todayY      = useRef<number | null>(null)
 
   // C66: rustdagen standaard verborgen
   const visibleActivities = useMemo(
@@ -92,21 +93,22 @@ export function PlanScreen() {
             {/* U41: scroll naar vandaag via onLayout op de dag-View.
                 Dag-Views zijn directe children van ScrollView, dus onLayout.y
                 is gelijk aan de benodigde scroll-offset — geen measure() nodig. */}
-            <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              ref={scrollRef}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => {
+                if (hasScrolled.current || todayY.current === null) return
+                hasScrolled.current = true
+                scrollRef.current?.scrollTo({ y: Math.max(0, todayY.current - 80), animated: false })
+              }}
+            >
               <SchemaHeader activities={activities} />
               {byDate.map(({ datum, rows }) => (
                 <View
                   key={datum}
                   style={styles.dayRow}
                   onLayout={datum === today
-                    ? e => {
-                        if (hasScrolled.current) return
-                        hasScrolled.current = true
-                        const y = e.nativeEvent.layout.y
-                        requestAnimationFrame(() => {
-                          scrollRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: false })
-                        })
-                      }
+                    ? e => { todayY.current = e.nativeEvent.layout.y }
                     : undefined}
                 >
                   <PlanRow
