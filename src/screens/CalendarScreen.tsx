@@ -2,10 +2,11 @@ import { useState, useRef } from 'react'
 import { RaceModal } from '@/screens/RaceModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { AppHeader } from '@/components/shared/AppHeader'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, PanResponder } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
 import { useActivities } from '@/hooks/useActivities'
+import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { CalendarGrid } from '@/components/calendar/CalendarGrid'
 import { RaceCard } from '@/components/calendar/RaceCard'
 import { ActivityColors } from '@/constants/theme'
@@ -25,6 +26,8 @@ export function CalendarScreen() {
   useActivities()
 
   const theme      = useTheme()
+  const monthKey   = calYear * 12 + calMonth
+  const swipeAnim  = useSwipeAnimation(monthKey)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -99,7 +102,8 @@ export function CalendarScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
+        style={swipeAnim.style}
         showsVerticalScrollIndicator={false}
         {...panResponder.panHandlers}
       >
@@ -163,7 +167,7 @@ export function CalendarScreen() {
         )}
 
         <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+      </Animated.ScrollView>
       </PageContainer>
 
       <RaceModal
