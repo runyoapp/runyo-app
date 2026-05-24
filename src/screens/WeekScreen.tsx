@@ -63,9 +63,12 @@ export function WeekScreen() {
   const cellRectsRef        = useRef<Map<string, CellRect>>(new Map())
   const cellRefs            = useRef<Map<string, View | null>>(new Map())
 
+  // U38: eis dat horizontale beweging duidelijk groter is dan verticaal (factor 2)
+  // om conflict met verticale ScrollView te voorkomen
   const swipePan = PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) => !draggingId && Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
+    onMoveShouldSetPanResponder: (_, g) =>
+      !draggingId && Math.abs(g.dx) > Math.abs(g.dy) * 2 && Math.abs(g.dx) > 16,
     onPanResponderRelease: (_, g) => {
       if (Math.abs(g.dx) > 50) setWeekOffset(weekOffset + (g.dx < 0 ? 1 : -1))
     },
@@ -221,12 +224,15 @@ export function WeekScreen() {
         })}
       </View>
 
-      {/* Rows */}
+      {/* Rows — U38: directionalLockEnabled + scrollEventThrottle fix conflict met swipe-pan */}
       <Animated.ScrollView
         style={[styles.scroll, swipeAnim.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!draggingId}
+        directionalLockEnabled
+        scrollEventThrottle={16}
+        nestedScrollEnabled
         {...swipePan.panHandlers}
       >
         {weekData.length === 0 ? (
