@@ -167,7 +167,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.loginBtnSecondary, { backgroundColor: theme.surface, borderColor: theme.border }]}
-          onPress={() => { setLoginOpen(false); navigation.navigate('EmailAuth' as never) }}
+          onPress={() => { closeLoginSheet(); navigation.navigate('EmailAuth' as never) }}
           disabled={loginLoading}
           activeOpacity={0.8}
         >
