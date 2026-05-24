@@ -28,9 +28,19 @@ export function PlanScreen() {
   const [addModalOpen,     setAddModalOpen]     = useState(false)
   const [importOpen,       setImportOpen]       = useState(false)
   const [showRest,         setShowRest]         = useState(false)
-  const scrollRef   = useRef<ScrollView>(null)
-  const hasScrolled = useRef(false)
-  const todayY      = useRef<number | null>(null)
+  const scrollRef    = useRef<ScrollView>(null)
+  const hasScrolled  = useRef(false)
+  const todayY       = useRef<number | null>(null)
+  const contentReady = useRef(false)
+
+  // Beide events zijn nodig: volgorde is niet gegarandeerd.
+  // onLayout slaat y op; onContentSizeChange markeert dat de ScrollView scroll-bereik kent.
+  // Pas als beide voldaan zijn, is scrollTo betrouwbaar.
+  const tryScroll = () => {
+    if (hasScrolled.current || todayY.current === null || !contentReady.current) return
+    hasScrolled.current = true
+    scrollRef.current?.scrollTo({ y: Math.max(0, todayY.current - 80), animated: false })
+  }
 
   // C66: rustdagen standaard verborgen
   const visibleActivities = useMemo(
@@ -96,11 +106,7 @@ export function PlanScreen() {
             <ScrollView
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => {
-                if (hasScrolled.current || todayY.current === null) return
-                hasScrolled.current = true
-                scrollRef.current?.scrollTo({ y: Math.max(0, todayY.current - 80), animated: false })
-              }}
+              onContentSizeChange={() => { contentReady.current = true; tryScroll() }}
             >
               <SchemaHeader activities={activities} />
               {byDate.map(({ datum, rows }) => (
@@ -108,7 +114,7 @@ export function PlanScreen() {
                   key={datum}
                   style={styles.dayRow}
                   onLayout={datum === today
-                    ? e => { todayY.current = e.nativeEvent.layout.y }
+                    ? e => { todayY.current = e.nativeEvent.layout.y; tryScroll() }
                     : undefined}
                 >
                   <PlanRow
