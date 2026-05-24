@@ -50,8 +50,9 @@ export function PlanScreen() {
   const [selectedActivity,  setSelectedActivity]  = useState<Activity | null>(null)
   const [addModalOpen,      setAddModalOpen]      = useState(false)
   const [importOpen,        setImportOpen]        = useState(false)
-  const scrollRef = useRef<ScrollView>(null)
-  const todayRowY = useRef<number>(0)
+  const scrollRef     = useRef<ScrollView>(null)
+  const todayRowY     = useRef<number>(0)
+  const hasScrolled   = useRef(false)
 
   function toggle(fase: string) {
     setOpenFase(prev => prev === fase ? null : fase)
@@ -84,12 +85,15 @@ export function PlanScreen() {
       )}
 
       {!noSchema && !noData && (
+      {/* U41: scroll naar eerstvolgende training bij mount */}
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => {
+          if (hasScrolled.current) return
           if (todayRowY.current > 0) {
-            scrollRef.current?.scrollTo({ y: Math.max(0, todayRowY.current - 80), animated: true })
+            hasScrolled.current = true
+            scrollRef.current?.scrollTo({ y: Math.max(0, todayRowY.current - 80), animated: false })
           }
         }}
       >
