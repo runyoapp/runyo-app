@@ -80,16 +80,12 @@ export async function signInWithGoogle(): Promise<TokenSet> {
   return exchangeCode(code, verifier, REDIRECT_URI)
 }
 
+const OAUTH_TIMEOUT_MS = 5 * 60 * 1000 // 5 minuten — daarna geldt de flow als mislukt
+
 function openGooglePopup(authUrl: string, popup: Window | null): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!popup) { reject(new Error('Popup geblokkeerd door browser')); return }
     popup.location.href = authUrl
-
-    function cleanup() {
-      clearInterval(closedInterval)
-      window.removeEventListener('message', onMessage)
-      window.removeEventListener('storage', onStorage)
-    }
 
     // Desktop: callback stuurt code via postMessage
     const onMessage = (event: MessageEvent) => {
@@ -122,6 +118,20 @@ function openGooglePopup(authUrl: string, popup: Window | null): Promise<string>
         // COOP blokkeert popup.closed — negeer, auth verloopt via storage-event
       }
     }, 500)
+
+    // Absolute timeout: voorkomt oneindige laadstatus als popup vastloopt
+    const timeoutId = setTimeout(() => {
+      cleanup()
+      try { popup.close() } catch { /* ignore */ }
+      reject(new Error('Inloggen duurde te lang. Probeer opnieuw.'))
+    }, OAUTH_TIMEOUT_MS)
+
+    function cleanup() {
+      clearInterval(closedInterval)
+      clearTimeout(timeoutId)
+      window.removeEventListener('message', onMessage)
+      window.removeEventListener('storage', onStorage)
+    }
 
     window.addEventListener('message', onMessage)
     window.addEventListener('storage', onStorage)
