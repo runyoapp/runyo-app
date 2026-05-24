@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, Animated } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
-import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
+import { useSwipeAnimation, useDayStripAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -47,9 +47,10 @@ export function TodayScreen() {
     activeRows, isRest, fbRow, tmrRow,
   } = useTodayData()
 
-  const { isLoading } = useActivities()
-  const swipeAnim     = useSwipeAnimation(dayOffset)
-  const panHandlers   = useDaySwipe(dayOffset, setDayOffset)
+  const { isLoading }  = useActivities()
+  const swipeAnim      = useSwipeAnimation(dayOffset)
+  const stripAnim      = useDayStripAnimation(dayOffset)
+  const panHandlers    = useDaySwipe(dayOffset, setDayOffset)
 
   const [editingFeedback,  setEditingFeedback]  = useState(false)
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
@@ -95,12 +96,8 @@ export function TodayScreen() {
         }}
       />
 
-      <Animated.ScrollView
-        style={[styles.scroll, swipeAnim.style]}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        {...panHandlers}
-      >
+      {/* U40: DayStrip statisch, animeert alleen bij week-grens */}
+      <Animated.View style={stripAnim.style}>
         <DayStrip
           dayOffset={dayOffset}
           activities={activities}
@@ -108,7 +105,15 @@ export function TodayScreen() {
           onPrevWeek={() => setDayOffset(dayOffset - 7)}
           onNextWeek={() => setDayOffset(dayOffset + 7)}
         />
+      </Animated.View>
 
+      {/* U40: alleen tab-inhoud animeert bij elke dag-wissel */}
+      <Animated.ScrollView
+        style={[styles.scroll, swipeAnim.style]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        {...panHandlers}
+      >
         <View style={styles.kickerRow}>
           <Text style={styles.kicker}>{dayLabel}</Text>
         </View>
