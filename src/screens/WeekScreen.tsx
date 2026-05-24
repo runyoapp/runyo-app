@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
 import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
@@ -63,16 +63,6 @@ export function WeekScreen() {
   const cellRectsRef        = useRef<Map<string, CellRect>>(new Map())
   const cellRefs            = useRef<Map<string, View | null>>(new Map())
 
-  // U38: eis dat horizontale beweging duidelijk groter is dan verticaal (factor 2)
-  // om conflict met verticale ScrollView te voorkomen
-  const swipePan = PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) =>
-      !draggingId && Math.abs(g.dx) > Math.abs(g.dy) * 2 && Math.abs(g.dx) > 16,
-    onPanResponderRelease: (_, g) => {
-      if (Math.abs(g.dx) > 50) setWeekOffset(weekOffset + (g.dx < 0 ? 1 : -1))
-    },
-  })
   const weekDates = getWeekDates(weekOffset)
   const d0        = fromDateString(weekDates[0])
   const d6        = fromDateString(weekDates[6])
@@ -224,16 +214,12 @@ export function WeekScreen() {
         })}
       </View>
 
-      {/* Rows — U38: directionalLockEnabled + scrollEventThrottle fix conflict met swipe-pan */}
+      {/* Rows — verticale ScrollView zonder pan responder: week-nav via ‹/› knoppen */}
       <Animated.ScrollView
         style={[styles.scroll, swipeAnim.style]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!draggingId}
-        directionalLockEnabled
-        scrollEventThrottle={16}
-        nestedScrollEnabled
-        {...swipePan.panHandlers}
       >
         {weekData.length === 0 ? (
           <View style={styles.emptyState}>
