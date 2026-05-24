@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, Animated } from 'react-native'
+import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation, useDayStripAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -21,7 +21,7 @@ import { ImportModal } from '@/screens/ImportModal'
 import { RaceModal } from '@/screens/RaceModal'
 import { updateActivity } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
-import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
 import type { Activity } from '@/types/activity'
@@ -84,6 +84,8 @@ export function TodayScreen() {
       showToast('Opslaan mislukt, probeer opnieuw.')
     }
   }
+
+  const isOffToday = dayOffset !== 0
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -165,6 +167,17 @@ export function TodayScreen() {
 
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
+
+      {/* U42: 'Vandaag'-knop zodra gebruiker weggeswiped is */}
+      {isOffToday && (
+        <TouchableOpacity
+          style={[styles.todayBtn, { backgroundColor: theme.accent }]}
+          onPress={() => setDayOffset(0)}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.todayBtnText, { color: theme.accentInk }]}>← Vandaag</Text>
+        </TouchableOpacity>
+      )}
       </PageContainer>
 
       <Toast />
@@ -199,4 +212,18 @@ const styles = StyleSheet.create({
   kicker:        { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text2 },
   loadingRow:    { padding: Spacing.xl, alignItems: 'center' },
   loadingText:   { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
+  todayBtn:      {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
+    shadowColor: '#0E1F1A',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  todayBtnText:  { fontFamily: Fonts.displayBold, fontSize: 14, letterSpacing: -0.2 },
 })
