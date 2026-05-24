@@ -50,9 +50,16 @@ export function PlanScreen() {
   const [selectedActivity,  setSelectedActivity]  = useState<Activity | null>(null)
   const [addModalOpen,      setAddModalOpen]      = useState(false)
   const [importOpen,        setImportOpen]        = useState(false)
+  const [showRest,          setShowRest]          = useState(false)
   const scrollRef     = useRef<ScrollView>(null)
   const todayRowY     = useRef<number>(0)
   const hasScrolled   = useRef(false)
+
+  // C66: rustdagen standaard verborgen
+  const visibleActivities = useMemo(
+    () => showRest ? activities : activities.filter(a => a.type !== 'rest'),
+    [activities, showRest],
+  )
 
   function toggle(fase: string) {
     setOpenFase(prev => prev === fase ? null : fase)
@@ -85,49 +92,62 @@ export function PlanScreen() {
       )}
 
       {!noSchema && !noData && (
-      {/* U41: scroll naar eerstvolgende training bij mount */}
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => {
-          if (hasScrolled.current) return
-          if (todayRowY.current > 0) {
-            hasScrolled.current = true
-            scrollRef.current?.scrollTo({ y: Math.max(0, todayRowY.current - 80), animated: false })
-          }
-        }}
-      >
-        <SchemaHeader activities={activities} />
+        <>
+          {/* C66: rustdagen-toggle chip */}
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.filterChip, showRest && styles.filterChipActive]}
+              onPress={() => setShowRest(v => !v)}
+            >
+              <Text style={[styles.filterChipText, showRest && styles.filterChipTextActive]}>
+                Rustdagen
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.phases}>
-          {phases.length > 0 ? (
-            phases.map(fase => (
-              <PhaseBlock
-                key={fase}
-                fase={fase}
-                rows={activities.filter(a => a.fase === fase)}
-                isOpen={openFase === fase}
-                today={today}
-                onToggle={() => toggle(fase)}
-                onEdit={setSelectedActivity}
-                onTodayLayout={(y: number) => { todayRowY.current = y }}
-              />
-            ))
-          ) : (
-            // No phases — render all rows flat
-            <PhaseBlock
-              fase="Training"
-              rows={activities}
-              isOpen={true}
-              today={today}
-              onToggle={() => {}}
-              onEdit={setSelectedActivity}
-            />
-          )}
-        </View>
+          {/* U41: scroll naar eerstvolgende training bij mount */}
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => {
+              if (hasScrolled.current) return
+              if (todayRowY.current > 0) {
+                hasScrolled.current = true
+                scrollRef.current?.scrollTo({ y: Math.max(0, todayRowY.current - 80), animated: false })
+              }
+            }}
+          >
+            <SchemaHeader activities={activities} />
 
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+            <View style={styles.phases}>
+              {phases.length > 0 ? (
+                phases.map(fase => (
+                  <PhaseBlock
+                    key={fase}
+                    fase={fase}
+                    rows={visibleActivities.filter(a => a.fase === fase)}
+                    isOpen={openFase === fase}
+                    today={today}
+                    onToggle={() => toggle(fase)}
+                    onEdit={setSelectedActivity}
+                    onTodayLayout={(y: number) => { todayRowY.current = y }}
+                  />
+                ))
+              ) : (
+                <PhaseBlock
+                  fase="Training"
+                  rows={visibleActivities}
+                  isOpen={true}
+                  today={today}
+                  onToggle={() => {}}
+                  onEdit={setSelectedActivity}
+                />
+              )}
+            </View>
+
+            <View style={{ height: Spacing.xl }} />
+          </ScrollView>
+        </>
       )}
       </PageContainer>
 
@@ -149,11 +169,16 @@ export function PlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:       { flex: 1, backgroundColor: LightTheme.bg },
-  phases:     { paddingHorizontal: Spacing.lg },
-  empty:      { alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
-  emptySub:   { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
-  emptyBtn:   { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
-  emptyBtnText: { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
+  root:              { flex: 1, backgroundColor: LightTheme.bg },
+  phases:            { paddingHorizontal: Spacing.lg },
+  empty:             { alignItems: 'center', justifyContent: 'center' },
+  emptyTitle:        { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
+  emptySub:          { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
+  emptyBtn:          { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
+  emptyBtnText:      { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
+  filterRow:         { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, gap: Spacing.sm },
+  filterChip:        { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.pill, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border },
+  filterChipActive:  { backgroundColor: LightTheme.accent, borderColor: LightTheme.accent },
+  filterChipText:    { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
+  filterChipTextActive: { color: '#fff' },
 })
