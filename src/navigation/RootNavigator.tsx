@@ -5,11 +5,9 @@ import { MainNavigator } from './MainNavigator'
 import { OnboardingScreen } from '@/screens/OnboardingScreen'
 import { SettingsScreen } from '@/screens/SettingsScreen'
 import { ImportLogScreen } from '@/screens/ImportLogScreen'
-import { LoginScreen } from '@/screens/LoginScreen'
 import { EmailAuthScreen } from '@/screens/EmailAuthScreen'
 
 export type RootStackParamList = {
-  Login: undefined
   EmailAuth: undefined
   Onboarding: undefined
   Main: undefined
@@ -28,20 +26,18 @@ export function RootNavigator() {
 
   const isAuthenticated = !!tokenSet
 
+  // U37: tabs altijd zichtbaar — LoginScreen is nu een tab-inhoud-overlay,
+  // geen eigen route meer. Onboarding alleen na eerste login.
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!isAuthenticated ? (
-        <>
-          <Stack.Screen name="Login"     component={LoginScreen} />
-          <Stack.Screen name="EmailAuth" component={EmailAuthScreen}
-            options={{ headerShown: true, title: '', headerBackTitle: 'Terug', headerStyle: { backgroundColor: '#F1EEE6' }, headerShadowVisible: false }}
-          />
-        </>
-      ) : !onboardingDone ? (
+      {isAuthenticated && !onboardingDone ? (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : (
         <>
           <Stack.Screen name="Main"     component={MainNavigator} />
+          <Stack.Screen name="EmailAuth" component={EmailAuthScreen}
+            options={{ headerShown: true, title: '', headerBackTitle: 'Terug', headerStyle: { backgroundColor: '#F1EEE6' }, headerShadowVisible: false, presentation: 'modal' }}
+          />
           <Stack.Screen
             name="Settings"
             component={SettingsScreen}

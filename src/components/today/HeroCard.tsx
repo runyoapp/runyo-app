@@ -119,7 +119,7 @@ export function RestCard() {
   )
 }
 
-export function NoSchemaCard({ isSignedIn, onConnect }: { isSignedIn: boolean; onConnect: () => void }) {
+export function NoSchemaCard({ isSignedIn, onConnect, onLogin }: { isSignedIn: boolean; onConnect: () => void; onLogin?: () => void }) {
   const theme = useTheme()
   return (
     <View style={[styles.noSchema, { paddingHorizontal: Spacing.xl }]}>
@@ -129,13 +129,18 @@ export function NoSchemaCard({ isSignedIn, onConnect }: { isSignedIn: boolean; o
       <Text style={[styles.noSchemaSub, { color: theme.muted }]}>
         {isSignedIn
           ? 'Koppel jouw trainingsschema en ontvang dagelijks wat er op het programma staat.'
-          : 'Importeer je trainingsschema en ontvang elke dag wat er op het programma staat.'}
+          : 'Log in en importeer je trainingsschema om elke dag te zien wat er op het programma staat.'}
       </Text>
-      <TouchableOpacity style={[styles.cta, { backgroundColor: theme.accent }]} onPress={onConnect}>
-        <Text style={[styles.ctaText, { color: theme.accentInk }]}>
-          {isSignedIn ? 'Schema koppelen' : 'Inloggen met Google'}
-        </Text>
-      </TouchableOpacity>
+      {!isSignedIn && onLogin && (
+        <TouchableOpacity style={[styles.cta, { backgroundColor: theme.accent }]} onPress={onLogin}>
+          <Text style={[styles.ctaText, { color: theme.accentInk }]}>Inloggen</Text>
+        </TouchableOpacity>
+      )}
+      {isSignedIn && (
+        <TouchableOpacity style={[styles.cta, { backgroundColor: theme.accent }]} onPress={onConnect}>
+          <Text style={[styles.ctaText, { color: theme.accentInk }]}>Schema koppelen</Text>
+        </TouchableOpacity>
+      )}
     </View>
   )
 }

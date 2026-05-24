@@ -36,7 +36,8 @@ export function TodayScreen() {
   const insets      = useSafeAreaInsets()
   const queryClient = useQueryClient()
   const getToken    = useAuthStore(s => s.getToken)
-  const showToast   = useUiStore(s => s.showToast)
+  const showToast      = useUiStore(s => s.showToast)
+  const openLoginSheet = useUiStore(s => s.openLoginSheet)
   const theme       = useTheme()
 
   const {
@@ -115,7 +116,11 @@ export function TodayScreen() {
         {dayOffset === 0 && <WeatherWidget />}
 
         {!sheetId && !schemaId ? (
-          <NoSchemaCard isSignedIn={isSignedIn} onConnect={() => setImportOpen(true)} />
+          <NoSchemaCard
+            isSignedIn={isSignedIn}
+            onConnect={() => setImportOpen(true)}
+            onLogin={openLoginSheet}
+          />
         ) : isLoading ? (
           <View style={styles.loadingRow}>
             <Text style={styles.loadingText}>Laden…</Text>

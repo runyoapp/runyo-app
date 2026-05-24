@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { View, TouchableOpacity, Text, StyleSheet, Modal, Pressable } from 'react-native'
+import { View, TouchableOpacity, Text, StyleSheet, Modal, Pressable, ActivityIndicator } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useUiStore } from '@/stores/uiStore'
 import { useTheme } from '@/hooks/useTheme'
 import { Logo } from '@/components/shared/Logo'
 import { RacesBar } from '@/components/today/RacesBar'
 import { StatsModal } from '@/screens/StatsModal'
 import { RaceModal } from '@/screens/RaceModal'
-import { Fonts, Spacing, Radius } from '@/constants/theme'
+import { ModalSheet } from '@/components/shared/ModalSheet'
+import { signInWithGoogle } from '@/services/auth'
+import { Fonts, Spacing, Radius, LightTheme } from '@/constants/theme'
 import type { Activity } from '@/types/activity'
 
 type Props = {
@@ -22,14 +25,36 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   const navigation  = useNavigation()
   const theme       = useTheme()
   const tokenSet    = useAuthStore(s => s.tokenSet)
+  const setTokenSet = useAuthStore(s => s.setTokenSet)
   const signOut     = useAuthStore(s => s.signOut)
   const clearSchema = useDataStore(s => s.clearSchema)
   const setTelegram = useSettingsStore(s => s.setTelegramUser)
   const activities  = useDataStore(s => s.activities)
 
+  const loginSheetOpen  = useUiStore(s => s.loginSheetOpen)
+  const openLoginSheet  = useUiStore(s => s.openLoginSheet)
+  const closeLoginSheet = useUiStore(s => s.closeLoginSheet)
+
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [statsOpen,    setStatsOpen]    = useState(false)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError,   setLoginError]   = useState<string | null>(null)
+
+  async function handleGoogleLogin() {
+    setLoginLoading(true)
+    setLoginError(null)
+    try {
+      const ts = await signInWithGoogle()
+      setTokenSet(ts)
+      closeLoginSheet()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Inloggen mislukt'
+      if (msg !== 'Auth cancelled') setLoginError(msg)
+    } finally {
+      setLoginLoading(false)
+    }
+  }
 
   async function handleSignOut() {
     setDropdownOpen(false)
@@ -67,7 +92,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
           ) : (
             <TouchableOpacity
               style={[styles.signInBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              onPress={() => navigation.navigate('Settings' as never)}
+              onPress={() => openLoginSheet()}
             >
               <Text style={[styles.signInText, { color: theme.text }]}>Inloggen</Text>
             </TouchableOpacity>
@@ -119,6 +144,36 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
 
       <StatsModal visible={statsOpen} onClose={() => setStatsOpen(false)} />
       <RaceModal activity={raceActivity} visible={!!raceActivity} onClose={() => setRaceActivity(null)} />
+
+      {/* Inline login sheet — U37: app browsebaar zonder login */}
+      <ModalSheet visible={loginSheetOpen} title="Inloggen" onClose={() => { closeLoginSheet(); setLoginError(null) }}>
+        {loginError !== null && (
+          <View style={styles.loginError}>
+            <Text style={styles.loginErrorText}>Inloggen mislukt. Controleer je verbinding en probeer opnieuw.</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={[styles.loginBtn, { backgroundColor: theme.accent }]}
+          onPress={handleGoogleLogin}
+          disabled={loginLoading}
+          activeOpacity={0.8}
+        >
+          {loginLoading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.loginBtnText}>
+                {loginError !== null ? 'Opnieuw inloggen met Google' : 'Inloggen met Google'}
+              </Text>
+          }
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.loginBtnSecondary, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          onPress={() => { setLoginOpen(false); navigation.navigate('EmailAuth' as never) }}
+          disabled={loginLoading}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.loginBtnSecondaryText, { color: theme.text }]}>Inloggen met e-mail</Text>
+        </TouchableOpacity>
+      </ModalSheet>
     </View>
   )
 }
@@ -134,6 +189,12 @@ const styles = StyleSheet.create({
   signInText:        { fontFamily: Fonts.displayMedium, fontSize: 13 },
   addBelowBar:       { marginHorizontal: Spacing.lg, marginBottom: 4, paddingVertical: 4, alignSelf: 'flex-start' },
   addBelowText:      { fontFamily: Fonts.displayMedium, fontSize: 13 },
+  loginError:        { backgroundColor: 'rgba(220,60,60,0.08)', borderRadius: Radius.md, padding: Spacing.md },
+  loginErrorText:    { fontFamily: Fonts.display, fontSize: 13, color: '#C0392B', textAlign: 'center' },
+  loginBtn:          { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', minHeight: 52, justifyContent: 'center' },
+  loginBtnText:      { fontFamily: Fonts.displaySemiBold, fontSize: 16, color: '#fff' },
+  loginBtnSecondary: { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', minHeight: 52, justifyContent: 'center', borderWidth: 1 },
+  loginBtnSecondaryText: { fontFamily: Fonts.displaySemiBold, fontSize: 16 },
   overlay:           { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
   dropdown:          { position: 'absolute', top: 60, right: Spacing.lg, borderRadius: Radius.lg, borderWidth: 1, minWidth: 200, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 8, overflow: 'hidden' },
   dropdownEmail:     { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1 },

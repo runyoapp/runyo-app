@@ -14,12 +14,15 @@ type UiStore = {
   toastAction: ToastAction | null
   activeModal: ModalName
   modalData: unknown
+  loginSheetOpen: boolean
 
   setLoading: (loading: boolean, message?: string | null) => void
   showToast: (message: string, durationMs?: number, action?: ToastAction) => void
   hideToast: () => void
   openModal: (modal: NonNullable<ModalName>, data?: unknown) => void
   closeModal: () => void
+  openLoginSheet: () => void
+  closeLoginSheet: () => void
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -31,6 +34,7 @@ export const useUiStore = create<UiStore>((set) => ({
   toastAction: null,
   activeModal: null,
   modalData: null,
+  loginSheetOpen: false,
 
   setLoading: (isLoading, loadingMessage = null) =>
     set({ isLoading, loadingMessage }),
@@ -51,4 +55,7 @@ export const useUiStore = create<UiStore>((set) => ({
 
   closeModal: () =>
     set({ activeModal: null, modalData: null }),
+
+  openLoginSheet:  () => set({ loginSheetOpen: true }),
+  closeLoginSheet: () => set({ loginSheetOpen: false }),
 }))
