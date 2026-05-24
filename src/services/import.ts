@@ -8,6 +8,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import * as xlsx from 'xlsx'
 import { createSchema } from './schemas'
 import { createActivity } from './activities'
+import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
 import type { Activity, ActivityType } from '@/types/activity'
 
 export const IMPORT_BACKEND = 'https://runyo-auth-production.up.railway.app'
@@ -46,6 +47,14 @@ const XLSX_MIMES = [
   'application/vnd.ms-excel',
   'text/csv',
 ]
+
+// Het systeem-prompt stuurt Nederlandse type-namen (rust, kracht, mobiliteit, …).
+// Normaliseer naar de canonical ActivityType-enum zodat filters betrouwbaar werken.
+function normalizeType(raw: string): ActivityType {
+  const lower = raw.toLowerCase().trim()
+  if ((ACTIVITY_TYPES as readonly string[]).includes(lower)) return lower as ActivityType
+  return TYPE_NL_MAP[lower] ?? 'run'
+}
 
 export type ParsedRow = {
   datum: string
@@ -136,7 +145,7 @@ export function parseRawResponse(raw: string): AnalyseResult {
     .filter(r => r?.datum && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
     .map(r => ({
       datum: r.datum,
-      type: r.type || 'run',
+      type: normalizeType(r.type || 'run'),
       titel: String(r.titel || ''),
       detail: String(r.detail || ''),
       km: r.km != null ? Number(r.km) || null : null,
