@@ -34,7 +34,7 @@ export function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>runyo</Text>
-      <Text style={styles.tagline}>Train · Race · Repeat</Text>
+      <Text style={styles.tagline}>schema's die meelopen</Text>
 
       <View style={styles.actions}>
         <TouchableOpacity
