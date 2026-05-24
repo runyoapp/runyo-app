@@ -27,7 +27,7 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
   const hrMatch   = detail.match(/<?\s*(\d+)\s*bpm/i) ?? detail.match(/HR\s*<?(\d+)/i)
   const duurMatch = detail.match(/(\d+)\s*(?:min|')/i)
 
-  // Always show 3 metric slots (pace / hr / duur) — blank if not available
+  // U44: HR en pace alleen renderen als er een waarde in het schema staat
   const metrics = [
     { key: 'pace',  val: paceMatch ? paceMatch[0].replace('/km','').trim() + '/km' : null },
     { key: 'hr',    val: hrMatch   ? `${hrMatch[1]} bpm` : null },
