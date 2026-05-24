@@ -46,12 +46,21 @@ function ensureOk(status: number, action: string): void {
  * feedback/fase/rating/raceType yet — those are reserved for later tickets.
  * `rowIndex` is Sheets-only and stays null on backend-sourced rows.
  */
+const TYPE_NL: Record<string, ActivityType> = {
+  rust: 'rest', loop: 'run', kracht: 'strength', mobiliteit: 'mobility',
+  zwemmen: 'swim', fietsen: 'bike', gym: 'gym',
+}
+
+function normalizeType(raw: string): ActivityType {
+  return TYPE_NL[raw.toLowerCase()] ?? (raw as ActivityType)
+}
+
 export function toActivity(row: BackendActivity): Activity {
   const now = new Date().toISOString()
   return {
     id: row.id,
     datum: row.datum,
-    type: row.type as ActivityType,
+    type: normalizeType(row.type),
     titel: row.titel ?? '',
     detail: row.detail ?? '',
     km: row.km,

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, findNodeHandle } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportModal } from '@/screens/ImportModal'
@@ -105,24 +105,24 @@ export function PlanScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* U41: scroll naar eerstvolgende training bij mount
-              Strategie: onContentSizeChange wacht tot de lijst gemeten is,
-              dan measureLayout van de vandaag-rij t.o.v. de ScrollView-node. */}
+          {/* U41: scroll naar eerstvolgende training bij mount.
+              measure() geeft absolute schermcoördinaten — werkt op web én native.
+              Twee measure-calls: rij en ScrollView → verschil = relatieve positie. */}
           <ScrollView
             ref={scrollRef}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               if (hasScrolled.current) return
-              const scrollNode = findNodeHandle(scrollRef.current)
-              if (!scrollNode || !todayRowRef.current) return
-              todayRowRef.current.measureLayout(
-                scrollNode,
-                (_left, top) => {
-                  hasScrolled.current = true
-                  scrollRef.current?.scrollTo({ y: Math.max(0, top - 80), animated: false })
-                },
-                () => {},
-              )
+              if (!todayRowRef.current || !scrollRef.current) return
+              hasScrolled.current = true
+              setTimeout(() => {
+                todayRowRef.current?.measure((_x: number, _y: number, _w: number, _h: number, _px: number, rowPageY: number) => {
+                  ;(scrollRef.current as any)?.measure((_x: number, _y: number, _w: number, _h: number, _px: number, svPageY: number) => {
+                    const target = rowPageY - svPageY - 80
+                    scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: false })
+                  })
+                })
+              }, 50)
             }}
           >
             <SchemaHeader activities={activities} />

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native'
 import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
@@ -214,43 +214,46 @@ export function WeekScreen() {
         })}
       </View>
 
-      {/* Rows — verticale ScrollView zonder pan responder: week-nav via ‹/› knoppen */}
-      <Animated.ScrollView
-        style={[styles.scroll, swipeAnim.style]}
+      {/* Rows — ScrollView zonder animatie op de container zelf (transform op ScrollView
+          blokkeert scroll op web). Swipe-animatie zit op de Animated.View binnenin. */}
+      <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!draggingId}
       >
-        {weekData.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>
-              {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
-            </Text>
-            {!sheetId && !schemaId && (
-              <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
-                <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          weekData.map(({ date, rows }) =>
-            rows.map(activity => (
-              <WeekDayRow
-                key={activity.id}
-                activity={activity}
-                isToday={date === todayStr}
-                isPast={date < todayStr}
-                isDragging={draggingId === activity.id}
-                onPress={() => activity.type === 'race' ? setRaceActivity(activity) : setSelectedActivity(activity)}
-                onDragStart={handleDragStart}
-                onDragMove={handleDragMove}
-                onDragEnd={handleDragEnd}
-              />
-            ))
-          )
-        )}
+        <Animated.View style={swipeAnim.style}>
+          {weekData.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
+              </Text>
+              {!sheetId && !schemaId && (
+                <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
+                  <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            weekData.map(({ date, rows }) =>
+              rows.map(activity => (
+                <WeekDayRow
+                  key={activity.id}
+                  activity={activity}
+                  isToday={date === todayStr}
+                  isPast={date < todayStr}
+                  isDragging={draggingId === activity.id}
+                  onPress={() => activity.type === 'race' ? setRaceActivity(activity) : setSelectedActivity(activity)}
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                />
+              ))
+            )
+          )}
+        </Animated.View>
         <View style={{ height: 100 }} />
-      </Animated.ScrollView>
+      </ScrollView>
       </PageContainer>
 
       {/* Ghost — rendered above everything during drag */}
