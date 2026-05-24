@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
@@ -51,9 +51,17 @@ export function PlanScreen() {
   const [addModalOpen,      setAddModalOpen]      = useState(false)
   const [importOpen,        setImportOpen]        = useState(false)
   const [showRest,          setShowRest]          = useState(false)
-  const scrollRef     = useRef<ScrollView>(null)
-  const todayRowRef   = useRef<View>(null)
-  const hasScrolled   = useRef(false)
+  const scrollRef      = useRef<ScrollView>(null)
+  const todayRowRef    = useRef<View>(null)
+  const hasScrolled    = useRef(false)
+  const phasesLayoutY  = useRef(0)
+  const phaseLayoutYs  = useRef(new Map<string, number>())
+
+  // openFase wordt gezet op mount, maar activiteiten kunnen asynchroon laden.
+  // Zodra defaultOpen beschikbaar komt en openFase nog null is, zet alsnog.
+  useEffect(() => {
+    if (defaultOpen && !openFase) setOpenFase(defaultOpen)
+  }, [defaultOpen])
 
   // C66: rustdagen standaard verborgen
   const visibleActivities = useMemo(
@@ -105,41 +113,44 @@ export function PlanScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* U41: scroll naar eerstvolgende training bij mount.
-              measure() geeft absolute schermcoördinaten — werkt op web én native.
-              Twee measure-calls: rij en ScrollView → verschil = relatieve positie. */}
+          {/* U41: scroll naar huidig faseblok bij mount.
+              onLayout op elke fase-wrapper geeft y t.o.v. phases-View.
+              onLayout op phases-View geeft y t.o.v. ScrollView content.
+              Som = absolute scroll-offset voor het actieve blok. */}
           <ScrollView
             ref={scrollRef}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
-              if (hasScrolled.current) return
-              if (!todayRowRef.current || !scrollRef.current) return
+              if (hasScrolled.current || !defaultOpen) return
+              const phaseY = phaseLayoutYs.current.get(defaultOpen)
+              if (phaseY === undefined) return
               hasScrolled.current = true
-              setTimeout(() => {
-                todayRowRef.current?.measure((_x: number, _y: number, _w: number, _h: number, _px: number, rowPageY: number) => {
-                  ;(scrollRef.current as any)?.measure((_x: number, _y: number, _w: number, _h: number, _px: number, svPageY: number) => {
-                    const target = rowPageY - svPageY - 80
-                    scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: false })
-                  })
-                })
-              }, 50)
+              const target = phasesLayoutY.current + phaseY - 80
+              scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: false })
             }}
           >
             <SchemaHeader activities={activities} />
 
-            <View style={styles.phases}>
+            <View
+              style={styles.phases}
+              onLayout={e => { phasesLayoutY.current = e.nativeEvent.layout.y }}
+            >
               {phases.length > 0 ? (
                 phases.map(fase => (
-                  <PhaseBlock
+                  <View
                     key={fase}
-                    fase={fase}
-                    rows={visibleActivities.filter(a => a.fase === fase)}
-                    isOpen={openFase === fase}
-                    today={today}
-                    onToggle={() => toggle(fase)}
-                    onEdit={setSelectedActivity}
-                    todayRowRef={todayRowRef}
-                  />
+                    onLayout={e => { phaseLayoutYs.current.set(fase, e.nativeEvent.layout.y) }}
+                  >
+                    <PhaseBlock
+                      fase={fase}
+                      rows={visibleActivities.filter(a => a.fase === fase)}
+                      isOpen={openFase === fase}
+                      today={today}
+                      onToggle={() => toggle(fase)}
+                      onEdit={setSelectedActivity}
+                      todayRowRef={todayRowRef}
+                    />
+                  </View>
                 ))
               ) : (
                 <PhaseBlock
