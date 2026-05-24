@@ -1,4 +1,3 @@
-import { RefObject } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -13,10 +12,9 @@ type Props = {
   today: string
   onToggle: () => void
   onEdit: (activity: Activity) => void
-  todayRowRef?: RefObject<View | null>
 }
 
-export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, todayRowRef }: Props) {
+export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Props) {
   const theme = useTheme()
   const sorted    = [...rows].sort((a, b) => a.datum.localeCompare(b.datum))
   const startDate = sorted[0]?.datum
@@ -91,7 +89,6 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, todayR
               isToday={datum === today}
               isPast={datum < today}
               onEdit={onEdit}
-              viewRef={datum === today ? todayRowRef : undefined}
             />
           ))}
         </View>

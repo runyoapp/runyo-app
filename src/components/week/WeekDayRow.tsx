@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
@@ -35,6 +35,8 @@ export function WeekDayRow({
 
   // runOnJS(true) keeps callbacks on JS thread → no Reanimated worklet runtime
   // needed (Reanimated 4 + Expo Go has flaky NativeWorklets HostFunction init).
+  // GestureDetector alleen op het sleep-icoon — zo intercept de Pan gesture
+  // geen scroll-events op de rest van de rij.
   const pan = Gesture.Pan()
     .activateAfterLongPress(LONG_PRESS_MS)
     .runOnJS(true)
@@ -45,42 +47,37 @@ export function WeekDayRow({
       if (!success) onDragEnd(e.absoluteX, e.absoluteY, true)
     })
 
-  const tap = Gesture.Tap()
-    .runOnJS(true)
-    .onEnd((_, success) => {
-      if (success) onPress()
-    })
-
-  // Pan wins over tap once long-press fires; otherwise tap fires on quick release.
-  const composed = Gesture.Exclusive(pan, tap)
-
   return (
-    <GestureDetector gesture={composed}>
-      <View
-        style={[
-          styles.row,
-          { backgroundColor: isRace ? 'rgba(200,51,107,0.06)' : theme.surface },
-          isToday && !isRace && styles.rowToday,
-          isRace && styles.rowRace,
-          isPast && styles.rowPast,
-          isDragging && styles.rowGhost,
-        ]}
-      >
-        <View style={[styles.bar, { backgroundColor: colors.text }]} />
-        <View style={styles.body}>
-          <Text style={[styles.dayLabel, isRace && { color: '#C8336B' }]}>
-            {dayName.toLowerCase()} · {label.toLowerCase()}
-          </Text>
-          {!!activity.titel && (
-            <Text style={styles.title} numberOfLines={1}>{activity.titel}</Text>
-          )}
-        </View>
-        {activity.km != null && (
-          <Text style={[styles.km, isRace && { color: '#C8336B' }]}>{activity.km} km</Text>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[
+        styles.row,
+        { backgroundColor: isRace ? 'rgba(200,51,107,0.06)' : theme.surface },
+        isToday && !isRace && styles.rowToday,
+        isRace && styles.rowRace,
+        isPast && styles.rowPast,
+        isDragging && styles.rowGhost,
+      ]}
+    >
+      <View style={[styles.bar, { backgroundColor: colors.text }]} />
+      <View style={styles.body}>
+        <Text style={[styles.dayLabel, isRace && { color: '#C8336B' }]}>
+          {dayName.toLowerCase()} · {label.toLowerCase()}
+        </Text>
+        {!!activity.titel && (
+          <Text style={styles.title} numberOfLines={1}>{activity.titel}</Text>
         )}
-        <Text style={styles.handle}>⠿</Text>
       </View>
-    </GestureDetector>
+      {activity.km != null && (
+        <Text style={[styles.km, isRace && { color: '#C8336B' }]}>{activity.km} km</Text>
+      )}
+      <GestureDetector gesture={pan}>
+        <View style={styles.handleArea}>
+          <Text style={styles.handle}>⠿</Text>
+        </View>
+      </GestureDetector>
+    </TouchableOpacity>
   )
 }
 
@@ -134,10 +131,12 @@ const styles = StyleSheet.create({
     color: LightTheme.text2,
     paddingRight: Spacing.sm,
   },
+  handleArea: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
   handle: {
     fontSize: 18,
     color: LightTheme.faint,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.md,
   },
 })

@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native'
-import { ScrollView } from 'react-native-gesture-handler'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native'
 import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
