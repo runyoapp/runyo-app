@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
+import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -9,11 +10,18 @@ import {
   commitDelete, markAsRest, saveActivity,
   validateDeleteContext, type SaveInput,
 } from '@/services/activityEdit'
+import { updateActivity } from '@/services/sheets'
+import { patchActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, DAYS_NL, MONTHS_FULL_NL, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
+
+const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
+function buildFeedbackString(rating: number, text: string): string {
+  return `${rating}/5 ${EMOJIS[rating - 1]}${text ? ` – ${text}` : ''}`
+}
 
 type Props = {
   activity: Activity | null
@@ -132,13 +140,14 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const removeActivity = useDataStore(s => s.removeActivity)
   const showToast      = useUiStore(s => s.showToast)
 
-  const [editing, setEditing] = useState(false)
-  const [saving,  setSaving]  = useState(false)
-  const [marking, setMarking] = useState(false)
+  const [editing,         setEditing]         = useState(false)
+  const [saving,          setSaving]          = useState(false)
+  const [marking,         setMarking]         = useState(false)
+  const [editingFeedback, setEditingFeedback] = useState(false)
   const pendingDelete = useRef<Activity | null>(null)
   const deleteTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { if (activity) setEditing(false) }, [activity?.id])
+  useEffect(() => { if (activity) { setEditing(false); setEditingFeedback(false) } }, [activity?.id])
 
   if (!activity) return null
   const act = activity
@@ -149,10 +158,37 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const typeLabel = TYPE_DISPLAY[act.type as ActivityType]?.nl ?? act.type
 
   // Rows from Sheets carry a rowIndex; backend rows don't.
-  const isSheetsRow = !!act.rowIndex
+  const isSheetsRow   = !!act.rowIndex
+  const today         = new Date().toISOString().split('T')[0]
+  const isPast        = act.datum <= today
+  const canHaveFeedback = isPast && act.type !== 'rest' && act.type !== 'work'
 
   function makeCtx() {
     return { isSheetsRow, sheetId: sheetId!, sheetTabId: sheetTabId!, tabName, schemaId: schemaId!, getToken }
+  }
+
+  async function handleFeedback(rating: number, text: string) {
+    const feedback = buildFeedbackString(rating, text)
+    try {
+      if (isSheetsRow) {
+        if (!sheetId || !sheetTabId) return
+        const token = await getToken()
+        if (!token) return
+        await updateActivity(sheetId, tabName, token, act.rowIndex!, { feedback })
+        upsertActivity({ ...act, feedback })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      } else {
+        if (!schemaId) return
+        // optimistic update; feedback field pending backend support
+        upsertActivity({ ...act, feedback })
+        await patchActivity(schemaId, act.id, {} as any)
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      }
+      setEditingFeedback(false)
+      showToast('Beoordeling opgeslagen!')
+    } catch {
+      showToast('Opslaan mislukt, probeer opnieuw.')
+    }
   }
 
   async function handleSave(input: SaveInput) {
@@ -243,15 +279,46 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
           {!!activity.titel    && <Text style={styles.displayTitle}>{activity.titel}</Text>}
           {activity.km != null && <Text style={styles.displayKm}>{activity.km}<Text style={styles.displayKmUnit}> km</Text></Text>}
           {!!activity.detail   && <Text style={styles.displayDetail}>{activity.detail}</Text>}
-          {!!activity.feedback && (
-            <View style={styles.feedbackChip}>
-              <Text style={styles.feedbackText}>✓ {activity.feedback}</Text>
-            </View>
-          )}
           <TouchableOpacity style={styles.editToggle} onPress={() => setEditing(true)}>
             <Text style={styles.editToggleText}>Activiteit bewerken ›</Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* U43: feedback tonen/bewerken voor activiteiten in het verleden */}
+      {!editing && canHaveFeedback && (
+        <>
+          {activity.feedback && !editingFeedback && (
+            <FeedbackDisplay
+              feedback={activity.feedback}
+              onEdit={() => setEditingFeedback(true)}
+            />
+          )}
+          {activity.feedback && editingFeedback && (
+            <FeedbackSection
+              existing={activity.feedback}
+              onSubmit={handleFeedback}
+              onCancel={() => setEditingFeedback(false)}
+            />
+          )}
+          {!activity.feedback && !editingFeedback && (
+            <TouchableOpacity
+              style={[styles.feedbackPrompt, { backgroundColor: theme.accentGlow }]}
+              onPress={() => setEditingFeedback(true)}
+            >
+              <Text style={[styles.feedbackPromptText, { color: theme.accent }]}>
+                Beoordeel deze training →
+              </Text>
+            </TouchableOpacity>
+          )}
+          {!activity.feedback && editingFeedback && (
+            <FeedbackSection
+              existing={null}
+              onSubmit={handleFeedback}
+              onCancel={() => setEditingFeedback(false)}
+            />
+          )}
+        </>
       )}
 
       {editing && (
@@ -280,6 +347,8 @@ const styles = StyleSheet.create({
   displayDetail:      { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, lineHeight: 20 },
   feedbackChip:       { backgroundColor: LightTheme.accentGlow, borderRadius: Radius.pill, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, alignSelf: 'flex-start' },
   feedbackText:       { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.accent },
+  feedbackPrompt:     { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center' },
+  feedbackPromptText: { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.2 },
   editToggle:         { paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: LightTheme.border },
   editToggleText:     { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.muted },
   editForm:           { gap: Spacing.md },
