@@ -12,7 +12,7 @@ type Props = {
   isToday: boolean
   isPast: boolean
   onEdit: (activity: Activity) => void
-  viewRef?: RefObject<View>
+  viewRef?: RefObject<View | null>
 }
 
 export function PlanRow({ datum, rows, isToday, isPast, onEdit, viewRef }: Props) {

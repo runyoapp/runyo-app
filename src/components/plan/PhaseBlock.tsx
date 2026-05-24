@@ -13,7 +13,7 @@ type Props = {
   today: string
   onToggle: () => void
   onEdit: (activity: Activity) => void
-  todayRowRef?: RefObject<View>
+  todayRowRef?: RefObject<View | null>
 }
 
 export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, todayRowRef }: Props) {
