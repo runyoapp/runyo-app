@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { Animated } from 'react-native'
+import { dateFromOffset, weekStart, toDateString } from '@/utils/date'
 
 export function useSwipeAnimation(key: number) {
   const translateX = useRef(new Animated.Value(0)).current
@@ -33,20 +34,21 @@ export function useSwipeAnimation(key: number) {
 }
 
 // U40: dagstrip animeert alleen bij week-grens (zondag→maandag of maandag→zondag).
-// Geeft een aparte animatie-stijl terug die alleen triggert als de week verandert.
+// Week-grens = de maandag van de ISO-week wisselt. Math.floor(offset/7) is fout:
+// het splitst op 7-daagse chunks vanuit offset 0, niet op kalendermaandag-grenzen.
 export function useDayStripAnimation(dayOffset: number) {
   const translateX  = useRef(new Animated.Value(0)).current
   const opacity     = useRef(new Animated.Value(1)).current
   const prevOffset  = useRef(dayOffset)
 
-  function weekOf(offset: number): number {
-    // ISO week: elke 7 dagen telt als een nieuwe week vanuit offset 0
-    return Math.floor(offset / 7)
+  // Canonical week-id = de maandaag-datum van de ISO-week van het gegeven offset.
+  function weekId(offset: number): string {
+    return toDateString(weekStart(dateFromOffset(offset)))
   }
 
   useEffect(() => {
-    const prevWeek = weekOf(prevOffset.current)
-    const currWeek = weekOf(dayOffset)
+    const prevWeek = weekId(prevOffset.current)
+    const currWeek = weekId(dayOffset)
     const prev     = prevOffset.current
     prevOffset.current = dayOffset
 
