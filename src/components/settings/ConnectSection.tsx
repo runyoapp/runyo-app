@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Linking } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { syncActivitiesToSheet } from '@/services/sheets'
+import { createExportSheet } from '@/services/drive'
 import { createSchema, getMySchemas, renameSchema, deleteSchema } from '@/services/schemas'
 import type { Schema } from '@/services/schemas'
 import { ImportModal } from '@/screens/ImportModal'
@@ -57,6 +58,7 @@ type MySchemasListProps = {
   renamingId: string | null
   renameValue: string
   deleteConfirmId: string | null
+  exporting: boolean
   onActivate: (schema: Schema) => void
   onRenameStart: (schema: Schema) => void
   onRenameChange: (value: string) => void
@@ -65,6 +67,7 @@ type MySchemasListProps = {
   onDeleteCancel: () => void
   onDeleteConfirm: (id: string) => void
   onSync: () => void
+  onExport: (schema: Schema) => void
 }
 
 function MySchemasList({
@@ -74,6 +77,7 @@ function MySchemasList({
   renamingId,
   renameValue,
   deleteConfirmId,
+  exporting,
   onActivate,
   onRenameStart,
   onRenameChange,
@@ -82,6 +86,7 @@ function MySchemasList({
   onDeleteCancel,
   onDeleteConfirm,
   onSync,
+  onExport,
 }: MySchemasListProps) {
   if (!schemas.length) {
     return <Text style={styles.emptyText}>Geen schema's gevonden.</Text>
@@ -136,6 +141,11 @@ function MySchemasList({
                     <Text style={styles.schemaActionIcon}>→</Text>
                   </TouchableOpacity>
                 )}
+                {isActive && (
+                  <TouchableOpacity onPress={() => !exporting && onExport(schema)} hitSlop={8}>
+                    <Text style={styles.schemaActionIcon}>{exporting ? '…' : '↗'}</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={() => onDeleteRequest(schema.id)} hitSlop={8}>
                   <Text style={[styles.schemaActionIcon, styles.schemaActionDelete]}>🗑</Text>
                 </TouchableOpacity>
@@ -172,6 +182,7 @@ export function ConnectSection() {
   const [importOpen,      setImportOpen]      = useState(false)
   const [syncing,         setSyncing]         = useState(false)
   const [creating,        setCreating]        = useState(false)
+  const [exporting,       setExporting]       = useState(false)
 
   // Mijn schema's state
   const [schemas,         setSchemas]         = useState<Schema[]>([])
@@ -192,6 +203,26 @@ export function ConnectSection() {
       showToast('Synchronisatie mislukt')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function handleExportToSheets(schema: Schema) {
+    if (tokenSet?.authMethod !== 'google') {
+      showToast('Exporteren naar Sheets vereist inloggen met Google')
+      return
+    }
+    setExporting(true)
+    try {
+      const token = await getToken()
+      if (!token) { showToast('Niet ingelogd'); return }
+      const { id, url } = await createExportSheet(token, schema.name)
+      const { synced } = await syncActivitiesToSheet(id, 'Schema', token, activities)
+      showToast(`✓ ${synced} activiteiten geëxporteerd`)
+      await Linking.openURL(url)
+    } catch {
+      showToast('Exporteren mislukt')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -327,6 +358,7 @@ export function ConnectSection() {
                 renamingId={renamingId}
                 renameValue={renameValue}
                 deleteConfirmId={deleteConfirmId}
+                exporting={exporting}
                 onActivate={handleActivate}
                 onRenameStart={handleRenameStart}
                 onRenameChange={setRenameValue}
@@ -335,6 +367,7 @@ export function ConnectSection() {
                 onDeleteCancel={() => setDeleteConfirmId(null)}
                 onDeleteConfirm={handleDeleteConfirm}
                 onSync={handleSync}
+                onExport={handleExportToSheets}
               />
             )
         )}
