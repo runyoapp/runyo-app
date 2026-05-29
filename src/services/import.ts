@@ -5,6 +5,7 @@
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system/legacy'
+import { Platform } from 'react-native'
 import * as xlsx from 'xlsx'
 import { createSchema } from './schemas'
 import { createActivity } from './activities'
@@ -89,7 +90,19 @@ export async function pickFile(): Promise<PickResult | null> {
   const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true })
   if (result.canceled || !result.assets?.[0]) return null
   const asset = result.assets[0]
-  const fileB64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
+  let fileB64: string
+  if (Platform.OS === 'web') {
+    const resp = await fetch(asset.uri)
+    const blob = await resp.blob()
+    fileB64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } else {
+    fileB64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
+  }
   return {
     fileName: asset.name,
     fileMime: asset.mimeType ?? 'application/pdf',
