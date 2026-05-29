@@ -216,7 +216,10 @@ export async function analyseSchema(
         messages: [{ role: 'user', content: userContent }],
       }),
     })
-    if (!res.ok) throw new Error(`Fout ${res.status}`)
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null)
+      throw new Error(errBody?.error?.message ?? `Fout ${res.status}`)
+    }
     const json = await res.json() as { content: { text: string }[] }
     const raw = json.content?.[0]?.text ?? ''
 
