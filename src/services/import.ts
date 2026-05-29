@@ -93,18 +93,19 @@ export async function pickFile(): Promise<PickResult | null> {
   if (typeof document !== 'undefined') {
     const resp = await fetch(asset.uri)
     const blob = await resp.blob()
+    const mimeType = blob.type || asset.mimeType || 'application/pdf'
     fileB64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve((reader.result as string).split(',')[1])
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-  } else {
-    fileB64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
+    return { fileName: asset.name, fileMime: mimeType, fileB64 }
   }
+  fileB64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 })
   return {
     fileName: asset.name,
-    fileMime: asset.mimeType ?? 'application/pdf',
+    fileMime: asset.mimeType || 'application/pdf',
     fileB64,
   }
 }
