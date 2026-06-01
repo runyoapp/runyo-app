@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { appendActivity, updateAndSort, getSheetTabId, sortSheet } from '@/services/sheets'
+import { createActivity, patchActivity } from '@/services/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import type { Activity } from '@/types/activity'
 
@@ -25,6 +26,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const sheetId        = useDataStore(s => s.sheetId)
   const tabName        = useDataStore(s => s.tabName)
   const sheetTabId     = useDataStore(s => s.sheetTabId)
+  const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
 
@@ -60,31 +62,52 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
 
   async function handleSave() {
     if (!name || !date) { showToast('Naam en datum zijn verplicht'); return }
-    if (!sheetId) { showToast('Geen schema gekoppeld'); return }
-    const token = await getToken()
-    if (!token) return
+    if (!sheetId && !schemaId) { showToast('Geen schema gekoppeld'); return }
 
     setSaving(true)
     try {
       const detail = notes + (goal ? ` (Doel: ${goal})` : '')
       const kmNum  = parseFloat(dist) || null
 
-      if (isEdit && activity!.rowIndex) {
-        await updateAndSort(sheetId, tabName, sheetTabId, token, activity!.rowIndex, {
-          datum: date, titel: name, type: 'race', km: kmNum, detail, raceType,
-        })
-        upsertActivity({ ...activity!, datum: date, titel: name, km: kmNum, detail, raceType })
-      } else {
-        await appendActivity(sheetId, tabName, token, {
-          datum: date, titel: name, type: 'race', km: kmNum, detail,
-          feedback: null, fase: null, raceType,
-        })
-        // appendActivity doesn't sort on its own (only appendAndSort does);
-        // a race insertion can land anywhere chronologically, so sort here.
-        const tabId = sheetTabId ?? await getSheetTabId(sheetId, tabName, token).catch(() => 0)
-        if (tabId) await sortSheet(sheetId, tabId, token).catch(() => {})
+      // Sheets leidt indien gekoppeld; anders de backend-flow (v4). Hiervóór
+      // bailde deze functie altijd op !sheetId, waardoor opslaan in de v4-app
+      // (die op schemaId draait, niet sheetId) niets deed — BUG14.
+      if (sheetId) {
+        const token = await getToken()
+        if (!token) return
+        if (isEdit && activity!.rowIndex) {
+          await updateAndSort(sheetId, tabName, sheetTabId, token, activity!.rowIndex, {
+            datum: date, titel: name, type: 'race', km: kmNum, detail, raceType,
+          })
+          upsertActivity({ ...activity!, datum: date, titel: name, km: kmNum, detail, raceType })
+        } else {
+          await appendActivity(sheetId, tabName, token, {
+            datum: date, titel: name, type: 'race', km: kmNum, detail,
+            feedback: null, fase: null, raceType,
+          })
+          // appendActivity doesn't sort on its own (only appendAndSort does);
+          // a race insertion can land anywhere chronologically, so sort here.
+          const tabId = sheetTabId ?? await getSheetTabId(sheetId, tabName, token).catch(() => 0)
+          if (tabId) await sortSheet(sheetId, tabId, token).catch(() => {})
+        }
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
+      } else if (schemaId) {
+        // Backend kent raceType nog niet (zie services/activities.ts) — we
+        // sturen 'm niet mee, maar houden 'm lokaal aan zodat de race meteen
+        // als race zichtbaar blijft tot de backend dit veld ondersteunt.
+        if (isEdit) {
+          const updated = await patchActivity(schemaId, activity!.id, {
+            datum: date, titel: name, type: 'race', km: kmNum, detail,
+          })
+          upsertActivity({ ...activity!, ...updated, raceType })
+        } else {
+          const created = await createActivity(schemaId, {
+            datum: date, titel: name, type: 'race', km: kmNum, detail,
+          })
+          upsertActivity({ ...created, raceType })
+        }
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       }
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
       showToast('✓ Race opgeslagen')
       onClose()
     } catch {
