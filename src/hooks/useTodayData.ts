@@ -48,15 +48,16 @@ export function useTodayData(): TodayData {
   const dayLabel     = formatDayLabel(selectedDate, dayOffset, lang)
 
   const todayRows  = activities.filter(a => a.datum === dateStr)
-  const activeRows = todayRows.filter(a => a.type !== 'rest')
-  const mainRow    = activeRows[0] ?? todayRows[0] ?? null
-  const isRest     = !mainRow || mainRow.type === 'rest'
-  const fbRow      = activeRows.find(a => a.type !== 'work') ?? null
+  // C68: work telt — net als rest — niet als actieve training
+  const activeRows = todayRows.filter(a => a.type !== 'rest' && a.type !== 'work')
+  const mainRow    = activeRows[0] ?? null
+  const isRest     = activeRows.length === 0
+  const fbRow      = activeRows[0] ?? null
 
   const tmrDate = addDays(new Date(), 1)
   const tmrStr  = toDateString(tmrDate)
   const tmrRow  = dayOffset === 0
-    ? activities.find(a => a.datum === tmrStr && a.type !== 'rest') ?? null
+    ? activities.find(a => a.datum === tmrStr && a.type !== 'rest' && a.type !== 'work') ?? null
     : null
 
   return {

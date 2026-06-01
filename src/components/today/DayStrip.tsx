@@ -26,7 +26,7 @@ export function DayStrip({ dayOffset, activities, onSelectDay, onPrevWeek, onNex
     const str    = toDateString(date)
     const offset = dayOffsetFromDate(date)
     const active = offset === dayOffset
-    const act    = activities.find(a => a.datum === str && a.type !== 'rest')
+    const act    = activities.find(a => a.datum === str && a.type !== 'rest' && a.type !== 'work')
     // Dot: on active day use paper/accent tint, otherwise activity color
     const color  = act
       ? (active ? `${theme.bg}99` : ActivityColors[act.type as ActivityType]?.text ?? theme.accent)
