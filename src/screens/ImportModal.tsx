@@ -261,6 +261,20 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
 
           {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
+          {/* U35: startdatum prominent — uit de ingeklapte config gehaald */}
+          <View style={[styles.startDateBox, { backgroundColor: p.surface, borderColor: p.accent }]}>
+            <Text style={[styles.startDateLabel, { color: p.text }]}>Startdatum van je schema</Text>
+            <Text style={[styles.startDateHint, { color: p.muted }]}>Op welke dag begint week 1?</Text>
+            <TextInput
+              style={[styles.startDateInput, { color: p.text, borderColor: p.accent, backgroundColor: p.bg }]}
+              value={startDate}
+              onChangeText={setStartDate}
+              keyboardType="numbers-and-punctuation"
+              placeholder="JJJJ-MM-DD"
+              placeholderTextColor={p.muted}
+            />
+          </View>
+
           <TouchableOpacity onPress={() => setShowConfig(s => !s)} style={styles.configToggle}>
             <Text style={[styles.configToggleText, { color: p.muted }]}>
               {showConfig ? '▴' : '▾'} Instellingen
@@ -268,9 +282,7 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
           </TouchableOpacity>
           {showConfig && (
             <View style={[styles.configBox, { backgroundColor: p.surface, borderColor: p.border }]}>
-              <Text style={[styles.configLabel, { color: p.muted }]}>Begindatum</Text>
-              <TextInput style={[styles.configInput, { color: p.text, borderColor: p.border, backgroundColor: p.bg }]} value={startDate} onChangeText={setStartDate} keyboardType="numbers-and-punctuation" />
-              <Text style={[styles.configLabel, { color: p.muted, marginTop: 8 }]}>Hardloopdagen</Text>
+              <Text style={[styles.configLabel, { color: p.muted }]}>Hardloopdagen</Text>
               <View style={styles.dayRow}>
                 {DAY_LABELS.map((label, i) => {
                   const on = runDays.includes(i)
@@ -382,6 +394,10 @@ const styles = StyleSheet.create({
   configBox:        { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, gap: 4 },
   configLabel:      { fontFamily: Fonts.displayMedium, fontSize: 11 },
   configInput:      { fontFamily: Fonts.mono, fontSize: 13, borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6 },
+  startDateBox:     { borderWidth: 2, borderRadius: Radius.md, padding: Spacing.md, gap: 2, marginBottom: Spacing.sm },
+  startDateLabel:   { fontFamily: Fonts.displayBold, fontSize: 16, letterSpacing: -0.3 },
+  startDateHint:    { fontFamily: Fonts.display, fontSize: 12 },
+  startDateInput:   { fontFamily: Fonts.mono, fontSize: 18, borderWidth: 1.5, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: 10, marginTop: 6 },
   dayRow:           { flexDirection: 'row', gap: 4 },
   dayBtn:           { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, borderWidth: 1 },
   dayBtnText:       { fontFamily: Fonts.displayMedium, fontSize: 11 },
