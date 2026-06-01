@@ -32,6 +32,9 @@ function backendRow(over: Partial<BackendActivity> = {}): BackendActivity {
     titel: 'Easy run',
     detail: null,
     km: 8.2,
+    raceType: null,
+    goalTime: null,
+    isMainGoal: false,
     ...over,
   }
 }

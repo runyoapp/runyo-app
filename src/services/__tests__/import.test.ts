@@ -156,9 +156,9 @@ describe('importToBackend (integration)', () => {
   it('creates schema + N activities and returns { schemaId, activities }', async () => {
     vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-1' })
     vi.mocked(createActivity)
-      .mockResolvedValueOnce({ id: 'act-1', datum: '2026-06-01', type: 'run',  titel: 'Easy',  detail: '', km: 8,    feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, rowIndex: null })
-      .mockResolvedValueOnce({ id: 'act-2', datum: '2026-06-02', type: 'run',  titel: 'Tempo', detail: '', km: 10,   feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, rowIndex: null })
-      .mockResolvedValueOnce({ id: 'act-3', datum: '2026-06-03', type: 'rest', titel: 'Rust',  detail: '', km: null, feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, rowIndex: null })
+      .mockResolvedValueOnce({ id: 'act-1', datum: '2026-06-01', type: 'run',  titel: 'Easy',  detail: '', km: 8,    feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, goalTime: null, isMainGoal: false, rowIndex: null })
+      .mockResolvedValueOnce({ id: 'act-2', datum: '2026-06-02', type: 'run',  titel: 'Tempo', detail: '', km: 10,   feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, goalTime: null, isMainGoal: false, rowIndex: null })
+      .mockResolvedValueOnce({ id: 'act-3', datum: '2026-06-03', type: 'rest', titel: 'Rust',  detail: '', km: null, feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, goalTime: null, isMainGoal: false, rowIndex: null })
 
     const rows: ParsedRow[] = [
       { datum: '2026-06-01', type: 'run',  titel: 'Easy',  detail: '', km: 8,    fase: '' },

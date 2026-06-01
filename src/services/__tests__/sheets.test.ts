@@ -28,6 +28,8 @@ const NEW_ROW = {
   feedback: null,
   fase: null,
   raceType: null,
+  goalTime: null,
+  isMainGoal: false,
 }
 
 describe('appendActivity', () => {

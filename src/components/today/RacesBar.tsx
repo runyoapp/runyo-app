@@ -56,11 +56,12 @@ export function RacesBar({ activities, onRacePress }: Props) {
         <View style={[styles.dot, { shadowColor: '#C8336B' }]} />
         <View style={styles.body}>
           <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+            {main.isMainGoal ? <Text style={{ color: '#C8336B' }}>★ </Text> : null}
             {main.titel || main.datum}
             {main.km != null ? ` · ${main.km} km` : ''}
           </Text>
           <Text style={[styles.meta, { color: theme.muted }]}>
-            {fmtDate(main.datum)} · A-race
+            {fmtDate(main.datum)}{main.isMainGoal ? ' · Hoofddoel' : ''}
           </Text>
         </View>
         {/* Countdown */}
@@ -90,10 +91,11 @@ export function RacesBar({ activities, onRacePress }: Props) {
                   <View style={[styles.timelineDot, { backgroundColor: theme.muted, borderColor: theme.surface }]} />
                   <View style={styles.timelineBody}>
                     <Text style={[styles.timelineRaceName, { color: theme.text2 }]} numberOfLines={1}>
+                      {race.isMainGoal ? <Text style={{ color: '#C8336B' }}>★ </Text> : null}
                       {race.titel || race.datum}{race.km != null ? ` · ${race.km} km` : ''}
                     </Text>
                     <Text style={[styles.timelineRaceMeta, { color: theme.muted }]}>
-                      {fmtDate(race.datum)} · B-race
+                      {fmtDate(race.datum)}{race.isMainGoal ? ' · Hoofddoel' : ''}
                     </Text>
                   </View>
                   <Text style={[styles.timelineDays, { color: theme.muted }]}>{rcd.val}{rcd.unit}</Text>

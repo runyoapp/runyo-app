@@ -57,11 +57,13 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
         const token = await getToken()
         if (!token) return
         await appendAndSort(sheetId, tabName, token, {
-          datum, titel, type, km: kmVal, detail, feedback: null, fase: null, raceType: null,
+          datum, titel, type, km: kmVal, detail, feedback: null, fase: null,
+          raceType: null, goalTime: null, isMainGoal: false,
         })
         upsertActivity({
           id: `local_${Date.now()}`, datum, titel, type, km: kmVal, detail,
-          feedback: null, fase: null, rating: null, raceType: null, rowIndex: null,
+          feedback: null, fase: null, rating: null, raceType: null, goalTime: null,
+          isMainGoal: false, rowIndex: null,
           updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
         })
         await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })

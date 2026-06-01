@@ -21,6 +21,8 @@ function makeActivity(overrides: Partial<Activity> = {}): Activity {
     updatedAt: '2025-03-01T08:00:00Z',
     createdAt: '2025-03-01T08:00:00Z',
     raceType:  null,
+    goalTime:  null,
+    isMainGoal: false,
     rowIndex:  null,
     ...overrides,
   }

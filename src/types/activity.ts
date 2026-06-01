@@ -14,7 +14,10 @@ export type Activity = {
   rating: number | null
   updatedAt: string    // ISO timestamp
   createdAt: string    // ISO timestamp
+  // Race-specifiek (alleen gevuld bij type 'race')
   raceType: string | null
+  goalTime: string | null   // doeltijd, vrije tekst bv. "37:30"
+  isMainGoal: boolean       // gemarkeerd als hoofddoel
   rowIndex: number | null   // 1-based sheet row index (null for unsaved)
 }
 

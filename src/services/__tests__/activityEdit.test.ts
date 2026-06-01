@@ -20,6 +20,8 @@ vi.mock('../activities', () => ({
     updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     raceType: null,
+    goalTime: null,
+    isMainGoal: false,
     rowIndex: null,
   })),
   deleteActivity: vi.fn(async () => {}),
@@ -49,6 +51,8 @@ function makeActivity(over: Partial<Activity> = {}): Activity {
     updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
     raceType: null,
+    goalTime: null,
+    isMainGoal: false,
     rowIndex: null,
     ...over,
   }
