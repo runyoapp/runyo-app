@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
+import {
+  FieldLabel, EditorTextField, EditorTextArea, ChipSelect,
+  DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
+} from '@/components/shared/editor'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import {
-  commitDelete, markAsRest, saveActivity,
-  validateDeleteContext, type SaveInput,
-} from '@/services/activityEdit'
+import { commitDelete, saveActivity, validateDeleteContext, type SaveInput } from '@/services/activityEdit'
 import { patchActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
-import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { ActivityColors, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import { fromDateString, DAYS_NL, MONTHS_FULL_NL, mondayIndex } from '@/utils/date'
+import { fromDateString, DAYS_NL, MONTHS_FULL_NL, MONTHS_NL, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
@@ -22,109 +23,24 @@ function buildFeedbackString(rating: number, text: string): string {
   return `${rating}/5 ${EMOJIS[rating - 1]}${text ? ` – ${text}` : ''}`
 }
 
+const DIST_TYPES = new Set<ActivityType>(['run', 'recovery', 'race', 'swim', 'bike'])
+
+function presetsFor(type: ActivityType): number[] {
+  if (type === 'bike') return [20, 40, 60, 80]
+  if (type === 'swim') return [1, 2, 3, 4]
+  return [5, 10, 16, 21]
+}
+
+function friendlyDate(iso: string): string {
+  const d = fromDateString(iso)
+  if (isNaN(d.getTime())) return iso
+  return `${DAYS_NL[mondayIndex(d)].toLowerCase()} ${d.getDate()} ${MONTHS_NL[d.getMonth()]} ${d.getFullYear()}`
+}
+
 type Props = {
   activity: Activity | null
   visible: boolean
   onClose: () => void
-}
-
-const LABEL_STYLE = StyleSheet.create({
-  label: { fontFamily: Fonts.displaySemiBold, fontSize: 12, color: LightTheme.muted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
-})
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View>
-      <Text style={LABEL_STYLE.label}>{label}</Text>
-      {children}
-    </View>
-  )
-}
-
-type EditFormProps = {
-  act: Activity
-  onSave: (input: SaveInput) => Promise<void>
-  onCancel: () => void
-  onDelete: () => void
-  onMarkAsRest: () => Promise<void>
-  saving: boolean
-  marking: boolean
-}
-
-function EditForm({ act, onSave, onCancel, onDelete, onMarkAsRest, saving, marking }: EditFormProps) {
-  const theme = useTheme()
-  const [datum,  setDatum]  = useState(act.datum)
-  const [titel,  setTitel]  = useState(act.titel ?? '')
-  const [type,   setType]   = useState<ActivityType>((act.type as ActivityType) ?? 'run')
-  const [km,     setKm]     = useState(act.km != null ? String(act.km) : '')
-  const [detail, setDetail] = useState(act.detail ?? '')
-
-  return (
-    <View style={styles.editForm}>
-      <Field label="Datum">
-        <TextInput style={styles.input} value={datum} onChangeText={setDatum}
-          placeholder="bijv. 2026-06-01" placeholderTextColor={LightTheme.faint} />
-      </Field>
-
-      <Field label="Titel">
-        <TextInput style={styles.input} value={titel} onChangeText={setTitel}
-          placeholder="Titel" placeholderTextColor={LightTheme.faint} />
-      </Field>
-
-      <Field label="Type">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={{ marginHorizontal: -Spacing.lg }}
-          contentContainerStyle={{ paddingHorizontal: Spacing.lg, gap: Spacing.sm, flexDirection: 'row' }}>
-          {ACTIVITY_TYPES.map(t => (
-            <TouchableOpacity key={t}
-              style={[styles.typeChip, type === t && styles.typeChipActive]}
-              onPress={() => setType(t)}>
-              <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>
-                {TYPE_DISPLAY[t]?.nl ?? t}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </Field>
-
-      <Field label="Afstand (km)">
-        <TextInput style={styles.input} value={km} onChangeText={setKm}
-          placeholder="0" placeholderTextColor={LightTheme.faint} keyboardType="decimal-pad" />
-      </Field>
-
-      <Field label="Detail">
-        <TextInput style={[styles.input, styles.textarea]} value={detail} onChangeText={setDetail}
-          placeholder="Notities, tempo, HR…" placeholderTextColor={LightTheme.faint}
-          multiline numberOfLines={3} textAlignVertical="top" />
-      </Field>
-
-      <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        onPress={() => onSave({ datum, titel, type, km: parseFloat(km) || null, detail })}
-        disabled={saving}>
-        <Text style={styles.saveBtnText}>{saving ? 'Opslaan…' : 'Opslaan'}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-        <Text style={styles.cancelBtnText}>Annuleren</Text>
-      </TouchableOpacity>
-
-      {act.type !== 'rest' && (
-        <TouchableOpacity
-          style={[styles.secondaryBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-          onPress={onMarkAsRest} disabled={marking}>
-          <Text style={[styles.secondaryBtnText, { color: theme.muted }]}>
-            {marking ? 'Bezig…' : 'Markeer als rustdag'}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity
-        style={[styles.deleteBtn, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}
-        onPress={onDelete}>
-        <Text style={[styles.deleteBtnText, { color: theme.danger }]}>Verwijderen</Text>
-      </TouchableOpacity>
-    </View>
-  )
 }
 
 export function DayDetailModal({ activity, visible, onClose }: Props) {
@@ -138,12 +54,28 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
 
   const [editing,         setEditing]         = useState(false)
   const [saving,          setSaving]          = useState(false)
-  const [marking,         setMarking]         = useState(false)
   const [editingFeedback, setEditingFeedback] = useState(false)
+
+  // Edit-form state (gelift zodat de sticky opslaan-balk hem kan aansturen)
+  const [datum,  setDatum]  = useState('')
+  const [titel,  setTitel]  = useState('')
+  const [type,   setType]   = useState<ActivityType>('run')
+  const [km,     setKm]     = useState(0)
+  const [detail, setDetail] = useState('')
+
   const pendingDelete = useRef<Activity | null>(null)
   const deleteTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { if (activity) { setEditing(false); setEditingFeedback(false) } }, [activity?.id])
+  useEffect(() => {
+    if (!activity) return
+    setEditing(false)
+    setEditingFeedback(false)
+    setDatum(activity.datum)
+    setTitel(activity.titel ?? '')
+    setType((activity.type as ActivityType) ?? 'run')
+    setKm(activity.km ?? 0)
+    setDetail(activity.detail ?? '')
+  }, [activity?.id])
 
   if (!activity) return null
   const act = activity
@@ -153,9 +85,14 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const colors    = ActivityColors[act.type as ActivityType] ?? ActivityColors.run
   const typeLabel = TYPE_DISPLAY[act.type as ActivityType]?.nl ?? act.type
 
-  const today         = new Date().toISOString().split('T')[0]
-  const isPast        = act.datum <= today
+  const todayStr      = new Date().toISOString().split('T')[0]
+  const isPast        = act.datum <= todayStr
   const canHaveFeedback = isPast && act.type !== 'rest' && act.type !== 'work'
+
+  const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
+  const isRest  = type === 'rest'
+  const hasDist = DIST_TYPES.has(type)
+  const headDot = (editing ? activityDot(type) : colors.text) ?? undefined
 
   function makeCtx() {
     return { schemaId: schemaId!, getToken }
@@ -175,9 +112,15 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
     }
   }
 
-  async function handleSave(input: SaveInput) {
+  async function handleSave() {
     const err = validateDeleteContext(schemaId)
     if (err) { showToast(err); return }
+    const input: SaveInput = {
+      datum, type,
+      titel: isRest ? '' : titel,
+      km: isRest || !hasDist || km <= 0 ? null : km,
+      detail: isRest ? '' : detail,
+    }
     setSaving(true)
     try {
       const updated = await saveActivity(act, input, makeCtx())
@@ -223,36 +166,28 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
     }, 5000)
   }
 
-  async function handleMarkAsRest() {
-    const err = validateDeleteContext(schemaId)
-    if (err) { showToast(err); return }
-    setMarking(true)
-    try {
-      const updated = await markAsRest(act, makeCtx())
-      upsertActivity(updated)
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      showToast('Gemarkeerd als rustdag')
-      onClose()
-    } catch {
-      showToast('Markeren mislukt')
-    } finally {
-      setMarking(false)
-    }
-  }
-
   return (
-    <ModalSheet visible={visible} title={dayLabel} onClose={onClose}>
+    <ModalSheet
+      visible={visible}
+      title={editing ? 'Activiteit' : dayLabel}
+      subtitle={editing ? friendlyDate(datum) : undefined}
+      accentDot={headDot}
+      onClose={onClose}
+      footer={editing
+        ? <SaveBar onSave={handleSave} onCancel={() => setEditing(false)} onDelete={handleDelete} saving={saving} />
+        : undefined}
+    >
       {!editing && (
-        <View style={[styles.displayCard, { backgroundColor: theme.surface }]}>
+        <View style={[styles.displayCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.badgeRow}>
             <View style={[styles.typeDot, { backgroundColor: colors.text }]} />
-            <Text style={styles.typeLabel}>{typeLabel}</Text>
+            <Text style={[styles.typeLabel, { color: theme.muted }]}>{typeLabel}</Text>
           </View>
-          {!!activity.titel    && <Text style={styles.displayTitle}>{activity.titel}</Text>}
-          {activity.km != null && <Text style={styles.displayKm}>{activity.km}<Text style={styles.displayKmUnit}> km</Text></Text>}
-          {!!activity.detail   && <Text style={styles.displayDetail}>{activity.detail}</Text>}
-          <TouchableOpacity style={styles.editToggle} onPress={() => setEditing(true)}>
-            <Text style={styles.editToggleText}>Activiteit bewerken ›</Text>
+          {!!act.titel    && <Text style={[styles.displayTitle, { color: theme.text }]}>{act.titel}</Text>}
+          {act.km != null && <Text style={[styles.displayKm, { color: theme.text }]}>{act.km}<Text style={[styles.displayKmUnit, { color: theme.muted }]}> km</Text></Text>}
+          {!!act.detail   && <Text style={[styles.displayDetail, { color: theme.muted }]}>{act.detail}</Text>}
+          <TouchableOpacity style={[styles.editToggle, { borderTopColor: theme.border }]} onPress={() => setEditing(true)}>
+            <Text style={[styles.editToggleText, { color: theme.muted }]}>Activiteit bewerken ›</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -260,83 +195,69 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
       {/* U43: feedback tonen/bewerken voor activiteiten in het verleden */}
       {!editing && canHaveFeedback && (
         <>
-          {activity.feedback && !editingFeedback && (
-            <FeedbackDisplay
-              feedback={activity.feedback}
-              onEdit={() => setEditingFeedback(true)}
-            />
+          {act.feedback && !editingFeedback && (
+            <FeedbackDisplay feedback={act.feedback} onEdit={() => setEditingFeedback(true)} />
           )}
-          {activity.feedback && editingFeedback && (
-            <FeedbackSection
-              existing={activity.feedback}
-              onSubmit={handleFeedback}
-              onCancel={() => setEditingFeedback(false)}
-            />
+          {act.feedback && editingFeedback && (
+            <FeedbackSection existing={act.feedback} onSubmit={handleFeedback} onCancel={() => setEditingFeedback(false)} />
           )}
-          {!activity.feedback && !editingFeedback && (
-            <TouchableOpacity
-              style={[styles.feedbackPrompt, { backgroundColor: theme.accentGlow }]}
-              onPress={() => setEditingFeedback(true)}
-            >
-              <Text style={[styles.feedbackPromptText, { color: theme.accent }]}>
-                Beoordeel deze training →
-              </Text>
+          {!act.feedback && !editingFeedback && (
+            <TouchableOpacity style={[styles.feedbackPrompt, { backgroundColor: theme.accentGlow }]} onPress={() => setEditingFeedback(true)}>
+              <Text style={[styles.feedbackPromptText, { color: theme.accent }]}>Beoordeel deze training →</Text>
             </TouchableOpacity>
           )}
-          {!activity.feedback && editingFeedback && (
-            <FeedbackSection
-              existing={null}
-              onSubmit={handleFeedback}
-              onCancel={() => setEditingFeedback(false)}
-            />
+          {!act.feedback && editingFeedback && (
+            <FeedbackSection existing={null} onSubmit={handleFeedback} onCancel={() => setEditingFeedback(false)} />
           )}
         </>
       )}
 
       {editing && (
-        <EditForm
-          act={act}
-          onSave={handleSave}
-          onCancel={() => setEditing(false)}
-          onDelete={handleDelete}
-          onMarkAsRest={handleMarkAsRest}
-          saving={saving}
-          marking={marking}
-        />
+        <View style={{ gap: Spacing.lg }}>
+          <View>
+            <FieldLabel>Type</FieldLabel>
+            <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
+          </View>
+
+          {isRest ? (
+            <RestCard note="Geen training gepland. Herstel telt ook als werk." />
+          ) : (
+            <>
+              <View>
+                <FieldLabel>Titel</FieldLabel>
+                <EditorTextField value={titel} onChangeText={setTitel} placeholder="bv. 16 km easy" />
+              </View>
+
+              {hasDist && (
+                <View>
+                  <FieldLabel hint="· optioneel">Afstand</FieldLabel>
+                  <DistanceStepper value={km} onChange={setKm} presets={presetsFor(type)} />
+                </View>
+              )}
+
+              <View>
+                <FieldLabel hint="· optioneel">Detail</FieldLabel>
+                <EditorTextArea value={detail} onChangeText={setDetail} placeholder="Pace, hartslag, intervallen…" />
+              </View>
+            </>
+          )}
+        </View>
       )}
     </ModalSheet>
   )
 }
 
 const styles = StyleSheet.create({
-  displayCard:        { backgroundColor: LightTheme.surface, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.sm },
+  displayCard:        { borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.sm, borderWidth: 1 },
   badgeRow:           { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   typeDot:            { width: 8, height: 8, borderRadius: 4 },
-  typeLabel:          { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted, textTransform: 'uppercase', letterSpacing: 0.3 },
-  displayTitle:       { fontFamily: Fonts.displayBold, fontSize: 22, color: LightTheme.text, letterSpacing: -0.3 },
-  displayKm:          { fontFamily: Fonts.displayBold, fontSize: 40, color: LightTheme.text, letterSpacing: -1 },
-  displayKmUnit:      { fontFamily: Fonts.display, fontSize: 18, color: LightTheme.muted },
-  displayDetail:      { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, lineHeight: 20 },
-  feedbackChip:       { backgroundColor: LightTheme.accentGlow, borderRadius: Radius.pill, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, alignSelf: 'flex-start' },
-  feedbackText:       { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.accent },
+  typeLabel:          { fontFamily: Fonts.displayMedium, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.3 },
+  displayTitle:       { fontFamily: Fonts.displayBold, fontSize: 22, letterSpacing: -0.3 },
+  displayKm:          { fontFamily: Fonts.displayBold, fontSize: 40, letterSpacing: -1 },
+  displayKmUnit:      { fontFamily: Fonts.display, fontSize: 18 },
+  displayDetail:      { fontFamily: Fonts.display, fontSize: 14, lineHeight: 20 },
   feedbackPrompt:     { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center' },
   feedbackPromptText: { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.2 },
-  editToggle:         { paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: LightTheme.border },
-  editToggleText:     { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.muted },
-  editForm:           { gap: Spacing.md },
-  input:              { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border },
-  textarea:           { minHeight: 80, textAlignVertical: 'top' },
-  typeChip:           { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.pill, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border },
-  typeChipActive:     { backgroundColor: LightTheme.accent, borderColor: LightTheme.accent },
-  typeChipText:       { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
-  typeChipTextActive: { color: '#fff' },
-  saveBtn:            { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' },
-  saveBtnDisabled:    { opacity: 0.5 },
-  saveBtnText:        { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: '#fff' },
-  cancelBtn:          { alignItems: 'center', padding: Spacing.sm },
-  cancelBtnText:      { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted },
-  secondaryBtn:       { alignItems: 'center', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1 },
-  secondaryBtnText:   { fontFamily: Fonts.displayMedium, fontSize: 13 },
-  deleteBtn:          { alignItems: 'center', padding: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, marginTop: Spacing.xs },
-  deleteBtnText:      { fontFamily: Fonts.displayMedium, fontSize: 13 },
+  editToggle:         { paddingTop: Spacing.sm, borderTopWidth: 1 },
+  editToggleText:     { fontFamily: Fonts.displayMedium, fontSize: 13 },
 })
