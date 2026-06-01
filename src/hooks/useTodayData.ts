@@ -12,9 +12,6 @@ export type TodayData = {
   dayLabel: string
   dayOffset: number
   setDayOffset: (offset: number) => void
-  sheetId: string | null
-  tabName: string
-  sheetTabId: number | null
   schemaId: string | null
   upsertActivity: (activity: Activity) => void
   activities: Activity[]
@@ -33,16 +30,13 @@ export function useTodayData(): TodayData {
   const {
     dayOffset, setDayOffset,
     activities,
-    sheetId, tabName, sheetTabId, schemaId,
+    schemaId,
     upsertActivity,
   } = useDataStore(
     useShallow(s => ({
       dayOffset:      s.dayOffset,
       setDayOffset:   s.setDayOffset,
       activities:     s.activities,
-      sheetId:        s.sheetId,
-      tabName:        s.tabName,
-      sheetTabId:     s.sheetTabId,
       schemaId:       s.schemaId,
       upsertActivity: s.upsertActivity,
     }))
@@ -72,9 +66,6 @@ export function useTodayData(): TodayData {
     dayLabel,
     dayOffset,
     setDayOffset,
-    sheetId,
-    tabName,
-    sheetTabId,
     schemaId,
     upsertActivity,
     activities,

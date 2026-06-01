@@ -59,9 +59,8 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   async function handleSignOut() {
     setDropdownOpen(false)
     await signOut()
-    // BUG: clearSchema liet schemaId staan, waardoor de React Query-cache de
-    // activiteiten bij een tab-wissel weer terugzette na uitloggen. clearAll
-    // nult schemaId zodat de cachekey wijzigt en de data echt weg blijft.
+    // clearAll nult schemaId zodat de React Query-cachekey wijzigt en de
+    // activiteiten na uitloggen echt weg blijven (niet terugkomen bij tab-wissel).
     await clearAll()
     await setTelegram('')
   }

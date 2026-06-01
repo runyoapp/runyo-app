@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useShallow } from 'zustand/react/shallow'
-import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
@@ -14,7 +13,6 @@ import { AddActivityModal } from '@/screens/AddActivityModal'
 import { RaceModal } from '@/screens/RaceModal'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { WeekDayRow } from '@/components/week/WeekDayRow'
-import { updateAndSort } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
 import {
   getWeekDates, getISOWeekNumber, fromDateString, toDateString,
@@ -31,15 +29,11 @@ export function WeekScreen() {
   const insets      = useSafeAreaInsets()
   const queryClient = useQueryClient()
 
-  const getToken  = useAuthStore(s => s.getToken)
-  const { weekOffset, setWeekOffset, activities, sheetId, tabName, sheetTabId, schemaId, upsertActivity } = useDataStore(
+  const { weekOffset, setWeekOffset, activities, schemaId, upsertActivity } = useDataStore(
     useShallow(s => ({
       weekOffset:     s.weekOffset,
       setWeekOffset:  s.setWeekOffset,
       activities:     s.activities,
-      sheetId:        s.sheetId,
-      tabName:        s.tabName,
-      sheetTabId:     s.sheetTabId,
       schemaId:       s.schemaId,
       upsertActivity: s.upsertActivity,
     }))
@@ -83,21 +77,12 @@ export function WeekScreen() {
 
   async function doReschedule(activity: Activity, newDate: string) {
     if (newDate === activity.datum) return
-    const token = await getToken()
+    if (!schemaId) return
     showToast('Verplaatsen…')
     try {
-      if (sheetId) {
-        if (!token) return
-        await updateAndSort(sheetId, tabName, sheetTabId, token, (activity as any).rowIndex ?? 2, { datum: newDate })
-        upsertActivity({ ...activity, datum: newDate })
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else if (schemaId) {
-        const updated = await patchActivity(schemaId, activity.id, { datum: newDate })
-        upsertActivity(updated)
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      } else {
-        return
-      }
+      const updated = await patchActivity(schemaId, activity.id, { datum: newDate })
+      upsertActivity(updated)
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       const mn = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
       showToast(`✓ Verplaatst naar ${newDate.slice(8)} ${mn[parseInt(newDate.slice(5, 7)) - 1]}`)
     } catch {
@@ -137,7 +122,7 @@ export function WeekScreen() {
     if (cancelled || !activity) return
     const date = findHoveredDate(pageX, pageY)
     if (date) void doReschedule(activity, date)
-  }, [sheetId, schemaId, tabName, sheetTabId])
+  }, [schemaId])
 
   const measureCell = (date: string) => {
     const ref = cellRefs.current.get(date)
@@ -226,9 +211,9 @@ export function WeekScreen() {
           {weekData.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
-                {sheetId || schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
+                {schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
               </Text>
-              {!sheetId && !schemaId && (
+              {!schemaId && (
                 <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
                   <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
                 </TouchableOpacity>

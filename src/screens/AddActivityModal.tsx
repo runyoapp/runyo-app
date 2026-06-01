@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
-import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { appendAndSort } from '@/services/sheets'
 import { createActivity } from '@/services/activities'
 import { createSchema } from '@/services/schemas'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
@@ -23,9 +21,6 @@ type Props = {
 export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   const theme          = useTheme()
   const queryClient    = useQueryClient()
-  const getToken       = useAuthStore(s => s.getToken)
-  const sheetId        = useDataStore(s => s.sheetId)
-  const tabName        = useDataStore(s => s.tabName)
   const schemaId       = useDataStore(s => s.schemaId)
   const activateImport = useDataStore(s => s.activateImport)
   const upsertActivity = useDataStore(s => s.upsertActivity)
@@ -46,32 +41,15 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
     setSaving(true)
     try {
       let activeSchemaId = schemaId
-      if (!sheetId && !activeSchemaId) {
+      if (!activeSchemaId) {
         const { id } = await createSchema('Mijn schema')
         await activateImport(id, 'Mijn schema')
         activeSchemaId = id
       }
       const kmVal = parseFloat(km) || null
-      // Sheets leads when connected — matches useActivities priority.
-      if (sheetId) {
-        const token = await getToken()
-        if (!token) return
-        await appendAndSort(sheetId, tabName, token, {
-          datum, titel, type, km: kmVal, detail, feedback: null, fase: null,
-          raceType: null, goalTime: null, isMainGoal: false,
-        })
-        upsertActivity({
-          id: `local_${Date.now()}`, datum, titel, type, km: kmVal, detail,
-          feedback: null, fase: null, rating: null, raceType: null, goalTime: null,
-          isMainGoal: false, rowIndex: null,
-          updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
-        })
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else if (activeSchemaId) {
-        const created = await createActivity(activeSchemaId, { datum, titel, type, km: kmVal, detail })
-        upsertActivity(created)
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activeSchemaId] })
-      }
+      const created = await createActivity(activeSchemaId, { datum, titel, type, km: kmVal, detail })
+      upsertActivity(created)
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activeSchemaId] })
       showToast('✓ Activiteit toegevoegd')
       setTitel(''); setKm(''); setDetail(''); setType('run')
       onClose()

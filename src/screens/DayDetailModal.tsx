@@ -10,7 +10,6 @@ import {
   commitDelete, markAsRest, saveActivity,
   validateDeleteContext, type SaveInput,
 } from '@/services/activityEdit'
-import { updateActivity } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
@@ -132,9 +131,6 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const theme          = useTheme()
   const queryClient    = useQueryClient()
   const getToken       = useAuthStore(s => s.getToken)
-  const sheetId        = useDataStore(s => s.sheetId)
-  const tabName        = useDataStore(s => s.tabName)
-  const sheetTabId     = useDataStore(s => s.sheetTabId)
   const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const removeActivity = useDataStore(s => s.removeActivity)
@@ -157,33 +153,22 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   const colors    = ActivityColors[act.type as ActivityType] ?? ActivityColors.run
   const typeLabel = TYPE_DISPLAY[act.type as ActivityType]?.nl ?? act.type
 
-  // Rows from Sheets carry a rowIndex; backend rows don't.
-  const isSheetsRow   = !!act.rowIndex
   const today         = new Date().toISOString().split('T')[0]
   const isPast        = act.datum <= today
   const canHaveFeedback = isPast && act.type !== 'rest' && act.type !== 'work'
 
   function makeCtx() {
-    return { isSheetsRow, sheetId: sheetId!, sheetTabId: sheetTabId!, tabName, schemaId: schemaId!, getToken }
+    return { schemaId: schemaId!, getToken }
   }
 
   async function handleFeedback(rating: number, text: string) {
+    if (!schemaId) return
     const feedback = buildFeedbackString(rating, text)
     try {
-      if (isSheetsRow) {
-        if (!sheetId || !sheetTabId) return
-        const token = await getToken()
-        if (!token) return
-        await updateActivity(sheetId, tabName, token, act.rowIndex!, { feedback })
-        upsertActivity({ ...act, feedback })
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else {
-        if (!schemaId) return
-        // optimistic update; feedback field pending backend support
-        upsertActivity({ ...act, feedback })
-        await patchActivity(schemaId, act.id, {} as any)
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      }
+      // optimistic update; feedback field pending backend support
+      upsertActivity({ ...act, feedback })
+      await patchActivity(schemaId, act.id, {} as any)
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')
     } catch {
@@ -192,17 +177,13 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   async function handleSave(input: SaveInput) {
-    const err = validateDeleteContext(isSheetsRow, sheetId, sheetTabId, schemaId)
+    const err = validateDeleteContext(schemaId)
     if (err) { showToast(err); return }
     setSaving(true)
     try {
-      const updated = await saveActivity(act, input, { ...makeCtx(), sheetTabId })
+      const updated = await saveActivity(act, input, makeCtx())
       upsertActivity(updated)
-      if (isSheetsRow) {
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else {
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      }
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       showToast('✓ Opgeslagen')
       setEditing(false)
       onClose()
@@ -214,7 +195,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   function handleDelete() {
-    const err = validateDeleteContext(isSheetsRow, sheetId, sheetTabId, schemaId)
+    const err = validateDeleteContext(schemaId)
     if (err) { showToast(err); return }
     if (deleteTimer.current) clearTimeout(deleteTimer.current)
     pendingDelete.current = act
@@ -235,11 +216,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
       pendingDelete.current = null
       try {
         await commitDelete(snap, makeCtx())
-        if (isSheetsRow) {
-          await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-        } else {
-          await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-        }
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       } catch {
         upsertActivity(snap)
         showToast('Verwijderen mislukt')
@@ -248,17 +225,13 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   }
 
   async function handleMarkAsRest() {
-    const err = validateDeleteContext(isSheetsRow, sheetId, sheetTabId, schemaId)
+    const err = validateDeleteContext(schemaId)
     if (err) { showToast(err); return }
     setMarking(true)
     try {
-      const updated = await markAsRest(act, { ...makeCtx(), sheetTabId })
+      const updated = await markAsRest(act, makeCtx())
       upsertActivity(updated)
-      if (isSheetsRow) {
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else {
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      }
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       showToast('Gemarkeerd als rustdag')
       onClose()
     } catch {

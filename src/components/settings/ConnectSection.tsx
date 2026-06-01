@@ -54,7 +54,6 @@ function ConnectTile({ primary, icon, title, badge, sub, onPress }: TileProps) {
 type MySchemasListProps = {
   schemas: Schema[]
   activeId: string | null
-  sheetId: string | null
   renamingId: string | null
   renameValue: string
   deleteConfirmId: string | null
@@ -66,14 +65,12 @@ type MySchemasListProps = {
   onDeleteRequest: (id: string) => void
   onDeleteCancel: () => void
   onDeleteConfirm: (id: string) => void
-  onSync: () => void
   onExport: (schema: Schema) => void
 }
 
 function MySchemasList({
   schemas,
   activeId,
-  sheetId,
   renamingId,
   renameValue,
   deleteConfirmId,
@@ -85,7 +82,6 @@ function MySchemasList({
   onDeleteRequest,
   onDeleteCancel,
   onDeleteConfirm,
-  onSync,
   onExport,
 }: MySchemasListProps) {
   if (!schemas.length) {
@@ -136,11 +132,6 @@ function MySchemasList({
                 <TouchableOpacity onPress={() => onRenameStart(schema)} hitSlop={8}>
                   <Text style={styles.schemaActionIcon}>✏</Text>
                 </TouchableOpacity>
-                {sheetId && isActive && (
-                  <TouchableOpacity onPress={onSync} hitSlop={8}>
-                    <Text style={styles.schemaActionIcon}>→</Text>
-                  </TouchableOpacity>
-                )}
                 {isActive && (
                   <TouchableOpacity onPress={() => !exporting && onExport(schema)} hitSlop={8}>
                     <Text style={styles.schemaActionIcon}>{exporting ? '…' : '↗'}</Text>
@@ -167,20 +158,15 @@ export function ConnectSection() {
   const navigation       = useNavigation<any>()
   const getToken         = useAuthStore(s => s.getToken)
   const tokenSet         = useAuthStore(s => s.tokenSet)
-  const sheetId          = useDataStore(s => s.sheetId)
-  const sheetFileName    = useDataStore(s => s.sheetFileName)
-  const tabName          = useDataStore(s => s.tabName)
   const schemaId         = useDataStore(s => s.schemaId)
   const schemaName       = useDataStore(s => s.schemaName)
   const activities       = useDataStore(s => s.activities)
-  const clearSchema      = useDataStore(s => s.clearSchema)
   const activateImport   = useDataStore(s => s.activateImport)
   const activateSchemaById = useDataStore(s => s.activateSchemaById)
   const showToast        = useUiStore(s => s.showToast)
 
   const [panel,           setPanel]          = useState<Panel>(null)
   const [importOpen,      setImportOpen]      = useState(false)
-  const [syncing,         setSyncing]         = useState(false)
   const [creating,        setCreating]        = useState(false)
   const [exporting,       setExporting]       = useState(false)
 
@@ -190,21 +176,6 @@ export function ConnectSection() {
   const [renamingId,      setRenamingId]      = useState<string | null>(null)
   const [renameValue,     setRenameValue]     = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-
-  async function handleSync() {
-    if (!sheetId) return
-    setSyncing(true)
-    try {
-      const token = await getToken()
-      if (!token) { showToast('Niet ingelogd'); return }
-      const { synced } = await syncActivitiesToSheet(sheetId, tabName, token, activities)
-      showToast(`✓ ${synced} activiteiten gesynchroniseerd`)
-    } catch {
-      showToast('Synchronisatie mislukt')
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   async function handleExportToSheets(schema: Schema) {
     if (tokenSet?.authMethod !== 'google') {
@@ -302,30 +273,11 @@ export function ConnectSection() {
   }
 
   const isSignedIn         = !!tokenSet
-  const isConnectedSheet   = isSignedIn && !!sheetId
-  const isConnectedBackend = isSignedIn && !!schemaId && !sheetId
+  const isConnectedBackend = isSignedIn && !!schemaId
 
   if (isSignedIn) {
     return (
       <View style={styles.container}>
-        {/* Connected schema display — Sheets (legacy path) */}
-        {isConnectedSheet && (
-          <>
-            <View style={styles.connectedRow}>
-              <View style={styles.greenDot} />
-              <View style={styles.connectedInfo}>
-                <Text style={styles.fileName}>{sheetFileName ?? 'Schema'}</Text>
-              </View>
-              <TouchableOpacity onPress={() => clearSchema()}>
-                <Text style={styles.disconnectText}>Ontkoppelen</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.exportBtn} onPress={handleSync} disabled={syncing}>
-              <Text style={styles.exportBtnText}>{syncing ? 'Bezig…' : '→ Sheets'}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
         {/* Connected schema display — backend */}
         {isConnectedBackend && (
           <View style={styles.connectedRow}>
@@ -354,7 +306,6 @@ export function ConnectSection() {
               <MySchemasList
                 schemas={schemas}
                 activeId={schemaId}
-                sheetId={sheetId}
                 renamingId={renamingId}
                 renameValue={renameValue}
                 deleteConfirmId={deleteConfirmId}
@@ -366,7 +317,6 @@ export function ConnectSection() {
                 onDeleteRequest={(id) => { setRenamingId(null); setDeleteConfirmId(id) }}
                 onDeleteCancel={() => setDeleteConfirmId(null)}
                 onDeleteConfirm={handleDeleteConfirm}
-                onSync={handleSync}
                 onExport={handleExportToSheets}
               />
             )
@@ -431,9 +381,6 @@ const styles = StyleSheet.create({
   greenDot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.accent, flexShrink: 0 },
   connectedInfo:  { flex: 1 },
   fileName:       { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
-  disconnectText: { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted, textDecorationLine: 'underline' },
-  exportBtn:      { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: LightTheme.bgAlt, borderWidth: 1, borderColor: LightTheme.border, alignSelf: 'flex-start' },
-  exportBtnText:  { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
 
   // Buttons
   btnRow:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },

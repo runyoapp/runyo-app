@@ -76,44 +76,6 @@ export async function saveAppDataSettings(
   })
 }
 
-// Lists recent Google Sheets files the user owns — replaces Google Picker
-export async function listRecentSheets(token: string): Promise<SchemaEntry[]> {
-  const q = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false")
-  const fields = encodeURIComponent('files(id,name,modifiedTime)')
-  const res = await fetch(
-    `${BASE}/files?q=${q}&fields=${fields}&orderBy=modifiedTime+desc&pageSize=20`,
-    { headers: authHeader(token) },
-  )
-  const data = await res.json() as { files?: { id: string; name: string; modifiedTime: string }[] }
-  return (data.files ?? []).map(f => ({
-    id: f.id,
-    name: f.name,
-    url: null,
-    ts: new Date(f.modifiedTime).getTime(),
-  }))
-}
-
-export async function createNewSheet(token: string, name: string): Promise<SchemaEntry> {
-  const uniqueName = await findUniqueName(token, name)
-  const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-    method: 'POST',
-    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ properties: { title: uniqueName } }),
-  })
-  const data = await res.json() as { spreadsheetId: string; properties: { title: string } }
-  return { id: data.spreadsheetId, name: data.properties.title, url: null, ts: Date.now() }
-}
-
-// Returns a sheet name that doesn't already exist in Drive (appends _2, _3 etc.)
-async function findUniqueName(token: string, baseName: string): Promise<string> {
-  const existing = await listRecentSheets(token)
-  const names = new Set(existing.map(s => s.name))
-  if (!names.has(baseName)) return baseName
-  let i = 2
-  while (names.has(`${baseName}_${i}`)) i++
-  return `${baseName}_${i}`
-}
-
 export async function createExportSheet(token: string, schemaName: string): Promise<{ id: string; url: string }> {
   const title = `runyo — ${schemaName}`
   const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {

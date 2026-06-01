@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation, useDayStripAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { useTodayData } from '@/hooks/useTodayData'
@@ -19,7 +18,6 @@ import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportModal } from '@/screens/ImportModal'
 import { RaceModal } from '@/screens/RaceModal'
-import { updateActivity } from '@/services/sheets'
 import { patchActivity } from '@/services/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -35,14 +33,13 @@ function buildFeedbackString(rating: number, text: string): string {
 export function TodayScreen() {
   const insets      = useSafeAreaInsets()
   const queryClient = useQueryClient()
-  const getToken    = useAuthStore(s => s.getToken)
   const showToast      = useUiStore(s => s.showToast)
   const openLoginSheet = useUiStore(s => s.openLoginSheet)
   const theme       = useTheme()
 
   const {
     isSignedIn, dateStr, dayLabel, dayOffset, setDayOffset,
-    sheetId, tabName, sheetTabId, schemaId,
+    schemaId,
     upsertActivity, activities,
     activeRows, isRest, fbRow, tmrRow,
   } = useTodayData()
@@ -60,24 +57,13 @@ export function TodayScreen() {
 
   async function handleFeedback(rating: number, text: string) {
     if (!fbRow) return
-    const isSheetsRow = !!fbRow.rowIndex
-    if (isSheetsRow && (!sheetId || !sheetTabId)) return
-    if (!isSheetsRow && !schemaId) return
+    if (!schemaId) return
     const feedback = buildFeedbackString(rating, text)
     try {
-      if (isSheetsRow) {
-        const token = await getToken()
-        if (!token) return
-        await updateActivity(sheetId!, tabName, token, fbRow.rowIndex!, { feedback })
-        upsertActivity({ ...fbRow, feedback })
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'sheets', sheetId, tabName] })
-      } else {
-        const updated = await patchActivity(schemaId!, fbRow.id, { /* feedback not in ActivityPatchInput yet */ } as any)
-        // feedback field not in backend schema yet — optimistic update only
-        upsertActivity({ ...fbRow, feedback })
-        void updated  // remove when backend supports feedback
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      }
+      // feedback field not in backend schema yet — optimistic update only
+      upsertActivity({ ...fbRow, feedback })
+      await patchActivity(schemaId, fbRow.id, {} as any)
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')
     } catch {
@@ -122,7 +108,7 @@ export function TodayScreen() {
 
         {dayOffset === 0 && <WeatherWidget />}
 
-        {!sheetId && !schemaId ? (
+        {!schemaId ? (
           <NoSchemaCard
             isSignedIn={isSignedIn}
             onConnect={() => setImportOpen(true)}

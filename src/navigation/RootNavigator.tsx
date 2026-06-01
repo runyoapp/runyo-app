@@ -23,12 +23,11 @@ export function RootNavigator() {
   const tokenSet       = useAuthStore(s => s.tokenSet)
   const isLoading      = useAuthStore(s => s.isLoading)
   const schemaId       = useDataStore(s => s.schemaId)
-  const sheetId        = useDataStore(s => s.sheetId)
 
   if (isLoading) return null
 
   const isAuthenticated = !!tokenSet
-  const hasSchema       = !!schemaId || !!sheetId
+  const hasSchema       = !!schemaId
 
   // U37: tabs altijd zichtbaar — LoginScreen is nu een tab-inhoud-overlay,
   // geen eigen route meer. Onboarding alleen na eerste login.

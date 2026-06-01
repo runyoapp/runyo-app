@@ -4,7 +4,6 @@ import type { Activity, Race, PersonalRecord } from '@/types/activity'
 import type { SchemaEntry } from '@/types/auth'
 import { createSchema, getMySchemas, activateSchema } from '@/services/schemas'
 
-const SCHEMA_KEY = 'runyo_schema'
 const SCHEMA_ID_KEY = 'runyo_schema_id'
 
 export type TabName = 'today' | 'week' | 'plan' | 'calendar'
@@ -14,13 +13,7 @@ type DataStore = {
   races: Race[]
   prs: PersonalRecord[]
 
-  // Active schema
-  sheetId: string | null
-  tabName: string
-  sheetFileName: string | null
-  sheetTabId: number | null
-
-  // Backend schema id (1.2d tracer — independent from sheetId until 1.2e/2.1 unifies the flow)
+  // Active backend schema
   schemaId: string | null
   schemaName: string | null
 
@@ -41,8 +34,6 @@ type DataStore = {
   upsertRace: (race: Race) => void
   removeRace: (id: string) => void
   setPrs: (prs: PersonalRecord[]) => void
-  setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => Promise<void>
-  clearSchema: () => Promise<void>
   clearAll: () => Promise<void>
   hydrateSchema: () => Promise<void>
   // Backend schema actions
@@ -61,11 +52,6 @@ export const useDataStore = create<DataStore>((set) => ({
   activities: [],
   races: [],
   prs: [],
-
-  sheetId: null,
-  tabName: 'Schema',
-  sheetFileName: null,
-  sheetTabId: null,
 
   schemaId: null,
   schemaName: null,
@@ -99,32 +85,19 @@ export const useDataStore = create<DataStore>((set) => ({
     set((s) => ({ races: s.races.filter(r => r.id !== id) })),
 
   setPrs: (prs) => set({ prs }),
-  setSchema: async (sheetId, tabName, sheetFileName, sheetTabId) => {
-    set({ sheetId, tabName, sheetFileName, sheetTabId })
-    await AsyncStorage.setItem(SCHEMA_KEY, JSON.stringify({ sheetId, tabName, sheetFileName, sheetTabId }))
-  },
-  clearSchema: async () => {
-    set({ sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null, activities: [] })
-    await AsyncStorage.removeItem(SCHEMA_KEY)
-  },
-  // BUG9: bij uitloggen alle schema-/activiteit-state wissen (sheet én backend),
+  // BUG9: bij uitloggen alle schema-/activiteit-state wissen,
   // anders blijft een schema zichtbaar na logout.
   clearAll: async () => {
     set({
       activities: [], races: [], prs: [],
-      sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null,
       schemaId: null, schemaName: null,
     })
-    await AsyncStorage.multiRemove([SCHEMA_KEY, SCHEMA_ID_KEY, 'runyo_schema_name'])
+    await AsyncStorage.multiRemove([SCHEMA_ID_KEY, 'runyo_schema_name'])
   },
   hydrateSchema: async () => {
-    const raw = await AsyncStorage.getItem(SCHEMA_KEY)
     const storedSchemaId   = await AsyncStorage.getItem(SCHEMA_ID_KEY)
     const storedSchemaName = await AsyncStorage.getItem('runyo_schema_name')
     if (storedSchemaId) set({ schemaId: storedSchemaId, schemaName: storedSchemaName ?? null })
-    if (!raw) return
-    const parsed = JSON.parse(raw)
-    set({ sheetId: parsed.sheetId, tabName: parsed.tabName, sheetFileName: parsed.sheetFileName, sheetTabId: parsed.sheetTabId })
   },
 
   loadMySchemas: async () => {
@@ -147,10 +120,9 @@ export const useDataStore = create<DataStore>((set) => ({
     await AsyncStorage.setItem('runyo_schema_name', name)
   },
   activateImport: async (schemaId, schemaName) => {
-    set({ schemaId, schemaName, sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null })
+    set({ schemaId, schemaName })
     await AsyncStorage.setItem(SCHEMA_ID_KEY, schemaId)
     await AsyncStorage.setItem('runyo_schema_name', schemaName ?? '')
-    await AsyncStorage.removeItem(SCHEMA_KEY)
   },
 
   setTab: (currentTab) => set({ currentTab }),

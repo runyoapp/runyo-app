@@ -18,7 +18,6 @@ import type { Activity } from '@/types/activity'
 export function PlanScreen() {
   const insets     = useSafeAreaInsets()
   const activities = useDataStore(s => s.activities)
-  const sheetId    = useDataStore(s => s.sheetId)
   const schemaId   = useDataStore(s => s.schemaId)
   const theme      = useTheme()
   useActivities()
@@ -66,7 +65,7 @@ export function PlanScreen() {
     [byDate, today],
   )
 
-  const noSchema = !sheetId && !schemaId
+  const noSchema = !schemaId
   const noData   = !noSchema && !activities.length
 
   return (
