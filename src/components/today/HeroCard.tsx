@@ -3,6 +3,7 @@ import { ActivityColors } from '@/constants/theme'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
+import { FeedbackBadge } from '@/components/today/FeedbackSection'
 import type { Activity, ActivityType } from '@/types/activity'
 
 type Props = {
@@ -91,16 +92,19 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
         <Text style={[styles.detail, { color: theme.muted }]} numberOfLines={3}>{detail}</Text>
       )}
 
-      {/* Full-width CTA — mint bg, accent-ink text, Sora 700 / 15px */}
-      {canFeedback && (
+      {/* Beoordeling: badge zodra er een beoordeling is, anders de CTA-knop */}
+      {canFeedback && hasFb && (
+        <FeedbackBadge feedback={activity.feedback!} onPress={onFeedbackPress} />
+      )}
+      {canFeedback && !hasFb && (
         <TouchableOpacity
-          style={[styles.cta, { backgroundColor: hasFb ? theme.accentGlow : theme.accent }]}
+          style={[styles.cta, { backgroundColor: theme.accent }]}
           onPress={onFeedbackPress}
         >
-          <Text style={[styles.ctaText, { color: hasFb ? theme.accent : theme.accentInk }]}>
-            {hasFb ? 'Beoordeling bewerken' : isRun ? 'Beoordeel run' : 'Beoordeel training'}
+          <Text style={[styles.ctaText, { color: theme.accentInk }]}>
+            {isRun ? 'Beoordeel run' : 'Beoordeel training'}
           </Text>
-          <Text style={[styles.ctaArrow, { color: hasFb ? theme.accent : theme.accentInk }]}>→</Text>
+          <Text style={[styles.ctaArrow, { color: theme.accentInk }]}>→</Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>

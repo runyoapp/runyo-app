@@ -11,14 +11,20 @@ type Props = {
   onCancel?: () => void
 }
 
-function parseExisting(existing: string | null): { rating: number; text: string } {
-  if (!existing) return { rating: 0, text: '' }
-  const ratingMatch = existing.match(/^(\d)/)
-  const textMatch   = existing.match(/–\s*(.+)$/)
+// Beoordeling-string → { rating, note }. Format: "4/5 💪 – optionele notitie"
+export function parseFeedback(feedback: string | null): { rating: number; note: string } {
+  if (!feedback) return { rating: 0, note: '' }
+  const ratingMatch = feedback.match(/^(\d)/)
+  const noteMatch   = feedback.match(/–\s*(.+)$/)
   return {
     rating: ratingMatch ? parseInt(ratingMatch[1]) : 0,
-    text:   textMatch ? textMatch[1] : '',
+    note:   noteMatch ? noteMatch[1] : '',
   }
+}
+
+function parseExisting(existing: string | null): { rating: number; text: string } {
+  const { rating, note } = parseFeedback(existing)
+  return { rating, text: note }
 }
 
 export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
@@ -95,7 +101,44 @@ export function FeedbackDisplay({ feedback, onEdit }: { feedback: string; onEdit
   )
 }
 
+// Compacte beoordeling-weergave — gebruikt op de Vandaag-hero en in de uitgeklapte plan-rij.
+// Vervangt de "Beoordeel"-knop zodra er een beoordeling is. Tikbaar → bewerken (als onPress meegegeven).
+export function FeedbackBadge({ feedback, onPress }: { feedback: string; onPress?: () => void }) {
+  const theme = useTheme()
+  const { rating, note } = parseFeedback(feedback)
+  const Wrapper: any = onPress ? TouchableOpacity : View
+  return (
+    <Wrapper
+      style={[styles.badge, { backgroundColor: theme.accentGlow }]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+    >
+      <Text style={styles.badgeEmoji}>{EMOJIS[rating - 1] ?? '✓'}</Text>
+      <View style={styles.badgeBody}>
+        <Text style={[styles.badgeLabel, { color: theme.accent }]}>Jouw beoordeling</Text>
+        {!!note && (
+          <Text style={[styles.badgeNote, { color: theme.text }]} numberOfLines={2}>{note}</Text>
+        )}
+      </View>
+      {onPress && <Text style={[styles.badgeEdit, { color: theme.accent }]}>Bewerken</Text>}
+    </Wrapper>
+  )
+}
+
 const styles = StyleSheet.create({
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  badgeEmoji: { fontSize: 22 },
+  badgeBody:  { flex: 1, gap: 1 },
+  badgeLabel: { fontFamily: Fonts.displaySemiBold, fontSize: 12, letterSpacing: -0.1 },
+  badgeNote:  { fontFamily: Fonts.display, fontSize: 14, lineHeight: 19 },
+  badgeEdit:  { fontFamily: Fonts.displayMedium, fontSize: 13 },
   container: {
     backgroundColor: LightTheme.surface,
     borderRadius: Radius.lg,

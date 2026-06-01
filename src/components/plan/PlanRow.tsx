@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
+import { FeedbackBadge } from '@/components/today/FeedbackSection'
 import { DAYS_NL, MONTHS_NL, fromDateString, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
 
@@ -30,7 +31,7 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit }: Props) {
 
   return (
     <TouchableOpacity
-      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && styles.rowPast]}
+      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && !hasFb && styles.rowPast]}
       onPress={() => setExpanded(e => !e)}
       activeOpacity={0.8}
     >
@@ -74,7 +75,9 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit }: Props) {
                 {!!r.titel && <Text style={styles.detailTitle}>{r.titel}</Text>}
                 {!!r.detail && <Text style={styles.detailDesc}>{r.detail}</Text>}
                 {!!r.feedback && (
-                  <Text style={styles.detailFeedback}>✓ {r.feedback}</Text>
+                  <View style={styles.detailFeedback}>
+                    <FeedbackBadge feedback={r.feedback} />
+                  </View>
                 )}
                 <TouchableOpacity
                   style={styles.editBtn}
@@ -113,7 +116,7 @@ const styles = StyleSheet.create({
   detailKm:     { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.accent },
   detailTitle:  { fontFamily: Fonts.displayBold, fontSize: 14, color: LightTheme.text, marginBottom: 2 },
   detailDesc:   { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted, lineHeight: 18, marginBottom: 4 },
-  detailFeedback: { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.accent, marginBottom: 4 },
+  detailFeedback: { marginBottom: 4 },
   editBtn:      { alignSelf: 'flex-start', borderWidth: 1, borderColor: LightTheme.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: 4, marginTop: 4 },
   editBtnText:  { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.muted },
 })

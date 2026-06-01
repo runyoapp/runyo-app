@@ -10,7 +10,7 @@ import { useDaySwipe } from '@/hooks/useDaySwipe'
 import { DayStrip } from '@/components/today/DayStrip'
 import { HeroCard, RestCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
-import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
+import { FeedbackSection } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { Toast } from '@/components/shared/Toast'
@@ -130,12 +130,6 @@ export function TodayScreen() {
               />
             ))}
 
-            {fbRow && fbRow.feedback && !editingFeedback && (
-              <FeedbackDisplay
-                feedback={fbRow.feedback}
-                onEdit={() => setEditingFeedback(true)}
-              />
-            )}
             {fbRow && editingFeedback && (
               <FeedbackSection
                 existing={fbRow.feedback}
