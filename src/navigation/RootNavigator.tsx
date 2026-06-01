@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useDataStore } from '@/stores/dataStore'
 import { MainNavigator } from './MainNavigator'
 import { OnboardingScreen } from '@/screens/OnboardingScreen'
 import { SettingsScreen } from '@/screens/SettingsScreen'
@@ -21,16 +22,21 @@ export function RootNavigator() {
   const onboardingDone = useSettingsStore(s => s.onboardingDone)
   const tokenSet       = useAuthStore(s => s.tokenSet)
   const isLoading      = useAuthStore(s => s.isLoading)
+  const schemaId       = useDataStore(s => s.schemaId)
+  const sheetId        = useDataStore(s => s.sheetId)
 
   if (isLoading) return null
 
   const isAuthenticated = !!tokenSet
+  const hasSchema       = !!schemaId || !!sheetId
 
   // U37: tabs altijd zichtbaar — LoginScreen is nu een tab-inhoud-overlay,
   // geen eigen route meer. Onboarding alleen na eerste login.
+  // U45: schemakeuze (Onboarding) overslaan als er al een schema gekoppeld is —
+  // direct naar Main (Vandaag-tab).
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {isAuthenticated && !onboardingDone ? (
+      {isAuthenticated && !onboardingDone && !hasSchema ? (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : (
         <>
