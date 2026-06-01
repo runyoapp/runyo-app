@@ -27,7 +27,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const signOut     = useAuthStore(s => s.signOut)
-  const clearSchema = useDataStore(s => s.clearSchema)
+  const clearAll    = useDataStore(s => s.clearAll)
   const setTelegram = useSettingsStore(s => s.setTelegramUser)
   const activities  = useDataStore(s => s.activities)
 
@@ -59,7 +59,10 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   async function handleSignOut() {
     setDropdownOpen(false)
     await signOut()
-    await clearSchema()
+    // BUG: clearSchema liet schemaId staan, waardoor de React Query-cache de
+    // activiteiten bij een tab-wissel weer terugzette na uitloggen. clearAll
+    // nult schemaId zodat de cachekey wijzigt en de data echt weg blijft.
+    await clearAll()
     await setTelegram('')
   }
 
