@@ -38,8 +38,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const raw = await AsyncStorage.getItem(STORAGE_KEY)
     if (!raw) return
     const saved = JSON.parse(raw) as Partial<PersistedState>
+    const prefs = { ...DEFAULT_PREFS, ...saved.prefs }
+    // B18: zonder gekozen locatie terugvallen op Utrecht (default), zodat ook
+    // bestaande gebruikers met opgeslagen null-coördinaten het weer zien.
+    if (prefs.weatherLat == null || prefs.weatherLon == null) {
+      prefs.weatherLat  = DEFAULT_PREFS.weatherLat
+      prefs.weatherLon  = DEFAULT_PREFS.weatherLon
+      prefs.weatherCity = prefs.weatherCity ?? DEFAULT_PREFS.weatherCity
+    }
     set({
-      prefs:          { ...DEFAULT_PREFS, ...saved.prefs },
+      prefs,
       telegramUser:   saved.telegramUser ?? '',
       notifications:  { ...DEFAULT_NOTIFICATIONS, ...saved.notifications },
       onboardingDone: saved.onboardingDone ?? false,

@@ -28,10 +28,11 @@ export const DEFAULT_NOTIFICATIONS: Notifications = {
   feedback: { enabled: true,  times: ['20:00'] },
 }
 
+// B18: standaard op Utrecht tenzij de gebruiker een andere locatie kiest in settings.
 export const DEFAULT_PREFS: AppPrefs = {
   lang: 'nl',
   theme: 'light',
-  weatherLat: null,
-  weatherLon: null,
-  weatherCity: null,
+  weatherLat: 52.0907,
+  weatherLon: 5.1214,
+  weatherCity: 'Utrecht',
 }
