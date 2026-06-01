@@ -60,9 +60,8 @@ export function TodayScreen() {
     if (!schemaId) return
     const feedback = buildFeedbackString(rating, text)
     try {
-      // feedback field not in backend schema yet — optimistic update only
-      upsertActivity({ ...fbRow, feedback })
-      await patchActivity(schemaId, fbRow.id, {} as any)
+      upsertActivity({ ...fbRow, feedback, rating })
+      await patchActivity(schemaId, fbRow.id, { feedback, rating })
       await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')

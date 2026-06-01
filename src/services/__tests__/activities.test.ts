@@ -35,6 +35,8 @@ function backendRow(over: Partial<BackendActivity> = {}): BackendActivity {
     raceType: null,
     goalTime: null,
     isMainGoal: false,
+    feedback: null,
+    rating: null,
     ...over,
   }
 }
@@ -53,6 +55,12 @@ describe('toActivity', () => {
     expect(activity.rowIndex).toBeNull()
     expect(typeof activity.updatedAt).toBe('string')
     expect(typeof activity.createdAt).toBe('string')
+  })
+
+  it('maps feedback + rating through from the backend row', () => {
+    const activity = toActivity(backendRow({ feedback: '4/5 💪 – goed', rating: 4 }))
+    expect(activity.feedback).toBe('4/5 💪 – goed')
+    expect(activity.rating).toBe(4)
   })
 })
 

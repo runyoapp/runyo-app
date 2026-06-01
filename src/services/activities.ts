@@ -14,6 +14,8 @@ export type BackendActivity = {
   raceType: string | null
   goalTime: string | null
   isMainGoal: boolean
+  feedback: string | null
+  rating: number | null
 }
 
 export type ActivityCreateInput = {
@@ -25,6 +27,8 @@ export type ActivityCreateInput = {
   raceType?: string | null
   goalTime?: string | null
   isMainGoal?: boolean
+  feedback?: string | null
+  rating?: number | null
 }
 
 export type ActivityPatchInput = {
@@ -36,6 +40,8 @@ export type ActivityPatchInput = {
   raceType?: string | null
   goalTime?: string | null
   isMainGoal?: boolean
+  feedback?: string | null
+  rating?: number | null
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -51,8 +57,8 @@ function ensureOk(status: number, action: string): void {
 }
 
 /**
- * Map a backend row to the frontend Activity shape. Backend doesn't track
- * feedback/fase/rating yet — those are reserved for later tickets.
+ * Map a backend row to the frontend Activity shape. Backend tracks
+ * feedback + rating; `fase` is not persisted yet.
  * `rowIndex` is Sheets-only and stays null on backend-sourced rows.
  */
 const TYPE_NL: Record<string, ActivityType> = {
@@ -73,9 +79,9 @@ export function toActivity(row: BackendActivity): Activity {
     titel: row.titel ?? '',
     detail: row.detail ?? '',
     km: row.km,
-    feedback: null,
+    feedback: row.feedback,
     fase: null,
-    rating: null,
+    rating: row.rating,
     updatedAt: now,
     createdAt: now,
     raceType: row.raceType,

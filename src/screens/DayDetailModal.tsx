@@ -165,9 +165,8 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
     if (!schemaId) return
     const feedback = buildFeedbackString(rating, text)
     try {
-      // optimistic update; feedback field pending backend support
-      upsertActivity({ ...act, feedback })
-      await patchActivity(schemaId, act.id, {} as any)
+      upsertActivity({ ...act, feedback, rating })
+      await patchActivity(schemaId, act.id, { feedback, rating })
       await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')
