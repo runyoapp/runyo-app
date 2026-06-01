@@ -29,19 +29,6 @@ export async function registerForPushNotifications(
   return { granted: true, expoToken }
 }
 
-export async function unregisterPushToken(
-  expoToken: string,
-  getToken: () => Promise<string | null>,
-): Promise<void> {
-  const token = await getToken()
-  if (!token) return
-  await fetch(`${BACKEND}/api/push-tokens`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ expoToken }),
-  }).catch(() => {})
-}
-
 export async function loadPushPrefs(getToken: () => Promise<string | null>) {
   const token = await getToken()
   if (!token) return null

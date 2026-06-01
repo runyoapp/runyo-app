@@ -17,19 +17,3 @@ export async function saveUserSettings(
   })
   if (!res.ok) throw new Error(`Save settings failed: ${res.status}`)
 }
-
-export async function registerTelegram(
-  botSecret: string,
-  telegramUser: string,
-  chatId: number,
-): Promise<void> {
-  const res = await fetch(`${BACKEND}/bot/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${botSecret}`,
-    },
-    body: JSON.stringify({ telegramUser, chatId }),
-  })
-  if (!res.ok) throw new Error(`Bot register failed: ${res.status}`)
-}

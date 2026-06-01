@@ -16,9 +16,3 @@ export async function createExportSheet(token: string, schemaName: string): Prom
   const data = await res.json() as { spreadsheetId: string }
   return { id: data.spreadsheetId, url: `https://docs.google.com/spreadsheets/d/${data.spreadsheetId}` }
 }
-
-export function todaySchemaName(): string {
-  const d = new Date()
-  const MONTHS = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
-  return `runyo schema ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-}
