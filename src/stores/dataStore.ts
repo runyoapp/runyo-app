@@ -43,6 +43,7 @@ type DataStore = {
   setPrs: (prs: PersonalRecord[]) => void
   setSchema: (sheetId: string, tabName: string, fileName: string, tabId: number) => Promise<void>
   clearSchema: () => Promise<void>
+  clearAll: () => Promise<void>
   hydrateSchema: () => Promise<void>
   // Backend schema actions
   loadMySchemas: () => Promise<void>
@@ -105,6 +106,16 @@ export const useDataStore = create<DataStore>((set) => ({
   clearSchema: async () => {
     set({ sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null, activities: [] })
     await AsyncStorage.removeItem(SCHEMA_KEY)
+  },
+  // BUG9: bij uitloggen alle schema-/activiteit-state wissen (sheet én backend),
+  // anders blijft een schema zichtbaar na logout.
+  clearAll: async () => {
+    set({
+      activities: [], races: [], prs: [],
+      sheetId: null, tabName: 'Schema', sheetFileName: null, sheetTabId: null,
+      schemaId: null, schemaName: null,
+    })
+    await AsyncStorage.multiRemove([SCHEMA_KEY, SCHEMA_ID_KEY, 'runyo_schema_name'])
   },
   hydrateSchema: async () => {
     const raw = await AsyncStorage.getItem(SCHEMA_KEY)

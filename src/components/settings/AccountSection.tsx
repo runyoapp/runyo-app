@@ -14,7 +14,7 @@ export function AccountSection() {
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const signOut     = useAuthStore(s => s.signOut)
-  const clearSchema = useDataStore(s => s.clearSchema)
+  const clearAll    = useDataStore(s => s.clearAll)
   const resetPrefs  = useSettingsStore(s => s.setTelegramUser)
   const setPrefs    = useSettingsStore(s => s.setPrefs)
   const showToast   = useUiStore(s => s.showToast)
@@ -38,7 +38,7 @@ export function AccountSection() {
 
   async function handleSignOut() {
     await signOut()
-    await clearSchema()
+    await clearAll()
     await resetPrefs('')
     showToast('Uitgelogd')
   }
