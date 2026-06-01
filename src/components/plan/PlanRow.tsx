@@ -13,9 +13,10 @@ type Props = {
   isToday: boolean
   isPast: boolean
   onEdit: (activity: Activity) => void
+  onFeedback: (activity: Activity) => void
 }
 
-export function PlanRow({ datum, rows, isToday, isPast, onEdit }: Props) {
+export function PlanRow({ datum, rows, isToday, isPast, onEdit, onFeedback }: Props) {
   const theme    = useTheme()
   const [expanded, setExpanded] = useState(isToday)
   const d        = fromDateString(datum)
@@ -79,12 +80,22 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit }: Props) {
                     <FeedbackBadge feedback={r.feedback} />
                   </View>
                 )}
-                <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={() => onEdit(r)}
-                >
-                  <Text style={styles.editBtnText}>Bewerken</Text>
-                </TouchableOpacity>
+                <View style={styles.btnRow}>
+                  <TouchableOpacity
+                    style={styles.editBtn}
+                    onPress={() => onEdit(r)}
+                  >
+                    <Text style={styles.editBtnText}>Bewerken</Text>
+                  </TouchableOpacity>
+                  {(isPast || isToday) && r.type !== 'rest' && !r.feedback && (
+                    <TouchableOpacity
+                      style={[styles.reviewBtn, { borderColor: theme.accent }]}
+                      onPress={() => onFeedback(r)}
+                    >
+                      <Text style={[styles.reviewBtnText, { color: theme.accent }]}>Beoordeel</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )
           })}
@@ -117,6 +128,9 @@ const styles = StyleSheet.create({
   detailTitle:  { fontFamily: Fonts.displayBold, fontSize: 14, color: LightTheme.text, marginBottom: 2 },
   detailDesc:   { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted, lineHeight: 18, marginBottom: 4 },
   detailFeedback: { marginBottom: 4 },
-  editBtn:      { alignSelf: 'flex-start', borderWidth: 1, borderColor: LightTheme.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: 4, marginTop: 4 },
+  btnRow:       { flexDirection: 'row', gap: Spacing.sm, marginTop: 4 },
+  editBtn:      { alignSelf: 'flex-start', borderWidth: 1, borderColor: LightTheme.border, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: 4 },
   editBtnText:  { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.muted },
+  reviewBtn:    { alignSelf: 'flex-start', borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: 4 },
+  reviewBtnText:{ fontFamily: Fonts.displayMedium, fontSize: 13 },
 })

@@ -26,6 +26,7 @@ export function PlanScreen() {
   const today = useMemo(() => toDateString(new Date()), [])
 
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
+  const [startInFeedback,  setStartInFeedback]  = useState(false)
   const [addModalOpen,     setAddModalOpen]     = useState(false)
   const [importOpen,       setImportOpen]       = useState(false)
   const [showRest,         setShowRest]         = useState(false)
@@ -123,7 +124,8 @@ export function PlanScreen() {
                     rows={rows}
                     isToday={datum === today}
                     isPast={datum < today}
-                    onEdit={setSelectedActivity}
+                    onEdit={a => { setStartInFeedback(false); setSelectedActivity(a) }}
+                    onFeedback={a => { setStartInFeedback(true); setSelectedActivity(a) }}
                   />
                 </View>
               ))}
@@ -136,6 +138,7 @@ export function PlanScreen() {
       <DayDetailModal
         activity={selectedActivity}
         visible={!!selectedActivity}
+        startInFeedback={startInFeedback}
         onClose={() => setSelectedActivity(null)}
       />
       <AddActivityModal

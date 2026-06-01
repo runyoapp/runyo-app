@@ -41,9 +41,10 @@ type Props = {
   activity: Activity | null
   visible: boolean
   onClose: () => void
+  startInFeedback?: boolean
 }
 
-export function DayDetailModal({ activity, visible, onClose }: Props) {
+export function DayDetailModal({ activity, visible, onClose, startInFeedback }: Props) {
   const theme          = useTheme()
   const queryClient    = useQueryClient()
   const getToken       = useAuthStore(s => s.getToken)
@@ -69,7 +70,7 @@ export function DayDetailModal({ activity, visible, onClose }: Props) {
   useEffect(() => {
     if (!activity) return
     setEditing(false)
-    setEditingFeedback(false)
+    setEditingFeedback(startInFeedback ?? false)
     setDatum(activity.datum)
     setTitel(activity.titel ?? '')
     setType((activity.type as ActivityType) ?? 'run')

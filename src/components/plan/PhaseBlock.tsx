@@ -12,9 +12,10 @@ type Props = {
   today: string
   onToggle: () => void
   onEdit: (activity: Activity) => void
+  onFeedback: (activity: Activity) => void
 }
 
-export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Props) {
+export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit, onFeedback }: Props) {
   const theme = useTheme()
   const sorted    = [...rows].sort((a, b) => a.datum.localeCompare(b.datum))
   const startDate = sorted[0]?.datum
@@ -89,6 +90,7 @@ export function PhaseBlock({ fase, rows, isOpen, today, onToggle, onEdit }: Prop
               isToday={datum === today}
               isPast={datum < today}
               onEdit={onEdit}
+              onFeedback={onFeedback}
             />
           ))}
         </View>
