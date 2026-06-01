@@ -31,7 +31,7 @@ export function PlanRow({ datum, rows, isToday, isPast, onEdit }: Props) {
 
   return (
     <TouchableOpacity
-      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && !hasFb && styles.rowPast]}
+      style={[styles.row, { backgroundColor: theme.surface }, isToday && styles.rowToday, isPast && styles.rowPast]}
       onPress={() => setExpanded(e => !e)}
       activeOpacity={0.8}
     >
