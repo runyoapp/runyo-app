@@ -21,6 +21,8 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
   const isRun  = activity.type === 'run'
   const today  = new Date().toISOString().split('T')[0]
   const isPastOrToday = activity.datum <= today
+  // U43/U47: feedback voor elke training in het verleden/vandaag, behalve werk en races (eigen recap-flow)
+  const canFeedback = isPastOrToday && activity.type !== 'work' && activity.type !== 'race'
 
   const detail    = activity.detail ?? ''
   const paceMatch = detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/)
@@ -90,13 +92,13 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
       )}
 
       {/* Full-width CTA — mint bg, accent-ink text, Sora 700 / 15px */}
-      {isRun && isPastOrToday && (
+      {canFeedback && (
         <TouchableOpacity
           style={[styles.cta, { backgroundColor: hasFb ? theme.accentGlow : theme.accent }]}
           onPress={onFeedbackPress}
         >
           <Text style={[styles.ctaText, { color: hasFb ? theme.accent : theme.accentInk }]}>
-            {hasFb ? 'Beoordeling bewerken' : 'Beoordeel run'}
+            {hasFb ? 'Beoordeling bewerken' : isRun ? 'Beoordeel run' : 'Beoordeel training'}
           </Text>
           <Text style={[styles.ctaArrow, { color: hasFb ? theme.accent : theme.accentInk }]}>→</Text>
         </TouchableOpacity>
