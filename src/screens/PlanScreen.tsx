@@ -76,9 +76,11 @@ export function PlanScreen() {
         <AppHeader onAddPress={() => setAddModalOpen(true)} />
 
         {noSchema && (
-          <View style={[styles.empty, { flex: 1 }]}>
+          <View style={styles.emptyNoSchema}>
             <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
-            <Text style={styles.emptySub}>Importeer je trainingsplan om te beginnen.</Text>
+            <Text style={styles.emptySub}>
+              Koppel jouw trainingsschema en zie hier je volledige planning, week voor week.
+            </Text>
             <ImportSchemaTile onPress={() => setImportOpen(true)} />
           </View>
         )}
@@ -156,6 +158,7 @@ const styles = StyleSheet.create({
   root:                 { flex: 1, backgroundColor: LightTheme.bg },
   dayRow:               { paddingHorizontal: Spacing.lg },
   empty:                { alignItems: 'center', justifyContent: 'center' },
+  emptyNoSchema:        { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: Spacing.xs },
   emptyTitle:           { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
   emptySub:             { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
   emptyBtn:             { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
