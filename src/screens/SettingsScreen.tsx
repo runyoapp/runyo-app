@@ -13,7 +13,9 @@ import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import type { RootStackParamList } from '@/navigation/RootNavigator'
 
-const ADMIN_EMAIL = 'info@runyo.app'
+// Accounts die de Admin-sectie (importeerlog) te zien krijgen. Moet matchen met
+// ADMIN_EMAILS op de backend (runyo-auth) — daar zit de echte toegangscontrole.
+const ADMIN_EMAILS = ['info@runyo.app', 'luukvanm@gmail.com']
 
 export function SettingsScreen() {
   const insets     = useSafeAreaInsets()
@@ -63,7 +65,7 @@ export function SettingsScreen() {
           <PrefsSection />
         </Section>
 
-        {email === ADMIN_EMAIL && (
+        {email != null && ADMIN_EMAILS.includes(email) && (
           <Section title="Admin">
             <TouchableOpacity
               style={adminStyles.row}
