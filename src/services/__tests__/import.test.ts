@@ -86,7 +86,7 @@ describe('analyseSchemaFromUrl', () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ content: [{ text: rawResponse }] }),
+      text: async () => rawResponse,
     })
 
     await analyseSchemaFromUrl(
@@ -118,7 +118,7 @@ describe('analyseSchema (Excel mime)', () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ content: [{ text: rawResponse }] }),
+      text: async () => rawResponse,
     })
 
     await analyseSchema(

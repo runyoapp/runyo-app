@@ -168,6 +168,29 @@ export function parseRawResponse(raw: string): AnalyseResult {
   return { schemaTitle, wekenStr, piekStr, rapport, rows }
 }
 
+// De backend streamt de schema-tekst (text/plain) zodat lange generaties (~2 min)
+// de verbinding levend houden. Op web lezen we de stream chunk-voor-chunk voor
+// echte voortgang; op native (geen getReader) bufferen we het hele antwoord.
+async function readSchemaStream(res: Response, onProgress: (pct: number) => void): Promise<string> {
+  const body = (res as unknown as { body?: ReadableStream<Uint8Array> }).body
+  if (!body?.getReader) {
+    const raw = await res.text()
+    onProgress(95)
+    return raw
+  }
+  const reader  = body.getReader()
+  const decoder = new TextDecoder()
+  let raw = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    raw += decoder.decode(value, { stream: true })
+    // Echte voortgang, doorlopend vanaf ~40% (waar de wachttimer stopt) tot 95%.
+    onProgress(Math.min(95, 40 + Math.round((raw.length / 14000) * 55)))
+  }
+  return raw
+}
+
 export async function analyseSchema(
   fileB64: string,
   fileMime: string,
@@ -202,8 +225,10 @@ export async function analyseSchema(
     ]
   }
 
+  // Wachttimer: loopt tot 40% zolang de backend het document leest en de eerste
+  // tekst nog niet stroomt. Daarna neemt readSchemaStream de echte voortgang over.
   let pct = 0
-  const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 85); onProgress(pct) }, 200)
+  const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 40); onProgress(pct) }, 200)
 
   try {
     const token = await getToken()
@@ -220,10 +245,8 @@ export async function analyseSchema(
       const errBody = await res.json().catch(() => null)
       throw new Error(errBody?.error?.message ?? `Fout ${res.status}`)
     }
-    const json = await res.json() as { content: { text: string }[] }
-    const raw = json.content?.[0]?.text ?? ''
-
-    onProgress(95)
+    clearInterval(progressTimer)
+    const raw = await readSchemaStream(res, onProgress)
     return parseRawResponse(raw)
   } finally {
     clearInterval(progressTimer)
@@ -241,7 +264,7 @@ export async function analyseSchemaFromUrl(
   const userText = `Begindatum: ${startDate}.`
 
   let pct = 0
-  const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 85); onProgress(pct) }, 200)
+  const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 40); onProgress(pct) }, 200)
 
   try {
     const token = await getToken()
@@ -255,11 +278,12 @@ export async function analyseSchemaFromUrl(
         messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
       }),
     })
-    if (!res.ok) throw new Error(`Fout ${res.status}`)
-    const json = await res.json() as { content: { text: string }[] }
-    const raw = json.content?.[0]?.text ?? ''
-
-    onProgress(95)
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null)
+      throw new Error(errBody?.error?.message ?? `Fout ${res.status}`)
+    }
+    clearInterval(progressTimer)
+    const raw = await readSchemaStream(res, onProgress)
     return parseRawResponse(raw)
   } finally {
     clearInterval(progressTimer)

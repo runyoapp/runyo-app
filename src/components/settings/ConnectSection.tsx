@@ -9,6 +9,7 @@ import { createExportSheet } from '@/services/drive'
 import { createSchema, getMySchemas, renameSchema, deleteSchema } from '@/services/schemas'
 import type { Schema } from '@/services/schemas'
 import { ImportModal } from '@/screens/ImportModal'
+import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -323,14 +324,7 @@ export function ConnectSection() {
         )}
 
         {/* Tiles — altijd zichtbaar */}
-        <ConnectTile
-          primary
-          icon="✦"
-          title="Importeer eigen schema"
-          badge="Aanbevolen"
-          sub="PDF, Excel, foto of link"
-          onPress={() => setImportOpen(true)}
-        />
+        <ImportSchemaTile recommended onPress={() => setImportOpen(true)} />
         <ConnectTile
           icon="＋"
           title="Leeg schema aanmaken"

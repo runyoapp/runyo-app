@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
 import { RaceModal } from '@/screens/RaceModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
+import { ImportModal } from '@/screens/ImportModal'
+import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated, PanResponder } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -20,6 +22,7 @@ import type { Activity, ActivityType } from '@/types/activity'
 export function CalendarScreen() {
   const insets     = useSafeAreaInsets()
   const activities = useDataStore(s => s.activities)
+  const schemaId   = useDataStore(s => s.schemaId)
   const calYear    = useDataStore(s => s.calYear)
   const calMonth   = useDataStore(s => s.calMonth)
   const setCalDate = useDataStore(s => s.setCalDate)
@@ -31,6 +34,7 @@ export function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [importOpen,   setImportOpen]   = useState(false)
 
   function prevMonth() {
     if (calMonth === 0) setCalDate(calYear - 1, 11)
@@ -118,6 +122,14 @@ export function CalendarScreen() {
           />
         </View>
 
+        {/* Geen schema gekoppeld — zelfde importknop als de andere tabbladen */}
+        {!schemaId && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Geen schema gekoppeld</Text>
+            <ImportSchemaTile onPress={() => setImportOpen(true)} />
+          </View>
+        )}
+
         {/* Legend */}
         {monthTypes.length > 0 && (
           <View style={styles.legend}>
@@ -179,6 +191,10 @@ export function CalendarScreen() {
         visible={addModalOpen}
         prefillDate={selectedDate ?? undefined}
         onClose={() => setAddModalOpen(false)}
+      />
+      <ImportModal
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
       />
     </View>
   )

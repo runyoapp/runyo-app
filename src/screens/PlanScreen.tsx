@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-nati
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportModal } from '@/screens/ImportModal'
+import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
@@ -78,9 +79,7 @@ export function PlanScreen() {
           <View style={[styles.empty, { flex: 1 }]}>
             <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
             <Text style={styles.emptySub}>Importeer je trainingsplan om te beginnen.</Text>
-            <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
-              <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
-            </TouchableOpacity>
+            <ImportSchemaTile onPress={() => setImportOpen(true)} />
           </View>
         )}
 

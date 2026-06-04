@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native'
+import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
@@ -213,11 +214,7 @@ export function WeekScreen() {
               <Text style={styles.emptyText}>
                 {schemaId ? 'Geen trainingen deze week.' : 'Geen schema gekoppeld.'}
               </Text>
-              {!schemaId && (
-                <TouchableOpacity onPress={() => setImportOpen(true)} style={styles.emptyBtn}>
-                  <Text style={styles.emptyBtnText}>Schema koppelen →</Text>
-                </TouchableOpacity>
-              )}
+              {!schemaId && <ImportSchemaTile onPress={() => setImportOpen(true)} />}
             </View>
           ) : (
             weekData.map(({ date, rows }) =>

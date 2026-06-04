@@ -4,6 +4,7 @@ import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { FeedbackBadge } from '@/components/today/FeedbackSection'
+import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import type { Activity, ActivityType } from '@/types/activity'
 
 type Props = {
@@ -142,11 +143,7 @@ export function NoSchemaCard({ isSignedIn, onConnect, onLogin }: { isSignedIn: b
           <Text style={[styles.ctaText, { color: theme.accentInk }]}>Inloggen</Text>
         </TouchableOpacity>
       )}
-      {isSignedIn && (
-        <TouchableOpacity style={[styles.cta, { backgroundColor: theme.accent }]} onPress={onConnect}>
-          <Text style={[styles.ctaText, { color: theme.accentInk }]}>Schema koppelen</Text>
-        </TouchableOpacity>
-      )}
+      {isSignedIn && <ImportSchemaTile onPress={onConnect} />}
     </View>
   )
 }
