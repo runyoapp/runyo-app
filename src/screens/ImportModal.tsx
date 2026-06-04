@@ -66,21 +66,19 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
   const [showConfig,    setShowConfig]    = useState(false)
   const [loadingPhrase, setLoadingPhrase] = useState('schema lezen…')
 
+  // Wisselende tekst gekoppeld aan de echte voortgang: elke 20% een nieuwe fase,
+  // zodat het als progressie voelt i.p.v. willekeurig knipperen.
   useEffect(() => {
-    if (step !== 'processing' || progress < 85) return
+    if (step !== 'processing') return
     const phrases = [
-      'schema lezen…',
-      'activiteiten tellen…',
-      'planning verwerken…',
-      'weken indelen…',
-      'bijna klaar…',
+      'schema lezen…',       // 0–19%
+      'activiteiten tellen…', // 20–39%
+      'planning verwerken…',  // 40–59%
+      'weken indelen…',       // 60–79%
+      'bijna klaar…',         // 80–100%
     ]
-    let i = 0
-    const t = setInterval(() => {
-      i = (i + 1) % phrases.length
-      setLoadingPhrase(phrases[i])
-    }, 2200)
-    return () => clearInterval(t)
+    const i = Math.min(phrases.length - 1, Math.floor(progress / 20))
+    setLoadingPhrase(phrases[i])
   }, [step, progress])
 
   function reset() {
@@ -319,9 +317,7 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
         <View style={[styles.column, styles.centered, { paddingVertical: 48 }]}>
           <CircleProgress pct={progress} size={96} color={p.accent} />
           <Text style={[styles.processingTitle, { color: p.text }]}>{loadingPhrase}</Text>
-          {progress < 85 && (
-            <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
-          )}
+          <Text style={[styles.processingPct, { color: p.muted }]}>{progress}%</Text>
         </View>
       )}
 
