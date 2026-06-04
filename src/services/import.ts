@@ -236,7 +236,9 @@ export async function analyseSchema(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        _meta: { fileName, fileMime, fileB64 },
+        // Geen fileB64 hier: het bestand zit al in userContent. De backend
+        // leest het daar uit voor de import-log (scheelt de helft van de body).
+        _meta: { fileName, fileMime, fileSize: Math.round(fileB64.length * 0.75) },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -272,7 +274,7 @@ export async function analyseSchemaFromUrl(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        _meta: { fileName: url, fileMime: 'text/csv', fileB64: null },
+        _meta: { fileName: url, fileMime: 'text/csv' },
         url,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
