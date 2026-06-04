@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
-  Linking,
+  Alert,
   Platform,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import { getImportLog, importLogFileUrl, type ImportLogEntry } from '@/services/ai'
+import { getImportLog, downloadImportFile, type ImportLogEntry } from '@/services/ai'
 
 function formatTs(ts: string): string {
   const d = new Date(ts)
@@ -31,7 +31,7 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function EntryCard({ entry, index }: { entry: ImportLogEntry; index: number }) {
+function EntryCard({ entry }: { entry: ImportLogEntry }) {
   const theme = useTheme()
   const [expanded, setExpanded] = useState(false)
 
@@ -39,14 +39,14 @@ function EntryCard({ entry, index }: { entry: ImportLogEntry; index: number }) {
   const statusLabel = entry.ok ? '✓' : '✗'
 
   async function download() {
-    const url = importLogFileUrl(index)
-    if (Platform.OS === 'web') {
-      const a = document.createElement('a')
-      a.href = url
-      a.download = entry.fileName || 'import'
-      a.click()
-    } else {
-      await Linking.openURL(url)
+    if (Platform.OS !== 'web') {
+      Alert.alert('Alleen op web', 'Bestanden downloaden kan momenteel alleen via de webversie.')
+      return
+    }
+    try {
+      await downloadImportFile(entry.id, entry.fileName)
+    } catch (e: unknown) {
+      Alert.alert('Download mislukt', e instanceof Error ? e.message : 'Onbekende fout')
     }
   }
 
@@ -174,7 +174,7 @@ export function ImportLogScreen() {
           {entries.length === 0 ? (
             <Text style={[styles.empty, { color: theme.muted }]}>nog geen imports</Text>
           ) : (
-            entries.map((entry, i) => <EntryCard key={i} entry={entry} index={i} />)
+            entries.map((entry) => <EntryCard key={entry.id} entry={entry} />)
           )}
         </ScrollView>
       )}
