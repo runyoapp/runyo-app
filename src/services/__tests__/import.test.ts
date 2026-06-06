@@ -34,6 +34,10 @@ vi.mock('expo-image-picker', () => ({
   launchCameraAsync: vi.fn(),
   launchImageLibraryAsync: vi.fn(),
 }))
+vi.mock('expo-image-manipulator', () => ({
+  manipulateAsync: vi.fn(),
+  SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
+}))
 vi.mock('expo-file-system/legacy', () => ({
   readAsStringAsync: vi.fn(),
   EncodingType: { Base64: 'base64' },
@@ -46,6 +50,8 @@ import {
   analyseSchema,
   analyseSchemaFromUrl,
   importToBackend,
+  checkFileSize,
+  base64Bytes,
   IMPORT_BACKEND,
   SYSTEM_PROMPT,
 } from '../import'
@@ -136,6 +142,42 @@ describe('analyseSchema (Excel mime)', () => {
     const userContent = body.messages[0].content
     expect(userContent[0].type).toBe('text')
     expect(userContent[0].text).toContain('datum,type')
+  })
+})
+
+// ── 3b. checkFileSize (client-side grootte-check) ─────────────────────────────
+
+describe('checkFileSize', () => {
+  const MB = 1024 * 1024
+  const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+  it('accepts a normal PDF', () => {
+    expect(checkFileSize('application/pdf', 5 * MB).level).toBe('ok')
+  })
+
+  it('blocks a PDF over the 20 MB limit', () => {
+    const r = checkFileSize('application/pdf', 25 * MB)
+    expect(r.level).toBe('block')
+    expect(r.message).toContain('25 MB')
+    expect(r.message).toContain('max 20 MB')
+  })
+
+  it('warns (but does not block) a spreadsheet over 10 MB', () => {
+    const r = checkFileSize(XLSX, 12 * MB)
+    expect(r.level).toBe('warn')
+    expect(r.message).toContain('12 MB')
+  })
+
+  it('blocks a spreadsheet over the 20 MB limit', () => {
+    expect(checkFileSize(XLSX, 25 * MB).level).toBe('block')
+  })
+
+  it('does not warn a small spreadsheet', () => {
+    expect(checkFileSize(XLSX, 4 * MB).level).toBe('ok')
+  })
+
+  it('base64Bytes estimates original bytes from a base64 string', () => {
+    expect(base64Bytes('a'.repeat(1000))).toBe(750)
   })
 })
 

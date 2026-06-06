@@ -4,6 +4,7 @@
 
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
+import * as ImageManipulator from 'expo-image-manipulator'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as xlsx from 'xlsx'
 import { createSchema } from './schemas'
@@ -47,6 +48,48 @@ const XLSX_MIMES = [
   'application/vnd.ms-excel',
   'text/csv',
 ]
+
+const MB = 1024 * 1024
+// Harde grens vóór upload: ruim onder de request-limiet, zodat we niet blokkeren
+// wat eigenlijk nog zou lukken maar wel de "Failed to fetch"-randgevallen voorkomen.
+export const MAX_FILE_BYTES = 20 * MB
+// Spreadsheets worden server-side naar CSV omgezet; vanaf deze grootte waarschuwen
+// we dat die omzetting kan mislukken, zonder te blokkeren.
+export const EXCEL_WARN_BYTES = 10 * MB
+// Grote foto's downscalen naar deze langste zijde — ruim voldoende om een
+// schema-briefje te lezen en houdt de upload klein.
+const MAX_PHOTO_EDGE = 2000
+
+// base64-string → geschatte originele bytes (3 bytes per 4 tekens).
+export function base64Bytes(b64: string): number {
+  return Math.round(b64.length * 0.75)
+}
+
+function fmtMB(bytes: number): string {
+  const mb = bytes / MB
+  return mb < 10 ? mb.toFixed(1) : mb.toFixed(0)
+}
+
+export type SizeCheck = { level: 'ok' | 'warn' | 'block'; message: string }
+
+// Client-side grootte-check vóór upload. PDF/foto: harde grens 20 MB.
+// Spreadsheets: zelfde harde grens, plus een zachte waarschuwing vanaf 10 MB
+// omdat de CSV-omzetting bij grote bestanden kan mislukken.
+export function checkFileSize(fileMime: string, bytes: number): SizeCheck {
+  if (bytes > MAX_FILE_BYTES) {
+    return {
+      level: 'block',
+      message: `Dit bestand is te groot (${fmtMB(bytes)} MB) — max 20 MB. Tip: knip het schema in delen (bijv. alleen de komende weken), of exporteer het als Google Sheet en plak de link.`,
+    }
+  }
+  if (XLSX_MIMES.includes(fileMime) && bytes > EXCEL_WARN_BYTES) {
+    return {
+      level: 'warn',
+      message: `Dit is een groot bestand (${fmtMB(bytes)} MB). Het omzetten kan mislukken — lukt het niet, exporteer dan een kleiner tabblad of plak de link.`,
+    }
+  }
+  return { level: 'ok', message: '' }
+}
 
 // Het systeem-prompt stuurt Nederlandse type-namen (rust, kracht, mobiliteit, …).
 // Normaliseer naar de canonical ActivityType-enum zodat filters betrouwbaar werken.
@@ -110,19 +153,36 @@ export async function pickFile(): Promise<PickResult | null> {
   }
 }
 
+// Grote foto's (bv. 48MP) downscalen zodat ze niet de upload-limiet raken.
+// expo-image-picker comprimeert alleen de JPEG-kwaliteit, niet de afmetingen,
+// dus een foto kan ondanks quality 0.8 nog tientallen MB zijn.
+async function photoToB64(asset: ImagePicker.ImagePickerAsset): Promise<string> {
+  const longest = Math.max(asset.width ?? 0, asset.height ?? 0)
+  if (longest <= MAX_PHOTO_EDGE) return asset.base64 ?? ''
+  const resize = (asset.width ?? 0) >= (asset.height ?? 0)
+    ? { width: MAX_PHOTO_EDGE }
+    : { height: MAX_PHOTO_EDGE }
+  const out = await ImageManipulator.manipulateAsync(
+    asset.uri,
+    [{ resize }],
+    { base64: true, compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
+  )
+  return out.base64 ?? asset.base64 ?? ''
+}
+
 export async function pickPhoto(fromCamera = false): Promise<PickResult | null> {
   if (fromCamera) {
     const perm = await ImagePicker.requestCameraPermissionsAsync()
     if (!perm.granted) return null
     const result = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.8 })
     if (result.canceled || !result.assets?.[0]) return null
-    return { fileName: 'foto.jpg', fileMime: 'image/jpeg', fileB64: result.assets[0].base64 ?? '' }
+    return { fileName: 'foto.jpg', fileMime: 'image/jpeg', fileB64: await photoToB64(result.assets[0]) }
   }
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
   if (!perm.granted) return null
   const result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.8 })
   if (result.canceled || !result.assets?.[0]) return null
-  return { fileName: 'foto.jpg', fileMime: 'image/jpeg', fileB64: result.assets[0].base64 ?? '' }
+  return { fileName: 'foto.jpg', fileMime: 'image/jpeg', fileB64: await photoToB64(result.assets[0]) }
 }
 
 /**
@@ -238,7 +298,7 @@ export async function analyseSchema(
       body: JSON.stringify({
         // Geen fileB64 hier: het bestand zit al in userContent. De backend
         // leest het daar uit voor de import-log (scheelt de helft van de body).
-        _meta: { fileName, fileMime, fileSize: Math.round(fileB64.length * 0.75) },
+        _meta: { fileName, fileMime, fileSize: base64Bytes(fileB64) },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),

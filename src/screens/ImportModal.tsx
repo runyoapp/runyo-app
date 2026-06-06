@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet,
   TextInput, Switch,
@@ -9,7 +9,7 @@ import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
-import { pickFile, pickPhoto, analyseSchema, analyseSchemaFromUrl, importToBackend } from '@/services/import'
+import { pickFile, pickPhoto, analyseSchema, analyseSchemaFromUrl, importToBackend, checkFileSize, base64Bytes } from '@/services/import'
 import type { ParsedRow, AnalyseResult } from '@/services/import'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 
@@ -148,6 +148,14 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
 
   const preview: ParsedRow[] = result?.rows ?? []
 
+  // Client-side grootte-check: te grote bestanden blokkeren vóór upload,
+  // grote spreadsheets krijgen een zachte waarschuwing.
+  const sizeCheck = useMemo(
+    () => (source !== 'url' && fileB64 ? checkFileSize(fileMime, base64Bytes(fileB64)) : { level: 'ok' as const, message: '' }),
+    [source, fileB64, fileMime],
+  )
+  const sizeBlocked = sizeCheck.level === 'block'
+
   return (
     <ModalSheet visible={visible} title="Schema laden" onClose={() => { reset(); onClose() }}>
 
@@ -255,7 +263,11 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
 
           <Text style={[styles.fileNameBig, { color: p.text }]} numberOfLines={2}>{fileName}</Text>
           {source !== 'url' && !fileB64 && <Text style={[styles.loadingHint, { color: p.muted }]}>bestand laden…</Text>}
-          {(source === 'url' || fileB64) && <Text style={[styles.loadingHint, { color: p.accent }]}>✓ klaar om te analyseren</Text>}
+          {(source === 'url' || fileB64) && !sizeBlocked && <Text style={[styles.loadingHint, { color: p.accent }]}>✓ klaar om te analyseren</Text>}
+
+          {sizeCheck.message ? (
+            <Text style={[styles.sizeMsg, { color: sizeBlocked ? p.danger : p.muted }]}>{sizeCheck.message}</Text>
+          ) : null}
 
           {error ? <Text style={[styles.errorText, { color: p.danger }]}>{error}</Text> : null}
 
@@ -300,9 +312,9 @@ export function ImportModal({ visible, onClose, onSuccess }: { visible: boolean;
           )}
 
           <TouchableOpacity
-            style={[styles.ctaBtn, { backgroundColor: p.accent }, (source !== 'url' && !fileB64) && { opacity: 0.45 }]}
+            style={[styles.ctaBtn, { backgroundColor: p.accent }, ((source !== 'url' && !fileB64) || sizeBlocked) && { opacity: 0.45 }]}
             onPress={analyse}
-            disabled={source !== 'url' && !fileB64}
+            disabled={(source !== 'url' && !fileB64) || sizeBlocked}
           >
             <Text style={[styles.ctaBtnText, { color: p.accentInk }]}>schema analyseren →</Text>
           </TouchableOpacity>
@@ -384,6 +396,7 @@ const styles = StyleSheet.create({
   docFileName:      { fontFamily: Fonts.mono, fontSize: 8, letterSpacing: 1, marginTop: 4 },
   fileNameBig:      { fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.1, textAlign: 'center' },
   loadingHint:      { fontFamily: Fonts.mono, fontSize: 11 },
+  sizeMsg:          { fontFamily: Fonts.display, fontSize: 12, textAlign: 'center', lineHeight: 18 },
   errorText:        { fontFamily: Fonts.display, fontSize: 13 },
   configToggle:     { alignSelf: 'flex-start' },
   configToggleText: { fontFamily: Fonts.displayMedium, fontSize: 12 },
