@@ -2,22 +2,12 @@ import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useTheme } from '@/hooks/useTheme'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
+import { raceCountdown as countdown } from '@/utils/date'
 import type { Activity } from '@/types/activity'
 
 type Props = {
   activities: Activity[]
   onRacePress: (activity: Activity) => void
-}
-
-function countdown(dateStr: string): { val: string; unit: string } {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const race  = new Date(dateStr); race.setHours(0, 0, 0, 0)
-  const days  = Math.round((race.getTime() - today.getTime()) / 86400000)
-  if (days < 0)   return { val: String(Math.abs(days)), unit: 'd geleden' }
-  if (days === 0)  return { val: 'vandaag', unit: '🏁' }
-  if (days < 7)   return { val: String(days), unit: days === 1 ? 'dag' : 'dagen' }
-  const weeks = Math.round(days / 7)
-  return { val: String(weeks), unit: weeks === 1 ? 'wk' : 'wk' }
 }
 
 const MONTHS = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
@@ -98,7 +88,7 @@ export function RacesBar({ activities, onRacePress }: Props) {
                       {fmtDate(race.datum)}{race.isMainGoal ? ' · Hoofddoel' : ''}
                     </Text>
                   </View>
-                  <Text style={[styles.timelineDays, { color: theme.muted }]}>{rcd.val}{rcd.unit}</Text>
+                  <Text style={[styles.timelineDays, { color: theme.muted }]}>{rcd.val} {rcd.unit}</Text>
                 </TouchableOpacity>
               )
             })}

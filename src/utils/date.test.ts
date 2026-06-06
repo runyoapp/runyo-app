@@ -5,7 +5,33 @@ import {
   fromDateString,
   addDays,
   weekStart,
+  raceCountdown,
 } from './date'
+
+describe('raceCountdown', () => {
+  const inDays = (n: number) => toDateString(addDays(new Date(), n))
+
+  it('toont vandaag op dag 0', () => {
+    expect(raceCountdown(inDays(0))).toEqual({ val: 'vandaag', unit: '🏁' })
+  })
+  it('toont dagen onder 3 weken', () => {
+    expect(raceCountdown(inDays(1))).toEqual({ val: '1', unit: 'dag' })
+    expect(raceCountdown(inDays(6))).toEqual({ val: '6', unit: 'dagen' })
+    expect(raceCountdown(inDays(20))).toEqual({ val: '20', unit: 'dagen' })
+  })
+  it('toont weken van 3 t/m 7 weken (voluit)', () => {
+    expect(raceCountdown(inDays(21))).toEqual({ val: '3', unit: 'weken' })
+    expect(raceCountdown(inDays(49))).toEqual({ val: '7', unit: 'weken' })
+  })
+  it('toont maanden boven 7 weken', () => {
+    expect(raceCountdown(inDays(50))).toEqual({ val: '2', unit: 'maanden' })
+    expect(raceCountdown(inDays(90))).toEqual({ val: '3', unit: 'maanden' })
+  })
+  it('toont verleden met geleden', () => {
+    expect(raceCountdown(inDays(-1))).toEqual({ val: '1', unit: 'dag geleden' })
+    expect(raceCountdown(inDays(-3))).toEqual({ val: '3', unit: 'dagen geleden' })
+  })
+})
 
 describe('mondayIndex', () => {
   it('returns 0 for Monday', () => {

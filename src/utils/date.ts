@@ -77,3 +77,20 @@ export function getISOWeekNumber(date: Date): number {
   const jan4 = new Date(date.getFullYear(), 0, 4)
   return Math.ceil(((date.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7)
 }
+
+// Race-countdown weergave. Regel: < 3 weken → dagen, 3–7 weken → weken,
+// > 7 weken → maanden. Niets afgekort ('week'/'maand' voluit, geen 'wk').
+export function raceCountdown(dateStr: string): { val: string; unit: string } {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const race  = fromDateString(dateStr); race.setHours(0, 0, 0, 0)
+  const days  = Math.round((race.getTime() - today.getTime()) / 86400000)
+  if (days < 0)    return { val: String(Math.abs(days)), unit: Math.abs(days) === 1 ? 'dag geleden' : 'dagen geleden' }
+  if (days === 0)  return { val: 'vandaag', unit: '🏁' }
+  if (days < 21)   return { val: String(days), unit: days === 1 ? 'dag' : 'dagen' }   // < 3 weken
+  if (days <= 49) {                                                                    // 3–7 weken
+    const weeks = Math.round(days / 7)
+    return { val: String(weeks), unit: weeks === 1 ? 'week' : 'weken' }
+  }
+  const months = Math.round(days / 30)                                                 // > 7 weken
+  return { val: String(months), unit: months === 1 ? 'maand' : 'maanden' }
+}
