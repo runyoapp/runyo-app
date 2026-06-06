@@ -13,7 +13,6 @@ import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { FeedbackSection } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
 import { AppHeader } from '@/components/shared/AppHeader'
-import { Toast } from '@/components/shared/Toast'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportModal } from '@/screens/ImportModal'
@@ -159,7 +158,6 @@ export function TodayScreen() {
       )}
       </PageContainer>
 
-      <Toast />
       <DayDetailModal
         activity={selectedActivity}
         visible={!!selectedActivity}

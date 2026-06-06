@@ -86,7 +86,7 @@ export function WeekScreen() {
     // Optimistisch verplaatsen: de rij springt direct naar de juiste dag én kleur
     // (verleden → toekomst wordt meteen volle kleur i.p.v. pas na verversen).
     upsertActivity({ ...activity, datum: newDate })
-    showToast('Verplaatsen…')
+    showToast('Verplaatsen…', 15000)   // blijft staan tot succes/fout 'm vervangt
     try {
       const updated = await patchActivity(schemaId, activity.id, { datum: newDate })
       upsertActivity(updated)

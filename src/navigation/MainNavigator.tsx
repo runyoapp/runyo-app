@@ -10,6 +10,7 @@ import { CalendarScreen } from '@/screens/CalendarScreen'
 import { Fonts, GlassBg, LightTheme, DarkTheme, Spacing } from '@/constants/theme'
 import { useIsDesktop } from '@/hooks/useBreakpoint'
 import { useTheme } from '@/hooks/useTheme'
+import { Toast } from '@/components/shared/Toast'
 
 export type MainTabParamList = {
   Today:    undefined
@@ -122,6 +123,8 @@ export function MainNavigator() {
         <Tab.Screen name="Plan"     component={PlanScreen} />
         <Tab.Screen name="Calendar" component={CalendarScreen} />
       </Tab.Navigator>
+      {/* Globaal — toast werkt zo op elke tab, niet alleen op Vandaag */}
+      <Toast />
     </View>
   )
 }
