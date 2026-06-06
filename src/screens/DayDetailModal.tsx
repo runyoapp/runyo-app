@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, EditorTextField, EditorTextArea, ChipSelect,
+  FieldLabel, DateField, EditorTextField, EditorTextArea, ChipSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
@@ -215,6 +215,11 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
 
       {editing && (
         <View style={{ gap: Spacing.lg }}>
+          <View>
+            <FieldLabel>Datum</FieldLabel>
+            <DateField value={datum} onChange={setDatum} />
+          </View>
+
           <View>
             <FieldLabel>Type</FieldLabel>
             <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
