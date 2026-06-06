@@ -59,6 +59,10 @@ export function WeekScreen() {
   const cellRefs            = useRef<Map<string, View | null>>(new Map())
 
   const weekDates = getWeekDates(weekOffset)
+  // Altijd-actuele ref naar de nu getoonde week-datums, zodat de (gememoïseerde)
+  // sleep-callbacks de juiste week-cellen raadplegen, niet die van een vorige render.
+  const weekDatesRef = useRef<string[]>(weekDates)
+  weekDatesRef.current = weekDates
   const d0        = fromDateString(weekDates[0])
   const d6        = fromDateString(weekDates[6])
   const weekNum   = getISOWeekNumber(d0)
@@ -79,6 +83,9 @@ export function WeekScreen() {
   async function doReschedule(activity: Activity, newDate: string) {
     if (newDate === activity.datum) return
     if (!schemaId) return
+    // Optimistisch verplaatsen: de rij springt direct naar de juiste dag én kleur
+    // (verleden → toekomst wordt meteen volle kleur i.p.v. pas na verversen).
+    upsertActivity({ ...activity, datum: newDate })
     showToast('Verplaatsen…')
     try {
       const updated = await patchActivity(schemaId, activity.id, { datum: newDate })
@@ -87,13 +94,19 @@ export function WeekScreen() {
       const mn = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
       showToast(`✓ Verplaatst naar ${newDate.slice(8)} ${mn[parseInt(newDate.slice(5, 7)) - 1]}`)
     } catch {
+      upsertActivity(activity)   // herstel bij mislukking
       showToast('❌ Verplaatsen mislukt')
     }
   }
 
   const findHoveredDate = (pageX: number, pageY: number): string | null => {
-    for (const [date, rect] of cellRectsRef.current) {
-      if (pageX >= rect.x && pageX <= rect.x + rect.width &&
+    // Alleen de cellen van de NU getoonde week — anders winnen verouderde rects
+    // van eerder bezochte weken (zelfde schermpositie) en landt de drop op de
+    // verkeerde week.
+    for (const date of weekDatesRef.current) {
+      const rect = cellRectsRef.current.get(date)
+      if (rect &&
+          pageX >= rect.x && pageX <= rect.x + rect.width &&
           pageY >= rect.y && pageY <= rect.y + rect.height) {
         return date
       }
@@ -102,6 +115,13 @@ export function WeekScreen() {
   }
 
   const handleDragStart = useCallback((activity: Activity, pageX: number, pageY: number) => {
+    // Hermeet de drop-cellen van de huidige week vóór elke sleep — rects kunnen
+    // verouderd zijn na week-navigatie of scrollen.
+    for (const date of weekDatesRef.current) {
+      cellRefs.current.get(date)?.measureInWindow((x, y, width, height) => {
+        cellRectsRef.current.set(date, { x, y, width, height })
+      })
+    }
     draggingActivityRef.current = activity
     setDraggingId(activity.id)
     setDragPos({ x: pageX, y: pageY })
