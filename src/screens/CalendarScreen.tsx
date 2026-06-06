@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { RaceModal } from '@/screens/RaceModal'
+import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportModal } from '@/screens/ImportModal'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
@@ -33,6 +34,7 @@ export function CalendarScreen() {
   const swipeAnim  = useSwipeAnimation(monthKey)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [importOpen,   setImportOpen]   = useState(false)
 
@@ -153,7 +155,12 @@ export function CalendarScreen() {
               const colors = ActivityColors[row.type as ActivityType] ?? ActivityColors.run
               const label  = TYPE_DISPLAY[row.type as ActivityType]?.nl ?? row.type
               return (
-                <TouchableOpacity key={row.id} style={[styles.dayCard, { backgroundColor: theme.surface }]} activeOpacity={0.8}>
+                <TouchableOpacity
+                  key={row.id}
+                  style={[styles.dayCard, { backgroundColor: theme.surface }]}
+                  activeOpacity={0.8}
+                  onPress={() => row.type === 'race' ? setRaceActivity(row) : setSelectedActivity(row)}
+                >
                   <View style={[styles.dayCardBar, { backgroundColor: colors.text }]} />
                   <View style={styles.dayCardBody}>
                     <Text style={styles.dayCardLabel}>{label}</Text>
@@ -186,6 +193,11 @@ export function CalendarScreen() {
         activity={raceActivity}
         visible={!!raceActivity}
         onClose={() => setRaceActivity(null)}
+      />
+      <DayDetailModal
+        activity={selectedActivity}
+        visible={!!selectedActivity}
+        onClose={() => setSelectedActivity(null)}
       />
       <AddActivityModal
         visible={addModalOpen}
