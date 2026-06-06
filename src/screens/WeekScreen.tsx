@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, PanResponder } from 'react-native'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { ImportModal } from '@/screens/ImportModal'
 import { useQueryClient } from '@tanstack/react-query'
@@ -135,6 +135,17 @@ export function WeekScreen() {
 
   const draggingActivity = draggingActivityRef.current
 
+  // Zijwaartse swipe → week vooruit/terug. Claimt alleen horizontale bewegingen
+  // (dx > dy) zodat verticaal scrollen blijft werken, en niet tijdens een sleep.
+  const weekSwipe = PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, g) =>
+      !draggingId && Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
+    onPanResponderRelease: (_, g) => {
+      if (Math.abs(g.dx) > 50) setWeekOffset(weekOffset + (g.dx < 0 ? 1 : -1))
+    },
+  })
+
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <PageContainer>
@@ -207,6 +218,7 @@ export function WeekScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!draggingId}
+        {...weekSwipe.panHandlers}
       >
         <Animated.View style={swipeAnim.style}>
           {weekData.length === 0 ? (

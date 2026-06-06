@@ -51,6 +51,9 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const removeActivity = useDataStore(s => s.removeActivity)
+  // Live versie uit de store — zo blijft de weergave (o.a. beoordeling) actueel
+  // nadat upsertActivity de activiteit heeft bijgewerkt; de prop is een snapshot.
+  const liveActivity   = useDataStore(s => s.activities.find(a => a.id === activity?.id))
   const showToast      = useUiStore(s => s.showToast)
 
   const [editing,         setEditing]         = useState(false)
@@ -79,7 +82,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   }, [activity?.id])
 
   if (!activity) return null
-  const act = activity
+  const act = liveActivity ?? activity
 
   const date      = fromDateString(act.datum)
   const dayLabel  = `${DAYS_NL[mondayIndex(date)]} ${date.getDate()} ${MONTHS_FULL_NL[date.getMonth()]}`
