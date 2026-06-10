@@ -71,11 +71,6 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
         </Text>
       )}
 
-      {/* Progress line: 3px, mute → mint — spec: brand.md §7 Workout card */}
-      <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
-        <View style={[styles.progressFill, { backgroundColor: theme.accent }]} />
-      </View>
-
       {/* 3-metric row: pace / hr / duur — Sora 700 / 19px */}
       {metrics.length > 0 && (
         <View style={styles.metrics}>
@@ -156,8 +151,6 @@ const styles = StyleSheet.create({
   heroNum:        { fontFamily: Fonts.displayBold, fontSize: 56, letterSpacing: -2.5, lineHeight: 60 },
   heroUnit:       { fontFamily: Fonts.displayMedium, fontSize: 20 },
   subtitle:       { fontFamily: Fonts.displaySemiBold, fontSize: 18, letterSpacing: -0.3 },
-  progressTrack:  { height: 3, borderRadius: 2, overflow: 'hidden' },
-  progressFill:   { width: '36%', height: '100%', borderRadius: 2 },
   metrics:        { flexDirection: 'row', gap: Spacing.xl },
   metric:         { gap: 2 },
   metricLabel:    { fontFamily: Fonts.display, fontSize: 12, letterSpacing: -0.1 },
