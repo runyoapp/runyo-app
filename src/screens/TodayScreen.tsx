@@ -8,7 +8,7 @@ import { useActivities } from '@/hooks/useActivities'
 import { useTodayData } from '@/hooks/useTodayData'
 import { useDaySwipe } from '@/hooks/useDaySwipe'
 import { DayStrip } from '@/components/today/DayStrip'
-import { HeroCard, RestCard, NoSchemaCard } from '@/components/today/HeroCard'
+import { HeroCard, RestCard, WorkCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { FeedbackSection } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
@@ -40,7 +40,7 @@ export function TodayScreen() {
     isSignedIn, dateStr, dayLabel, dayOffset, setDayOffset,
     schemaId,
     upsertActivity, activities,
-    activeRows, isRest, fbRow, tmrRow,
+    activeRows, isRest, isWork, fbRow, tmrRow,
   } = useTodayData()
 
   const { isLoading }  = useActivities()
@@ -116,6 +116,8 @@ export function TodayScreen() {
           <View style={styles.loadingRow}>
             <Text style={styles.loadingText}>Laden…</Text>
           </View>
+        ) : isWork ? (
+          <WorkCard />
         ) : isRest ? (
           <RestCard />
         ) : (

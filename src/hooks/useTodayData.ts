@@ -19,6 +19,8 @@ export type TodayData = {
   activeRows: Activity[]
   mainRow: Activity | null
   isRest: boolean
+  isWork: boolean
+  workRow: Activity | null
   fbRow: Activity | null
   tmrRow: Activity | null
 }
@@ -52,6 +54,10 @@ export function useTodayData(): TodayData {
   const activeRows = todayRows.filter(a => a.type !== 'rest' && a.type !== 'work')
   const mainRow    = activeRows[0] ?? null
   const isRest     = activeRows.length === 0
+  // C69: work-only dag = wel een werk-rij, géén actieve training. Bij een
+  // gemengde dag (werk + training) zijn er activeRows → gewone HeroCard.
+  const workRow    = todayRows.find(a => a.type === 'work') ?? null
+  const isWork     = isRest && workRow != null
   const fbRow      = activeRows[0] ?? null
 
   const tmrDate = addDays(new Date(), 1)
@@ -74,6 +80,8 @@ export function useTodayData(): TodayData {
     activeRows,
     mainRow,
     isRest,
+    isWork,
+    workRow,
     fbRow,
     tmrRow,
   }

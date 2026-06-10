@@ -121,6 +121,20 @@ export function RestCard() {
   )
 }
 
+export function WorkCard() {
+  const theme = useTheme()
+  return (
+    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={styles.catTag}>
+        <View style={[styles.dot, { backgroundColor: ActivityColors.work.text }]} />
+        <Text style={[styles.catLabel, { color: theme.text2 }]}>Werk</Text>
+      </View>
+      <Text style={[styles.heroNum, { color: theme.text, fontSize: 40 }]}>💼</Text>
+      <Text style={[styles.subtitle, { color: theme.muted }]}>Werkdag — geen training gepland.</Text>
+    </View>
+  )
+}
+
 export function NoSchemaCard({ isSignedIn, onConnect, onLogin }: { isSignedIn: boolean; onConnect: () => void; onLogin?: () => void }) {
   const theme = useTheme()
   return (
