@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, PanResponder } from 'react-native'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
-import { ImportModal } from '@/screens/ImportModal'
+import { ImportWizard } from '@/screens/import/ImportWizard'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -297,7 +297,7 @@ export function WeekScreen() {
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
       />
-      <ImportModal
+      <ImportWizard
         visible={importOpen}
         onClose={() => setImportOpen(false)}
       />

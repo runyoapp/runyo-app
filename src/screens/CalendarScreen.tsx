@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { RaceModal } from '@/screens/RaceModal'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
-import { ImportModal } from '@/screens/ImportModal'
+import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated, PanResponder } from 'react-native'
@@ -204,7 +204,7 @@ export function CalendarScreen() {
         prefillDate={selectedDate ?? undefined}
         onClose={() => setAddModalOpen(false)}
       />
-      <ImportModal
+      <ImportWizard
         visible={importOpen}
         onClose={() => setImportOpen(false)}
       />

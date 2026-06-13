@@ -15,7 +15,7 @@ import { WeatherWidget } from '@/components/today/WeatherWidget'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
-import { ImportModal } from '@/screens/ImportModal'
+import { ImportWizard } from '@/screens/import/ImportWizard'
 import { RaceModal } from '@/screens/RaceModal'
 import { patchActivity } from '@/services/activities'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
@@ -175,9 +175,10 @@ export function TodayScreen() {
         visible={!!raceActivity}
         onClose={() => setRaceActivity(null)}
       />
-      <ImportModal
+      <ImportWizard
         visible={importOpen}
         onClose={() => setImportOpen(false)}
+        onSuccess={() => setImportOpen(false)}
       />
     </View>
   )

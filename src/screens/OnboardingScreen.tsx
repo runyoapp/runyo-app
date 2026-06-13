@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { ImportModal } from '@/screens/ImportModal'
+import { ImportWizard } from '@/screens/import/ImportWizard'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 
 export function OnboardingScreen() {
@@ -20,7 +20,7 @@ export function OnboardingScreen() {
           <Text style={styles.btnSecondaryText}>Eerst verkennen</Text>
         </TouchableOpacity>
       </View>
-      <ImportModal
+      <ImportWizard
         visible={importOpen}
         onClose={() => { setImportOpen(false); setOnboardingDone() }}
       />

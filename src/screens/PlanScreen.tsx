@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
-import { ImportModal } from '@/screens/ImportModal'
+import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -146,7 +146,7 @@ export function PlanScreen() {
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
       />
-      <ImportModal
+      <ImportWizard
         visible={importOpen}
         onClose={() => setImportOpen(false)}
       />

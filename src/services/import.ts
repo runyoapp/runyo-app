@@ -1,6 +1,6 @@
 // runyo schema import service — pure orchestration, no UI imports.
 // All I/O with the filesystem, image picker, and backend lives here.
-// The ImportModal / ImportFlow screen is the only caller.
+// The ImportWizard screen is the only caller.
 
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'

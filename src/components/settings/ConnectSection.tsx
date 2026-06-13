@@ -8,7 +8,7 @@ import { syncActivitiesToSheet } from '@/services/sheets'
 import { createExportSheet } from '@/services/drive'
 import { createSchema, getMySchemas, renameSchema, deleteSchema } from '@/services/schemas'
 import type { Schema } from '@/services/schemas'
-import { ImportModal } from '@/screens/ImportModal'
+import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -333,7 +333,7 @@ export function ConnectSection() {
         />
         {creating && <ActivityIndicator color={LightTheme.accent} />}
 
-        <ImportModal
+        <ImportWizard
           visible={importOpen}
           onClose={() => setImportOpen(false)}
           onSuccess={() => {
