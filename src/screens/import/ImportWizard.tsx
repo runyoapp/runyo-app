@@ -4,7 +4,7 @@
 import { useRef, useState, useCallback } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity, ScrollView,
-  ActivityIndicator, StyleSheet,
+  ActivityIndicator, StyleSheet, Animated,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useQueryClient } from '@tanstack/react-query'
@@ -213,7 +213,9 @@ export function ImportWizard({
       case 'confirm': {
         const icon = data.source === 'photo' ? 'photo' : data.source === 'excel' ? 'sheet' : 'pdf'
         const tone = sizeCheck.level === 'block' ? 'error' : sizeCheck.level === 'warn' ? 'warn' : 'ok'
-        const statusTxt = sizeCheck.level === 'block' ? 'Te groot' : sizeCheck.level === 'warn' ? 'Groot bestand' : 'Klaar'
+        const statusBase = sizeCheck.level === 'block' ? 'Te groot' : sizeCheck.level === 'warn' ? 'Groot bestand' : 'Klaar'
+        const sizeMB = (base64Bytes(data.fileB64) / (1024 * 1024)).toFixed(1)
+        const statusTxt = `${statusBase} · ${sizeMB} MB`
         return (
           <View style={s.fill}>
             <StepHead t={t} title="Controleer je bestand" sub="Dit is het bestand dat runyo gaat analyseren." />
@@ -254,7 +256,7 @@ export function ImportWizard({
               <View style={[s.padH20, { paddingTop: 20 }]}>
                 <View style={s.dayHeadRow}>
                   <Text style={[s.dayHeadTitle, { color: t.text }]}>Jouw trainingsdagen</Text>
-                  <Text style={[s.dayHeadCount, { color: count > 0 ? t.accent : t.muted }]}>{count > 0 ? `${count} dagen per week` : 'nog niets gekozen'}</Text>
+                  <Text style={[s.dayHeadCount, { color: count > 0 ? t.accent : t.muted }]}>{count === 0 ? 'nog niets gekozen' : count === 1 ? '1 dag per week' : `${count} dagen per week`}</Text>
                 </View>
                 <DaySelector t={t} active={chooseDays} onToggle={i => {
                   setChooseDays(prev => {
@@ -276,10 +278,10 @@ export function ImportWizard({
           <View style={[s.fill, s.center, { paddingHorizontal: 32 }]}>
             <Ring t={t} pct={flow.aPct} />
             <Text style={[s.analyzePhase, { color: t.text }]}>{analyzePhase(flow.aPct)}</Text>
-            <Text style={[s.analyzeSub, { color: t.muted }]}>runyo leest je schema en deelt het in weken. Dit duurt meestal een halve tot één minuut.</Text>
+            <Text style={[s.analyzeSub, { color: t.muted }]}>runyo leest je schema en deelt het in weken. Dit kan enkele minuten duren.</Text>
             {flow.timedOut ? (
               <View style={{ marginTop: 24, width: '100%' }}>
-                <HintRow t={t} tone="warn">Dit duurt langer dan verwacht. Misschien hapert je verbinding - je kunt het opnieuw proberen.</HintRow>
+                <HintRow t={t} tone="warn">Dit duurt langer dan verwacht. Misschien hapert je verbinding. "Opnieuw proberen" start de analyse helemaal opnieuw - geef het anders nog even de tijd.</HintRow>
               </View>
             ) : null}
           </View>
@@ -437,9 +439,9 @@ export function ImportWizard({
       <SafeAreaView style={[s.root, { backgroundColor: t.bg }]} edges={['top', 'bottom']}>
         <WizardTopBar t={t} phaseIndex={flow.phaseIndex} showBack={flow.canBack} showClose={flow.canClose}
           onBack={flow.back} onClose={handleClose} />
-        <View style={s.body}>
+        <Animated.View style={[s.body, flow.animStyle]}>
           {renderBody()}
-        </View>
+        </Animated.View>
         {renderCTA()}
         {flow.closing ? (
           <AbortSheet t={t} onContinue={() => flow.setClosing(false)} onAbort={() => { flow.setClosing(false); close() }} />
