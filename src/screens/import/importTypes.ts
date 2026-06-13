@@ -91,6 +91,21 @@ export function navJumpBackTo(hist: Step[], id: Step): Step[] {
   return i >= 0 ? hist.slice(0, i + 1) : [...hist, id]
 }
 
+// Start de analyse altijd vanaf trainingDays. analyze + de fout-eindes (empty/
+// analyzeError) zijn transient: ze horen niet in de terug-historie, anders strandt
+// "terug" vanuit review/empty/analyzeError op een oud analyse-percentage.
+export function navToAnalyze(hist: Step[]): Step[] {
+  const i = hist.indexOf('trainingDays')
+  const base = i >= 0 ? hist.slice(0, i + 1) : hist
+  return [...base, 'analyze']
+}
+
+// Vervang de huidige (transient) stap door een andere, zodat "terug" de analyse
+// overslaat: analyze → review/empty/analyzeError landt zo direct op trainingDays.
+export function navReplace(hist: Step[], next: Step): Step[] {
+  return hist.length > 0 ? [...hist.slice(0, -1), next] : [next]
+}
+
 export function navRestart(): Step[] {
   return ['source']
 }

@@ -4,13 +4,21 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Animated, AccessibilityInfo } from 'react-native'
+import { toDateString } from '@/utils/date'
 import {
-  navGo, navBack, navJumpBackTo, navRestart, currentStep,
+  navGo, navBack, navJumpBackTo, navToAnalyze, navReplace, navRestart, currentStep,
   PHASE_OF, NO_BACK, NO_CLOSE,
   type Step, type WizardData, type DayMode,
 } from './importTypes'
 
-const TODAY_ISO = () => new Date().toISOString().slice(0, 10)
+// Default-startdatum = eerstvolgende maandag (incl. vandaag als dat een maandag is).
+// Schema's lopen maandag-zondag; starten op een maandag houdt de weken uitgelijnd.
+const NEXT_MONDAY_ISO = () => {
+  const d = new Date()
+  const dow = (d.getDay() + 6) % 7 // 0=ma … 6=zo
+  d.setDate(d.getDate() + (dow === 0 ? 0 : 7 - dow))
+  return toDateString(d)
+}
 
 const INITIAL_DATA: WizardData = {
   source: 'pdf',
@@ -18,7 +26,7 @@ const INITIAL_DATA: WizardData = {
   fileB64: '',
   fileMime: '',
   fileName: '',
-  startDate: TODAY_ISO(),
+  startDate: NEXT_MONDAY_ISO(),
   dayMode: { mode: 'keep' },
   result: null,
   error: '',
@@ -32,7 +40,6 @@ export function useImportFlow() {
   // Transiente fase-state.
   const [aPct, setAPct] = useState(0)
   const [showCancel, setShowCancel] = useState(false)
-  const [timedOut, setTimedOut] = useState(false)
   const [savedCount, setSavedCount] = useState(0)
   const [closing, setClosing] = useState(false)
 
@@ -60,12 +67,16 @@ export function useImportFlow() {
   const go = useCallback((next: Step) => { dirRef.current = 1; setHist(h => navGo(h, next)) }, [])
   const back = useCallback(() => { dirRef.current = -1; setHist(h => navBack(h)) }, [])
   const jumpBackTo = useCallback((id: Step) => { dirRef.current = -1; setHist(h => navJumpBackTo(h, id)) }, [])
+  // Analyse starten (altijd vanaf trainingDays) en de transient analyse-stap
+  // vervangen door een eind-stap, zodat "terug" nooit op een oud percentage strandt.
+  const goAnalyze = useCallback(() => { dirRef.current = 1; setHist(h => navToAnalyze(h)) }, [])
+  const replace = useCallback((next: Step) => { dirRef.current = 1; setHist(h => navReplace(h, next)) }, [])
 
   const restart = useCallback(() => {
     dirRef.current = -1
     setHist(navRestart())
     setData(INITIAL_DATA)
-    setAPct(0); setShowCancel(false); setTimedOut(false); setSavedCount(0); setClosing(false)
+    setAPct(0); setShowCancel(false); setSavedCount(0); setClosing(false)
   }, [])
 
   const setDayMode = useCallback((dayMode: DayMode) => patch({ dayMode }), [patch])
@@ -74,10 +85,9 @@ export function useImportFlow() {
     step, phaseIndex, canBack, canClose,
     animStyle: { transform: [{ translateX }] },
     data, patch, setDayMode,
-    go, back, jumpBackTo, restart,
+    go, back, jumpBackTo, goAnalyze, replace, restart,
     aPct, setAPct,
     showCancel, setShowCancel,
-    timedOut, setTimedOut,
     savedCount, setSavedCount,
     closing, setClosing,
   }

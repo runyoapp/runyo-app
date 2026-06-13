@@ -18,11 +18,11 @@ import {
 } from '@/services/import'
 import type { DayMode } from '@/services/import'
 import { listActivities } from '@/services/activities'
-import { DateField } from '@/components/shared/editor'
 import {
   WizardTopBar, StepHead, ChoiceTile, PinnedCTA, HintRow, MailHint,
   FileRow, ModeOption, DaySelector,
 } from './components/atoms'
+import { WeekStartPicker } from './components/WeekStartPicker'
 import { Ring, WeekGroup, ReviewSummary, ReviewLegend } from './components/review'
 import { AbortSheet } from './components/AbortSheet'
 import { useImportFlow } from './useImportFlow'
@@ -90,10 +90,11 @@ export function ImportWizard({
   // ── Analyse ────────────────────────────────────────────────────────────────
   async function runAnalyze() {
     const runId = ++analyzeRun.current
-    flow.setAPct(0); flow.setShowCancel(false); flow.setTimedOut(false)
-    flow.go('analyze')
-    const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 30_000)
-    const timeoutTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setTimedOut(true) }, 60_000)
+    flow.setAPct(0); flow.setShowCancel(false)
+    flow.goAnalyze()
+    // Annuleren pas na 3 min tonen: analyses kunnen legitiem enkele minuten duren,
+    // en wie te vroeg een knop ziet, drukt erop en moet opnieuw wachten.
+    const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 180_000)
     const onProg = (pct: number) => { if (analyzeRun.current === runId) flow.setAPct(pct / 100) }
     try {
       const analysed = data.source === 'sheet'
@@ -102,14 +103,14 @@ export function ImportWizard({
       if (analyzeRun.current !== runId) return // geannuleerd
       flow.patch({ result: analysed, error: '' })
       flow.setAPct(1)
-      flow.go('review')
+      flow.replace('review')
     } catch (e) {
       if (analyzeRun.current !== runId) return
       const msg = (e as Error)?.message ?? ''
-      if (/geen schema gevonden/i.test(msg)) { flow.go('empty') }
-      else { flow.patch({ error: msg || 'Analyse mislukt' }); flow.go('analyzeError') }
+      if (/geen schema gevonden/i.test(msg)) { flow.replace('empty') }
+      else { flow.patch({ error: msg || 'Analyse mislukt' }); flow.replace('analyzeError') }
     } finally {
-      clearTimeout(cancelTimer); clearTimeout(timeoutTimer)
+      clearTimeout(cancelTimer)
     }
   }
 
@@ -230,13 +231,15 @@ export function ImportWizard({
       }
       case 'startDate':
         return (
-          <View style={s.fill}>
-            <StepHead t={t} title="Wanneer begint je schema?" sub="Kies de maandag - of startdag - waarop week 1 begint. Vanaf daar rolt runyo alle weken automatisch vooruit." />
-            <View style={[s.padH20, { paddingTop: 24 }]}>
-              <DateField value={data.startDate} onChange={v => flow.patch({ startDate: v })} />
+          <ScrollView style={s.fill} contentContainerStyle={{ paddingBottom: 16 }}>
+            <StepHead t={t} title="In welke week begint je schema?" sub="Kies een dag in de beginweek. runyo laat week 1 op de maandag van die week starten en rolt vanaf daar alle weken vooruit." />
+            <View style={[s.padH20, { paddingTop: 20 }]}>
+              <WeekStartPicker value={data.startDate} onChange={v => flow.patch({ startDate: v })} t={t} />
+              <View style={{ marginTop: 16 }}>
+                <HintRow t={t}>Tik op een dag en runyo kiest automatisch de maandag van die week - zo blijven alle weken netjes op elkaar aansluiten.</HintRow>
+              </View>
             </View>
-            <View style={s.flex1} />
-          </View>
+          </ScrollView>
         )
       case 'trainingDays': {
         const choose = data.dayMode.mode === 'choose'
@@ -279,11 +282,6 @@ export function ImportWizard({
             <Ring t={t} pct={flow.aPct} />
             <Text style={[s.analyzePhase, { color: t.text }]}>{analyzePhase(flow.aPct)}</Text>
             <Text style={[s.analyzeSub, { color: t.muted }]}>runyo leest je schema en deelt het in weken. Dit kan enkele minuten duren.</Text>
-            {flow.timedOut ? (
-              <View style={{ marginTop: 24, width: '100%' }}>
-                <HintRow t={t} tone="warn">Dit duurt langer dan verwacht. Misschien hapert je verbinding. "Opnieuw proberen" start de analyse helemaal opnieuw - geef het anders nog even de tijd.</HintRow>
-              </View>
-            ) : null}
           </View>
         )
       case 'review': {
@@ -395,18 +393,14 @@ export function ImportWizard({
         return <PinnedCTA t={t} label="Schema analyseren" disabled={zero} hint={zero ? 'Kies minstens één trainingsdag om door te gaan.' : null} onPress={runAnalyze} />
       }
       case 'analyze':
-        return (
+        return flow.showCancel ? (
           <View style={s.analyzeFoot}>
-            {flow.timedOut ? (
-              <TouchableOpacity activeOpacity={0.85} onPress={runAnalyze} style={[s.retryBtn, { backgroundColor: t.text }]}>
-                <Text style={[s.retryTxt, { color: t.bg }]}>Opnieuw proberen</Text>
-              </TouchableOpacity>
-            ) : null}
-            {flow.showCancel ? (
-              <TouchableOpacity activeOpacity={0.6} onPress={cancelAnalyze}><Text style={[s.cancelTxt, { color: t.muted }]}>Annuleren</Text></TouchableOpacity>
-            ) : null}
+            <TouchableOpacity activeOpacity={0.85} onPress={cancelAnalyze}
+              style={[s.cancelBtn, { backgroundColor: t.surface, borderColor: t.border }]}>
+              <Text style={[s.cancelBtnTxt, { color: t.text }]}>Annuleren en aanpassen</Text>
+            </TouchableOpacity>
           </View>
-        )
+        ) : null
       case 'review':
         return <PinnedCTA t={t} label="Schema importeren" secondary="← Opnieuw analyseren" onSecondary={() => flow.jumpBackTo('trainingDays')} onPress={runSave} />
       case 'done':
@@ -468,9 +462,8 @@ const s = StyleSheet.create({
   analyzePhase: { fontFamily: Fonts.displaySemiBold, fontSize: 18, letterSpacing: -0.4, marginTop: 28 },
   analyzeSub: { fontFamily: Fonts.display, fontSize: 13, textAlign: 'center', lineHeight: 19, marginTop: 8, maxWidth: 250 },
   analyzeFoot: { paddingHorizontal: 20, paddingBottom: 30, alignItems: 'center', gap: 16 },
-  retryBtn: { width: '100%', height: 52, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  retryTxt: { fontFamily: Fonts.displayBold, fontSize: 15.5, letterSpacing: -0.2 },
-  cancelTxt: { fontFamily: Fonts.displayMedium, fontSize: 14 },
+  cancelBtn: { width: '100%', height: 52, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  cancelBtnTxt: { fontFamily: Fonts.displaySemiBold, fontSize: 15, letterSpacing: -0.2 },
   savingCount: { fontFamily: Fonts.mono, fontSize: 12, marginTop: 8 },
   // done
   doneCheck: { width: 76, height: 76, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },

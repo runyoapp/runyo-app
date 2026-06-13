@@ -7,31 +7,39 @@ const row = (datum: string, type: string, titel = '', km: number | null = null, 
 })
 
 describe('buildReviewWeeks', () => {
-  it('groups rows into 7-day weeks from the start date', () => {
+  it('groups rows into Monday-aligned calendar weeks', () => {
+    // 2026-09-01 is een dinsdag → week 1 verankert op maandag 2026-08-31.
     const rows: ParsedRow[] = [
-      row('2026-09-01', 'run', 'Easy', 10),
-      row('2026-09-03', 'run', 'Interval', 9),
-      row('2026-09-07', 'run', 'Long', 18),
-      row('2026-09-08', 'run', 'Easy', 11), // week 2
+      row('2026-09-01', 'run', 'Easy', 10),     // di, week 1
+      row('2026-09-03', 'run', 'Interval', 9),  // do, week 1
+      row('2026-09-07', 'run', 'Long', 18),     // ma, week 2
+      row('2026-09-08', 'run', 'Easy', 11),     // di, week 2
     ]
     const weeks = buildReviewWeeks(rows, '2026-09-01')
     expect(weeks).toHaveLength(2)
     expect(weeks[0].num).toBe(1)
     expect(weeks[0].days).toHaveLength(7)
-    expect(weeks[0].trainingCount).toBe(3)
-    expect(weeks[0].km).toBe(37)
-    // gaten worden rust
-    expect(weeks[0].days[1].isRest).toBe(true)
-    expect(weeks[1].days[0].titel).toBe('Easy')
+    // week 1 = ma 31 aug t/m zo 6 sep → alleen di + do zijn trainingen
+    expect(weeks[0].trainingCount).toBe(2)
+    expect(weeks[0].km).toBe(19)
+    expect(weeks[0].days[0].isRest).toBe(true)   // ma 31 aug = gat → rust
+    expect(weeks[0].days[1].titel).toBe('Easy')  // di 1 sep
+    expect(weeks[1].days[0].titel).toBe('Long')  // ma 7 sep
   })
 
-  it('returns empty for no rows or invalid date', () => {
+  it('returns empty for no rows', () => {
     expect(buildReviewWeeks([], '2026-09-01')).toEqual([])
-    expect(buildReviewWeeks([row('2026-09-01', 'run')], 'bad')).toEqual([])
+  })
+
+  it('anchors on the data, ignoring an invalid start date', () => {
+    const weeks = buildReviewWeeks([row('2026-09-07', 'run', 'X', 5)], 'bad')
+    expect(weeks).toHaveLength(1)
+    expect(weeks[0].days[0].titel).toBe('X') // ma 7 sep = dag 0 van de week
   })
 
   it('carries the needsCheck flag through to the day', () => {
-    const weeks = buildReviewWeeks([row('2026-09-01', 'run', 'X', 5, true)], '2026-09-01')
+    // maandag → valt op dag 0 van de week
+    const weeks = buildReviewWeeks([row('2026-09-07', 'run', 'X', 5, true)], '2026-09-07')
     expect(weeks[0].days[0].needsCheck).toBe(true)
   })
 })

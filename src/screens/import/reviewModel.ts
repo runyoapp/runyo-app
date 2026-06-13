@@ -36,15 +36,21 @@ function rangeLabel(start: Date, end: Date): string {
 }
 
 /**
- * Groepeer de rijen in weken van 7 dagen vanaf startDate. Rijen met een datum
- * vóór de startdatum of na de laatste volle week vallen in de dichtstbijzijnde week
- * op datum-volgorde; in de praktijk levert de analyse al chronologische weken.
+ * Groepeer de rijen in kalender-weken (maandag-zondag). We verankeren op de maandag
+ * van de week van de éérste rij — niet blind op startDate — zodat de weken altijd
+ * netjes uitlijnen, ook als de gekozen startdag geen maandag is. Zo verschijnt er
+ * geen losse "extra week" meer wanneer een race net over een 7-daags blok valt.
  */
 export function buildReviewWeeks(rows: ParsedRow[], startDate: string): ReviewWeek[] {
-  const start = fromDateString(startDate)
-  if (isNaN(start.getTime()) || rows.length === 0) return []
+  if (rows.length === 0) return []
 
   const sorted = [...rows].sort((a, b) => a.datum.localeCompare(b.datum))
+  const firstValid = sorted.find(r => !isNaN(fromDateString(r.datum).getTime()))
+  const anchorDate = firstValid ? fromDateString(firstValid.datum) : fromDateString(startDate)
+  if (isNaN(anchorDate.getTime())) return []
+
+  // Terug naar de maandag van die week (0=ma … 6=zo).
+  const start = addDays(anchorDate, -((anchorDate.getDay() + 6) % 7))
   const last = fromDateString(sorted[sorted.length - 1].datum)
   const spanDays = Math.max(0, Math.round((last.getTime() - start.getTime()) / 86_400_000))
   const weekCount = Math.floor(spanDays / 7) + 1

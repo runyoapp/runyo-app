@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  navGo, navBack, navJumpBackTo, navRestart, currentStep,
+  navGo, navBack, navJumpBackTo, navToAnalyze, navReplace, navRestart, currentStep,
   PHASE_OF, NO_BACK, NO_CLOSE,
   type Step,
 } from '../importTypes'
@@ -22,6 +22,25 @@ describe('import nav reducers', () => {
 
   it('jumpBackTo pushes the step when it is not in history', () => {
     expect(navJumpBackTo(['source'], 'trainingDays')).toEqual(['source', 'trainingDays'])
+  })
+
+  it('toAnalyze always starts analyze from trainingDays (drops error/review tails)', () => {
+    // vanuit trainingDays: gewoon analyze erbovenop
+    expect(navToAnalyze(['source', 'startDate', 'trainingDays']))
+      .toEqual(['source', 'startDate', 'trainingDays', 'analyze'])
+    // opnieuw proberen vanuit empty: empty valt weg, analyze zit weer op trainingDays
+    expect(navToAnalyze(['source', 'startDate', 'trainingDays', 'empty']))
+      .toEqual(['source', 'startDate', 'trainingDays', 'analyze'])
+  })
+
+  it('replace swaps the transient analyze step so back skips it', () => {
+    // analyze → review: terug landt op trainingDays, niet op een oud percentage
+    const afterAnalyze: Step[] = ['source', 'trainingDays', 'analyze']
+    const onReview = navReplace(afterAnalyze, 'review')
+    expect(onReview).toEqual(['source', 'trainingDays', 'review'])
+    expect(navBack(onReview)).toEqual(['source', 'trainingDays'])
+    // ook voor de fout-eindes
+    expect(navReplace(afterAnalyze, 'empty')).toEqual(['source', 'trainingDays', 'empty'])
   })
 
   it('restart returns to the source step', () => {
