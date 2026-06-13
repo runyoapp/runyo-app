@@ -7,10 +7,28 @@ import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as xlsx from 'xlsx'
-import { createSchema } from './schemas'
-import { createActivity } from './activities'
+import { createSchema, deleteSchema } from './schemas'
+import { createActivitiesBatch, type ActivityCreateInput } from './activities'
 import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
 import type { Activity, ActivityType } from '@/types/activity'
+
+// Trainingsdagen-keuze uit de wizard. 'keep' = dagen uit het document aanhouden;
+// 'choose' = trainingen naar de gekozen weekdagen verschuiven (0=ma … 6=zo).
+export type DayMode =
+  | { mode: 'keep' }
+  | { mode: 'choose'; days: number[] }
+
+const WEEKDAY_LABELS = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag']
+
+// Bouw het per-import userText (system blijft cachebaar). De dag-modus bepaalt of
+// de analyse de dagen aanhoudt of de trainingen naar de gekozen weekdagen schuift.
+function buildUserText(startDate: string, dayMode: DayMode): string {
+  if (dayMode.mode === 'choose' && dayMode.days.length > 0) {
+    const labels = [...dayMode.days].sort((a, b) => a - b).map(i => WEEKDAY_LABELS[i]).join(', ')
+    return `Begindatum: ${startDate}. Plaats de trainingen van elke week op deze weekdagen (op volgorde): ${labels}. Vul overige dagen met rust. Negeer de weekdagen uit het document.`
+  }
+  return `Begindatum: ${startDate}. Houd de trainingsdagen uit het schema exact aan.`
+}
 
 export const IMPORT_BACKEND = 'https://runyo-auth-production.up.railway.app'
 
@@ -37,9 +55,16 @@ Regels:
 3. REST / Off / Vrij → type rust. Cross-Training → mobiliteit.
 4. Output: chronologisch, één entry per dag, alle weken volledig.
 
+TRAININGSDAGEN — volg de instructie van de gebruiker:
+- "Houd de trainingsdagen aan": neem de weekdagen exact over zoals in het document.
+- "Plaats de trainingen op deze weekdagen: …": verschuif binnen elke week de trainingen
+  (in dezelfde volgorde en met dezelfde inhoud) naar de opgegeven weekdagen. Vul de overige
+  dagen met rust. Negeer de oorspronkelijke weekdagen uit het document.
+
 Schrijf eerst TITEL: (max 30 tekens — naam van het schema).
 Dan WEKEN: (getal, bijv. "12").
 Dan PIEK: (hoogste weekvolume in km, bijv. "65 km").
+Dan DAGEN: (vast als het brondocument echte vaste weekdagen heeft, geen als het een "dag 1, dag 2"-schema zonder weekdagen is).
 Dan RAPPORT: (max 2 zinnen, beschrijf het schema neutraal).
 Dan direct de JSON array, geen markdown.`
 
@@ -93,10 +118,14 @@ export function checkFileSize(fileMime: string, bytes: number): SizeCheck {
 
 // Het systeem-prompt stuurt Nederlandse type-namen (rust, kracht, mobiliteit, …).
 // Normaliseer naar de canonical ActivityType-enum zodat filters betrouwbaar werken.
-function normalizeType(raw: string): ActivityType {
+// `known` is false als het type onbekend is (BUG11): dan vallen we terug op 'run'
+// maar markeren we de rij zodat de gebruiker hem kan controleren.
+function normalizeType(raw: string): { type: ActivityType; known: boolean } {
   const lower = raw.toLowerCase().trim()
-  if ((ACTIVITY_TYPES as readonly string[]).includes(lower)) return lower as ActivityType
-  return TYPE_NL_MAP[lower] ?? 'run'
+  if ((ACTIVITY_TYPES as readonly string[]).includes(lower)) return { type: lower as ActivityType, known: true }
+  const mapped = TYPE_NL_MAP[lower]
+  if (mapped) return { type: mapped, known: true }
+  return { type: 'run', known: false }
 }
 
 export type ParsedRow = {
@@ -106,6 +135,8 @@ export type ParsedRow = {
   detail: string
   km: number | null
   fase: string
+  // BUG11: gezet als het brontype onbekend was en stil naar 'run' viel → check-badge.
+  needsCheck?: boolean
 }
 
 export type PickResult = {
@@ -120,6 +151,9 @@ export type AnalyseResult = {
   piekStr: string
   rapport: string
   rows: ParsedRow[]
+  // DAGEN-signaal uit de analyse: 'vast' = brondocument had echte weekdagen,
+  // 'geen' = "dag 1, dag 2"-schema. Voedt de review-nudge. null = niet teruggegeven.
+  daysSignal: 'vast' | 'geen' | null
 }
 
 export function excelToText(base64: string): string {
@@ -185,6 +219,74 @@ export async function pickPhoto(fromCamera = false): Promise<PickResult | null> 
   return { fileName: 'foto.jpg', fileMime: 'image/jpeg', fileB64: await photoToB64(result.assets[0]) }
 }
 
+function tryParseArray(s: string): unknown[] | null {
+  try {
+    const v = JSON.parse(s)
+    return Array.isArray(v) ? v : null
+  } catch {
+    return null
+  }
+}
+
+function looksLikeRows(arr: unknown[]): boolean {
+  const first = arr[0]
+  return arr.length > 0 && typeof first === 'object' && first !== null && 'datum' in first
+}
+
+/**
+ * Vind de JSON-array met rijen in een vrije-tekst-respons. Hardening van de oude
+ * `lastIndexOf('[{')`: die brak af als het RAPPORT zelf `[...]` bevatte.
+ * Volgorde: (1) fenced ```json-blok, (2) gebalanceerde scan op string-veilige
+ * `[...]`-regio's (laatste die op rijen lijkt wint), (3) oude heuristiek als fallback.
+ */
+function findRowsArray(raw: string): unknown[] | null {
+  // 1. Fenced code block — ```json […] ``` of ``` […] ```
+  const fenced = raw.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/i)
+  if (fenced) {
+    const arr = tryParseArray(fenced[1])
+    if (arr && looksLikeRows(arr)) return arr
+  }
+
+  // 2. Gebalanceerde scan: tel '['/']' op diepte 0, met string-/escape-bewustzijn,
+  //    zodat haakjes binnen strings of het rapport ons niet misleiden.
+  let result: unknown[] | null = null
+  let inStr = false, esc = false, depth = 0, start = -1
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === '[') { if (depth === 0) start = i; depth++ }
+    else if (ch === ']' && depth > 0) {
+      depth--
+      if (depth === 0 && start !== -1) {
+        const arr = tryParseArray(raw.slice(start, i + 1))
+        if (arr && looksLikeRows(arr)) result = arr // laatste passende array wint
+        start = -1
+      }
+    }
+  }
+  if (result) return result
+
+  // 3. Fallback: oude heuristiek.
+  const startIdx = raw.lastIndexOf('[{')
+  const endIdx = raw.lastIndexOf('}]')
+  if (startIdx !== -1 && endIdx > startIdx) {
+    const arr = tryParseArray(raw.slice(startIdx, endIdx + 2))
+    if (arr) return arr
+  }
+  const m = raw.match(/\[[\s\S]*\]/)
+  if (m) {
+    const arr = tryParseArray(m[0])
+    if (arr) return arr
+  }
+  return null
+}
+
 /**
  * Parse the raw text response from the backend into structured AnalyseResult.
  * Pure function — safe to unit-test without mocking fetch.
@@ -193,39 +295,34 @@ export function parseRawResponse(raw: string): AnalyseResult {
   const titelM   = raw.match(/TITEL\s*:\s*([^\n\r]{1,40})/i)
   const wekenM   = raw.match(/WEKEN\s*:\s*(\d+)/i)
   const piekM    = raw.match(/PIEK\s*:\s*([^\n\r]{1,20})/i)
+  const dagenM   = raw.match(/DAGEN\s*:\s*(vast|geen)/i)
   const rapportM = raw.match(/RAPPORT\s*:\s*([\s\S]*?)(?=\[|$)/i)
 
   const schemaTitle = titelM?.[1]?.trim() ?? ''
   const wekenStr    = wekenM?.[1] ? `${wekenM[1]} weken` : ''
   const piekStr     = piekM?.[1]?.trim() ?? ''
   const rapport     = rapportM?.[1]?.trim() ?? ''
+  const daysSignal  = dagenM ? (dagenM[1].toLowerCase() as 'vast' | 'geen') : null
 
-  let parsed: ParsedRow[] | null = null
-  // Zoek de JSON-array op: gebruik '[{' en '}]' om tekst met losse [...] te omzeilen
-  const startIdx = raw.lastIndexOf('[{')
-  const endIdx   = raw.lastIndexOf('}]')
-  if (startIdx !== -1 && endIdx > startIdx) {
-    try { parsed = JSON.parse(raw.slice(startIdx, endIdx + 2)) } catch {}
-  }
-  // Fallback: probeer de eerste [...] in de tekst
-  if (!parsed) {
-    const m = raw.match(/\[[\s\S]*\]/)
-    if (m) { try { parsed = JSON.parse(m[0]) } catch {} }
-  }
+  const parsed = findRowsArray(raw) as Array<Record<string, unknown>> | null
   if (!Array.isArray(parsed) || !parsed.length) throw new Error('Geen schema gevonden.')
 
-  const rows = parsed
-    .filter(r => r?.datum && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
-    .map(r => ({
-      datum: r.datum,
-      type: normalizeType(r.type || 'run'),
-      titel: String(r.titel || ''),
-      detail: String(r.detail || ''),
-      km: r.km != null ? Number(r.km) || null : null,
-      fase: r.fase || '',
-    }))
+  const rows: ParsedRow[] = parsed
+    .filter(r => typeof r?.datum === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
+    .map(r => {
+      const { type, known } = normalizeType(String(r.type ?? ''))
+      return {
+        datum: r.datum as string,
+        type,
+        titel: String(r.titel ?? ''),
+        detail: String(r.detail ?? ''),
+        km: r.km != null ? Number(r.km) || null : null,
+        fase: typeof r.fase === 'string' ? r.fase : '',
+        ...(known ? {} : { needsCheck: true }),
+      }
+    })
 
-  return { schemaTitle, wekenStr, piekStr, rapport, rows }
+  return { schemaTitle, wekenStr, piekStr, rapport, rows, daysSignal }
 }
 
 // De backend streamt de schema-tekst (text/plain) zodat lange generaties (~2 min)
@@ -256,12 +353,11 @@ export async function analyseSchema(
   fileMime: string,
   fileName: string,
   startDate: string,
-  runDays: number[],
-  keepRest: boolean,
+  dayMode: DayMode,
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
 ): Promise<AnalyseResult> {
-  const userText = `Begindatum: ${startDate}.`
+  const userText = buildUserText(startDate, dayMode)
 
   const isImage = fileMime === 'image/jpeg' || fileMime === 'image/png'
   const isExcel = XLSX_MIMES.includes(fileMime)
@@ -318,12 +414,11 @@ export async function analyseSchema(
 export async function analyseSchemaFromUrl(
   url: string,
   startDate: string,
-  runDays: number[],
-  keepRest: boolean,
+  dayMode: DayMode,
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
 ): Promise<AnalyseResult> {
-  const userText = `Begindatum: ${startDate}.`
+  const userText = buildUserText(startDate, dayMode)
 
   let pct = 0
   const progressTimer = setInterval(() => { pct = Math.min(pct + 3, 40); onProgress(pct) }, 200)
@@ -356,21 +451,27 @@ export async function importToBackend(
   rows: ParsedRow[],
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
+  schemaName?: string,
 ): Promise<{ schemaId: string; activities: Activity[] }> {
-  const { id: schemaId } = await createSchema()
+  // Schema pas hier aanmaken (op "Schema importeren"), zodat een mislukte analyse
+  // nooit een leeg schema achterlaat.
+  const { id: schemaId } = schemaName ? await createSchema(schemaName) : await createSchema()
 
-  const activities: Activity[] = []
-  for (const row of rows) {
-    const activity = await createActivity(schemaId, {
+  try {
+    const inputs: ActivityCreateInput[] = rows.map(row => ({
       datum: row.datum,
       type: row.type as ActivityType,
       titel: row.titel || null,
       detail: row.detail || null,
       km: row.km,
-    })
-    activities.push(activity)
+    }))
+    // Eén transactie op de backend (all-or-nothing) i.p.v. N sequentiële POSTs.
+    const activities = await createActivitiesBatch(schemaId, inputs)
+    onProgress(100)
+    return { schemaId, activities }
+  } catch (err) {
+    // Rollback: ruim het zojuist aangemaakte (lege) schema op bij een batch-fout.
+    try { await deleteSchema(schemaId) } catch {}
+    throw err
   }
-
-  onProgress(100)
-  return { schemaId, activities }
 }

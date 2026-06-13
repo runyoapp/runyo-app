@@ -14,10 +14,11 @@ vi.mock('xlsx', () => ({
 
 vi.mock('../schemas', () => ({
   createSchema: vi.fn(),
+  deleteSchema: vi.fn(),
 }))
 
 vi.mock('../activities', () => ({
-  createActivity: vi.fn(),
+  createActivitiesBatch: vi.fn(),
 }))
 
 vi.mock('../auth', () => ({
@@ -43,19 +44,21 @@ vi.mock('expo-file-system/legacy', () => ({
   EncodingType: { Base64: 'base64' },
 }))
 
-import { createSchema } from '../schemas'
-import { createActivity } from '../activities'
+import { createSchema, deleteSchema } from '../schemas'
+import { createActivitiesBatch } from '../activities'
 import {
   excelToText,
   analyseSchema,
   analyseSchemaFromUrl,
   importToBackend,
+  parseRawResponse,
   checkFileSize,
   base64Bytes,
   IMPORT_BACKEND,
   SYSTEM_PROMPT,
 } from '../import'
 import type { ParsedRow } from '../import'
+import type { Activity } from '@/types/activity'
 
 const fetchMock = vi.fn()
 vi.stubGlobal('fetch', fetchMock)
@@ -63,7 +66,8 @@ vi.stubGlobal('fetch', fetchMock)
 beforeEach(() => {
   fetchMock.mockReset()
   vi.mocked(createSchema).mockReset()
-  vi.mocked(createActivity).mockReset()
+  vi.mocked(deleteSchema).mockReset()
+  vi.mocked(createActivitiesBatch).mockReset()
   xlsxRead.mockReset()
   xlsxSheetToCsv.mockReset()
 })
@@ -98,8 +102,7 @@ describe('analyseSchemaFromUrl', () => {
     await analyseSchemaFromUrl(
       'https://docs.google.com/spreadsheets/d/abc/export?format=csv',
       '2026-06-01',
-      [0, 2, 4],
-      true,
+      { mode: 'keep' },
       async () => 'tok',
       () => {},
     )
@@ -109,6 +112,33 @@ describe('analyseSchemaFromUrl', () => {
     const body = JSON.parse(init.body)
     expect(body.url).toBe('https://docs.google.com/spreadsheets/d/abc/export?format=csv')
     expect(body.system).toBe(SYSTEM_PROMPT)
+  })
+
+  it('keep-mode userText instructs to honor the document weekdays', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => 'TITEL: T\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-06-01","type":"run","titel":"E","detail":"","km":8,"fase":""}]',
+    })
+    await analyseSchemaFromUrl('https://docs.google.com/spreadsheets/d/abc', '2026-06-01', { mode: 'keep' }, async () => 'tok', () => {})
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    const userText = body.messages[0].content.at(-1).text
+    expect(userText).toContain('Begindatum: 2026-06-01')
+    expect(userText).toContain('Houd de trainingsdagen')
+  })
+
+  it('choose-mode userText lists the chosen weekdays in order', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => 'TITEL: T\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-06-01","type":"run","titel":"E","detail":"","km":8,"fase":""}]',
+    })
+    // 4=vr, 0=ma, 2=wo → moet gesorteerd als ma, wo, vr verschijnen.
+    await analyseSchemaFromUrl('https://docs.google.com/spreadsheets/d/abc', '2026-06-01', { mode: 'choose', days: [4, 0, 2] }, async () => 'tok', () => {})
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    const userText = body.messages[0].content.at(-1).text
+    expect(userText).toContain('maandag, woensdag, vrijdag')
+    expect(userText).toContain('Negeer de weekdagen uit het document')
   })
 })
 
@@ -132,8 +162,7 @@ describe('analyseSchema (Excel mime)', () => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'test.xlsx',
       '2026-06-01',
-      [0, 2, 4],
-      true,
+      { mode: 'keep' },
       async () => 'tok',
       () => {},
     )
@@ -189,18 +218,36 @@ describe('importToBackend (error)', () => {
 
     const rows: ParsedRow[] = [{ datum: '2026-06-01', type: 'run', titel: 'Easy', detail: '', km: 8, fase: '' }]
     await expect(importToBackend(rows, async () => 'tok', () => {})).rejects.toThrow('unauthorized')
+    expect(createActivitiesBatch).not.toHaveBeenCalled()
+  })
+
+  it('rolls back the schema when the batch insert fails', async () => {
+    vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-x' })
+    vi.mocked(createActivitiesBatch).mockRejectedValueOnce(new Error('batch failed'))
+    vi.mocked(deleteSchema).mockResolvedValueOnce(undefined)
+
+    const rows: ParsedRow[] = [{ datum: '2026-06-01', type: 'run', titel: 'Easy', detail: '', km: 8, fase: '' }]
+    await expect(importToBackend(rows, async () => 'tok', () => {})).rejects.toThrow('batch failed')
+    expect(deleteSchema).toHaveBeenCalledWith('schema-x')
   })
 })
 
 // ── 5. importToBackend integration ───────────────────────────────────────────
 
+const mkActivity = (over: Partial<Activity>): Activity => ({
+  id: 'a', datum: '2026-06-01', type: 'run', titel: '', detail: '', km: null,
+  feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '',
+  raceType: null, goalTime: null, isMainGoal: false, rowIndex: null, ...over,
+})
+
 describe('importToBackend (integration)', () => {
-  it('creates schema + N activities and returns { schemaId, activities }', async () => {
+  it('creates a schema then batch-inserts all rows in one call', async () => {
     vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-1' })
-    vi.mocked(createActivity)
-      .mockResolvedValueOnce({ id: 'act-1', datum: '2026-06-01', type: 'run',  titel: 'Easy',  detail: '', km: 8,    feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, goalTime: null, isMainGoal: false, rowIndex: null })
-      .mockResolvedValueOnce({ id: 'act-2', datum: '2026-06-02', type: 'run',  titel: 'Tempo', detail: '', km: 10,   feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, goalTime: null, isMainGoal: false, rowIndex: null })
-      .mockResolvedValueOnce({ id: 'act-3', datum: '2026-06-03', type: 'rest', titel: 'Rust',  detail: '', km: null, feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '', raceType: null, goalTime: null, isMainGoal: false, rowIndex: null })
+    vi.mocked(createActivitiesBatch).mockResolvedValueOnce([
+      mkActivity({ id: 'act-1', datum: '2026-06-01', titel: 'Easy', km: 8 }),
+      mkActivity({ id: 'act-2', datum: '2026-06-02', titel: 'Tempo', km: 10 }),
+      mkActivity({ id: 'act-3', datum: '2026-06-03', type: 'rest', titel: 'Rust' }),
+    ])
 
     const rows: ParsedRow[] = [
       { datum: '2026-06-01', type: 'run',  titel: 'Easy',  detail: '', km: 8,    fase: '' },
@@ -213,8 +260,71 @@ describe('importToBackend (integration)', () => {
     expect(result.schemaId).toBe('schema-1')
     expect(result.activities).toHaveLength(3)
     expect(result.activities[0].id).toBe('act-1')
-    expect(createActivity).toHaveBeenCalledTimes(3)
-    expect(vi.mocked(createActivity).mock.calls[0][0]).toBe('schema-1')
-    expect(vi.mocked(createActivity).mock.calls[0][1]).toMatchObject({ datum: '2026-06-01', type: 'run', titel: 'Easy', km: 8 })
+    expect(createActivitiesBatch).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(createActivitiesBatch).mock.calls[0][0]).toBe('schema-1')
+    expect(vi.mocked(createActivitiesBatch).mock.calls[0][1]).toHaveLength(3)
+    expect(vi.mocked(createActivitiesBatch).mock.calls[0][1][0]).toMatchObject({ datum: '2026-06-01', type: 'run', titel: 'Easy', km: 8 })
+  })
+
+  it('passes a schema name through to createSchema when given', async () => {
+    vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-2' })
+    vi.mocked(createActivitiesBatch).mockResolvedValueOnce([])
+    const rows: ParsedRow[] = [{ datum: '2026-06-01', type: 'run', titel: 'E', detail: '', km: 8, fase: '' }]
+    await importToBackend(rows, async () => 'tok', () => {}, 'Marathonplan')
+    expect(createSchema).toHaveBeenCalledWith('Marathonplan')
+  })
+})
+
+// ── 6. parseRawResponse hardening ─────────────────────────────────────────────
+
+describe('parseRawResponse', () => {
+  it('ignores bracketed text in the report and finds the real rows array', () => {
+    const raw = [
+      'TITEL: Plan',
+      'WEKEN: 2',
+      'PIEK: 50 km',
+      'DAGEN: vast',
+      'RAPPORT: Een blokschema [build, piek, taper] met focus op tempo.',
+      '[{"datum":"2026-06-01","type":"run","titel":"Easy","detail":"","km":8,"fase":""},',
+      ' {"datum":"2026-06-02","type":"rust","titel":"Rust","detail":"","km":null,"fase":""}]',
+    ].join('\n')
+
+    const res = parseRawResponse(raw)
+    expect(res.rows).toHaveLength(2)
+    expect(res.rows[0].datum).toBe('2026-06-01')
+    expect(res.rows[0].type).toBe('run')
+    expect(res.rows[1].type).toBe('rest')
+    expect(res.daysSignal).toBe('vast')
+    expect(res.rapport).toContain('blokschema')
+  })
+
+  it('parses a fenced ```json code block', () => {
+    const raw = 'TITEL: Plan\nWEKEN: 1\nPIEK: 10 km\nDAGEN: geen\nRAPPORT: Kort.\n```json\n[{"datum":"2026-07-01","type":"run","titel":"E","detail":"","km":5,"fase":""}]\n```'
+    const res = parseRawResponse(raw)
+    expect(res.rows).toHaveLength(1)
+    expect(res.daysSignal).toBe('geen')
+  })
+
+  it('flags an unknown activity type with needsCheck and falls back to run (BUG11)', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"yoga-flow","titel":"Yoga","detail":"","km":null,"fase":""}]'
+    const res = parseRawResponse(raw)
+    expect(res.rows[0].type).toBe('run')
+    expect(res.rows[0].needsCheck).toBe(true)
+  })
+
+  it('does not flag a known Dutch type', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"kracht","titel":"Kracht","detail":"","km":null,"fase":""}]'
+    const res = parseRawResponse(raw)
+    expect(res.rows[0].type).toBe('strength')
+    expect(res.rows[0].needsCheck).toBeUndefined()
+  })
+
+  it('throws when no array is present', () => {
+    expect(() => parseRawResponse('TITEL: P\nWEKEN: 1\nPIEK: 0\nRAPPORT: niets.')).toThrow('Geen schema gevonden.')
+  })
+
+  it('leaves daysSignal null when the signal is absent', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":5,"fase":""}]'
+    expect(parseRawResponse(raw).daysSignal).toBeNull()
   })
 })

@@ -117,6 +117,26 @@ export async function createActivity(
   return toActivity(row)
 }
 
+/**
+ * Insert many activities onto a schema in one transactional request.
+ * Used by the import wizard so a full schema lands all-or-nothing. The backend
+ * validates every row before inserting; a single bad row → 400, nothing saved.
+ */
+export async function createActivitiesBatch(
+  schemaId: string,
+  inputs: ActivityCreateInput[],
+): Promise<Activity[]> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${schemaId}/activities/batch`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activities: inputs }),
+  })
+  ensureOk(res.status, 'batch create activities')
+  const rows = (await res.json()) as BackendActivity[]
+  return rows.map(toActivity)
+}
+
 export async function patchActivity(
   schemaId: string,
   activityId: string,
