@@ -156,10 +156,32 @@ export type AnalyseResult = {
   daysSignal: 'vast' | 'geen' | null
 }
 
+// Duidelijke melding wanneer een Excel-bestand niets bruikbaars oplevert
+// (macro-bestand, leeg/beschermd of schema op een ander tabblad). We fixen die
+// gevallen niet diepgeworteld, maar geven concrete quickfixes — herkenbaar aan
+// het begin "Dit Excel-bestand" zodat het scherm de tekst integraal toont.
+export const EXCEL_HELP =
+  'Dit Excel-bestand konden we niet lezen. Een paar snelle oplossingen:\n' +
+  '• Zet het schema op het eerste tabblad, of kopieer dat tabblad naar een leeg bestand.\n' +
+  '• Sla op als gewone .xlsx zonder macro\'s (niet als .xlsm).\n' +
+  '• Of exporteer het als openbare Google Sheet en plak de link.'
+
 export function excelToText(base64: string): string {
-  const wb = xlsx.read(base64, { type: 'base64' })
-  const sheet = wb.Sheets[wb.SheetNames[0]]
-  return xlsx.utils.sheet_to_csv(sheet)
+  let wb: xlsx.WorkBook
+  try {
+    wb = xlsx.read(base64, { type: 'base64' })
+  } catch {
+    throw new Error(EXCEL_HELP)
+  }
+  const sheetName = wb.SheetNames[0]
+  const sheet = sheetName ? wb.Sheets[sheetName] : undefined
+  const csv = sheet ? xlsx.utils.sheet_to_csv(sheet) : ''
+  // Een leeg of macro-tabblad geeft alleen komma's/witregels terug; stop dan
+  // meteen i.p.v. een minutenlange analyse op een lege CSV te starten.
+  if (csv.replace(/[\s,]/g, '').length < 15) {
+    throw new Error(EXCEL_HELP)
+  }
+  return csv
 }
 
 export async function pickFile(): Promise<PickResult | null> {

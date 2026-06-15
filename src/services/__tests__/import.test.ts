@@ -48,6 +48,7 @@ import { createSchema, deleteSchema } from '../schemas'
 import { createActivitiesBatch } from '../activities'
 import {
   excelToText,
+  EXCEL_HELP,
   analyseSchema,
   analyseSchemaFromUrl,
   importToBackend,
@@ -85,6 +86,17 @@ describe('excelToText', () => {
     expect(xlsxRead).toHaveBeenCalledWith('FAKEB64==', { type: 'base64' })
     expect(xlsxSheetToCsv).toHaveBeenCalledWith(fakeSheet)
     expect(result).toBe('datum,type,titel\n2026-06-01,run,Easy run')
+  })
+
+  it('throws the quickfix help when the workbook is unreadable (e.g. macro file)', () => {
+    xlsxRead.mockImplementation(() => { throw new Error('corrupt') })
+    expect(() => excelToText('FAKEB64==')).toThrow(EXCEL_HELP)
+  })
+
+  it('throws the quickfix help when the first sheet is empty', () => {
+    xlsxRead.mockReturnValue({ Sheets: { Sheet1: { '!ref': 'A1' } }, SheetNames: ['Sheet1'] })
+    xlsxSheetToCsv.mockReturnValue('\n,,\n,,\n')
+    expect(() => excelToText('FAKEB64==')).toThrow(EXCEL_HELP)
   })
 })
 

@@ -359,7 +359,7 @@ export function ImportWizard({
           <View style={s.fill}>
             <StepHead t={t} title="Er ging iets mis" sub="Het analyseren is niet gelukt. Je instellingen zijn bewaard - je kunt het zo opnieuw proberen." />
             <View style={[s.padH20, { paddingTop: 20, gap: 14 }]}>
-              <HintRow t={t} tone="error">Het schema kon niet worden verwerkt. Misschien viel je verbinding weg, of staat het document anders in elkaar dan verwacht.</HintRow>
+              <HintRow t={t} tone="error">{data.error.startsWith('Dit Excel-bestand') ? data.error : 'Het schema kon niet worden verwerkt. Misschien viel je verbinding weg, of staat het document anders in elkaar dan verwacht.'}</HintRow>
               <View style={[s.recap, { backgroundColor: t.surface, borderColor: t.border }]}>
                 {[['Bron', data.source === 'sheet' ? 'Google Sheet' : data.fileName || '-'],
                   ['Startdatum', friendlyDate(data.startDate)],
