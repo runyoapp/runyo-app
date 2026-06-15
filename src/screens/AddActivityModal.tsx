@@ -10,6 +10,8 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { createActivity } from '@/services/activities'
 import { createSchema } from '@/services/schemas'
+import { pickSchemaForDate } from '@/utils/schemaRouting'
+import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { Spacing } from '@/constants/theme'
 import { toDateString, fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
@@ -44,10 +46,14 @@ function friendlyDate(iso: string): string {
 
 export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   const queryClient    = useQueryClient()
-  const schemaId       = useDataStore(s => s.schemaId)
+  const schemaList     = useDataStore(s => s.schemaList)
+  const activities     = useDataStore(s => s.activities)
   const activateImport = useDataStore(s => s.activateImport)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
+
+  // Bij overlap (datum valt in 2+ zichtbare schema's) tonen we een keuzelijst.
+  const [ambiguousIds, setAmbiguousIds] = useState<string[] | null>(null)
 
   const today = toDateString(new Date())
   const [datum,  setDatum]  = useState(prefillDate ?? today)
@@ -64,24 +70,35 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   const hasDist = DIST_TYPES.has(type)
   const headDot = activityDot(type) ?? undefined
 
+  // Schrijft de activiteit naar het gekozen schema en bevestigt met een toast.
+  async function persist(activeSchemaId: string) {
+    const kmVal = isRest || !hasDist || km <= 0 ? null : km
+    const created = await createActivity(activeSchemaId, {
+      datum, titel: isRest ? null : titel, type, km: kmVal, detail: isRest ? null : detail,
+    })
+    upsertActivity(created)
+    await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activeSchemaId] })
+    const name = schemaList.find(s => s.id === activeSchemaId)?.name ?? 'schema'
+    showToast(`✓ Toegevoegd aan ${name}`)
+    setTitel(''); setKm(0); setDetail(''); setType('run')
+    onClose()
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
-      let activeSchemaId = schemaId
-      if (!activeSchemaId) {
+      const pick = pickSchemaForDate(datum, schemaList, activities)
+      if (pick.kind === 'none') {
+        // Geen zichtbaar schema → maak er één (bestaande fallback).
         const { id } = await createSchema('Mijn schema')
         await activateImport(id, 'Mijn schema')
-        activeSchemaId = id
+        await persist(id)
+      } else if (pick.kind === 'one') {
+        await persist(pick.schemaId)
+      } else {
+        // Overlap → keuzelijst; de save gebeurt na de keuze.
+        setAmbiguousIds(pick.schemaIds)
       }
-      const kmVal = isRest || !hasDist || km <= 0 ? null : km
-      const created = await createActivity(activeSchemaId, {
-        datum, titel: isRest ? null : titel, type, km: kmVal, detail: isRest ? null : detail,
-      })
-      upsertActivity(created)
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activeSchemaId] })
-      showToast('✓ Activiteit toegevoegd')
-      setTitel(''); setKm(0); setDetail(''); setType('run')
-      onClose()
     } catch {
       showToast('Opslaan mislukt')
     } finally {
@@ -89,7 +106,25 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
     }
   }
 
+  async function handlePickSchema(id: string) {
+    setAmbiguousIds(null)
+    setSaving(true)
+    try {
+      await persist(id)
+    } catch {
+      showToast('Opslaan mislukt')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const ambiguousItems: ActionMenuItem[] = (ambiguousIds ?? []).map(id => ({
+    label: schemaList.find(s => s.id === id)?.name ?? id,
+    onPress: () => handlePickSchema(id),
+  }))
+
   return (
+    <>
     <ModalSheet
       visible={visible}
       title="Activiteit toevoegen"
@@ -133,5 +168,13 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
         )}
       </View>
     </ModalSheet>
+
+    <ActionMenu
+      visible={ambiguousIds !== null}
+      title="Aan welk schema toevoegen?"
+      items={ambiguousItems}
+      onClose={() => setAmbiguousIds(null)}
+    />
+    </>
   )
 }

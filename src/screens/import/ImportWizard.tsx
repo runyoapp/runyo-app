@@ -17,7 +17,6 @@ import {
   checkFileSize, base64Bytes,
 } from '@/services/import'
 import type { DayMode } from '@/services/import'
-import { listActivities } from '@/services/activities'
 import {
   WizardTopBar, StepHead, ChoiceTile, PinnedCTA, HintRow, MailHint,
   FileRow, ModeOption, DaySelector,
@@ -53,13 +52,18 @@ export function ImportWizard({
   const t = useTheme()
   const getToken = useAuthStore(s => s.getToken)
   const activateImport = useDataStore(s => s.activateImport)
-  const activeSchemaId = useDataStore(s => s.schemaId)
+  const setSchemaVisible = useDataStore(s => s.setSchemaVisible)
+  const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
+  const storeActivities = useDataStore(s => s.activities)
   const queryClient = useQueryClient()
   const flow = useImportFlow()
   const { data } = flow
 
   const [chooseDays, setChooseDays] = useState<boolean[]>([true, false, true, false, true, false, true])
   const [overlap, setOverlap] = useState(0)
+  // Multi-schema: laat de gebruiker kiezen of de bestaande zichtbare schema's
+  // zichtbaar blijven (default) of na de import verborgen worden.
+  const [keepOld, setKeepOld] = useState(true)
   const analyzeRun = useRef(0)
   // Abort van de lopende analyse → sluit de verbinding naar de backend, die de
   // Anthropic-call afbreekt zodat we niet doorbetalen voor een antwoord dat
@@ -131,13 +135,11 @@ export function ImportWizard({
   async function runSave() {
     const rows = data.result?.rows ?? []
     if (!rows.length) return
-    // Overlap met het huidige actieve schema (informatief, vóór de import).
-    try {
-      if (activeSchemaId) {
-        const existing = await listActivities(activeSchemaId)
-        setOverlap(overlapCount(rows, new Set(existing.map(a => a.datum))))
-      } else setOverlap(0)
-    } catch { setOverlap(0) }
+    // Overlap met alle reeds weergegeven schema's (samengevoegd, informatief).
+    setOverlap(overlapCount(rows, new Set(storeActivities.map(a => a.datum))))
+
+    // Onthoud welke schema's nu zichtbaar zijn, vóór de import er één toevoegt.
+    const prevVisible = visibleSchemaIds
 
     flow.setSavedCount(0)
     flow.go('saving')
@@ -149,6 +151,12 @@ export function ImportWizard({
       )
       await activateImport(schemaId, data.result?.schemaTitle || 'Geïmporteerd schema')
       queryClient.setQueryData(['activities', 'backend', schemaId], activities)
+      // "Niet weergeven" gekozen → zet de vorige schema's na de import uit.
+      if (!keepOld) {
+        for (const id of prevVisible) {
+          try { await setSchemaVisible(id, false) } catch { /* niet blokkerend */ }
+        }
+      }
       flow.go('done')
     } catch (e) {
       flow.patch({ error: (e as Error)?.message ?? 'Importeren mislukt' })
@@ -313,6 +321,27 @@ export function ImportWizard({
             <View style={s.padH20}>
               {weeks.map(w => <WeekGroup key={w.num} t={t} week={w} volMax={volMax} />)}
             </View>
+            {visibleSchemaIds.length > 0 ? (
+              <View style={s.padH20}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setKeepOld(v => !v)}
+                  style={[s.keepOldRow, { backgroundColor: t.surface, borderColor: t.border }]}
+                >
+                  <View style={[s.keepOldBox, { borderColor: keepOld ? t.accent : t.muted, backgroundColor: keepOld ? t.accent : 'transparent' }]}>
+                    {keepOld ? <Text style={[s.keepOldCheck, { color: t.accentInk }]}>✓</Text> : null}
+                  </View>
+                  <View style={s.flex1}>
+                    <Text style={[s.keepOldTitle, { color: t.text }]}>Vorige schema's blijven tonen</Text>
+                    <Text style={[s.keepOldSub, { color: t.muted }]}>
+                      {keepOld
+                        ? 'Je historie blijft in de tijdlijn staan.'
+                        : 'Alleen dit nieuwe schema wordt weergegeven (omkeerbaar via Mijn schema’s).'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </ScrollView>
         )
       }
@@ -460,6 +489,12 @@ export function ImportWizard({
 
 const s = StyleSheet.create({
   root: { flex: 1 },
+  // Multi-schema: "vorige schema's blijven tonen"-toggle op de review-stap
+  keepOldRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 12, padding: 14, marginTop: 4 },
+  keepOldBox:   { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  keepOldCheck: { fontFamily: Fonts.displayBold, fontSize: 13 },
+  keepOldTitle: { fontFamily: Fonts.displaySemiBold, fontSize: 14 },
+  keepOldSub:   { fontFamily: Fonts.display, fontSize: 12, marginTop: 2 },
   body: { flex: 1, minHeight: 0 },
   fill: { flex: 1, minHeight: 0 },
   flex1: { flex: 1 },

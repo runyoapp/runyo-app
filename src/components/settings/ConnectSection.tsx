@@ -6,10 +6,11 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { syncActivitiesToSheet } from '@/services/sheets'
 import { createExportSheet } from '@/services/drive'
-import { createSchema, getMySchemas, renameSchema, deleteSchema } from '@/services/schemas'
-import type { Schema } from '@/services/schemas'
+import { createSchema, renameSchema } from '@/services/schemas'
+import type { SchemaMeta } from '@/stores/dataStore'
 import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
+import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -53,37 +54,21 @@ function ConnectTile({ primary, icon, title, badge, sub, onPress }: TileProps) {
 // ── Mijn schema's panel ────────────────────────────────────────────────────
 
 type MySchemasListProps = {
-  schemas: Schema[]
-  activeId: string | null
+  schemas: SchemaMeta[]
   renamingId: string | null
   renameValue: string
-  deleteConfirmId: string | null
-  exporting: boolean
-  onActivate: (schema: Schema) => void
-  onRenameStart: (schema: Schema) => void
   onRenameChange: (value: string) => void
-  onRenameCommit: (schema: Schema) => void
-  onDeleteRequest: (id: string) => void
-  onDeleteCancel: () => void
-  onDeleteConfirm: (id: string) => void
-  onExport: (schema: Schema) => void
+  onRenameCommit: (schema: SchemaMeta) => void
+  onOpenMenu: (schema: SchemaMeta) => void
 }
 
 function MySchemasList({
   schemas,
-  activeId,
   renamingId,
   renameValue,
-  deleteConfirmId,
-  exporting,
-  onActivate,
-  onRenameStart,
   onRenameChange,
   onRenameCommit,
-  onDeleteRequest,
-  onDeleteCancel,
-  onDeleteConfirm,
-  onExport,
+  onOpenMenu,
 }: MySchemasListProps) {
   if (!schemas.length) {
     return <Text style={styles.emptyText}>Geen schema's gevonden.</Text>
@@ -92,18 +77,13 @@ function MySchemasList({
   return (
     <View style={styles.schemaList}>
       {schemas.map(schema => {
-        const isActive = schema.id === activeId
         const isRenaming = renamingId === schema.id
-        const isDeleting = deleteConfirmId === schema.id
 
         return (
           <View key={schema.id} style={styles.schemaRow}>
-            <TouchableOpacity
-              style={styles.schemaRowMain}
-              onPress={() => !isRenaming && !isDeleting && onActivate(schema)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.schemaDot, isActive && styles.schemaDotActive]} />
+            <View style={styles.schemaRowMain}>
+              {/* Groene stip = weergegeven (kan meerdere); gedimd = niet weergegeven */}
+              <View style={[styles.schemaDot, schema.isVisible && styles.schemaDotActive]} />
               {isRenaming ? (
                 <TextInput
                   style={styles.renameInput}
@@ -114,34 +94,19 @@ function MySchemasList({
                   autoFocus
                 />
               ) : (
-                <Text style={styles.schemaName} numberOfLines={1}>{schema.name}</Text>
+                <Text
+                  style={[styles.schemaName, schema.isArchived && styles.schemaNameArchived]}
+                  numberOfLines={1}
+                >
+                  {schema.name}{schema.isArchived ? ' · gearchiveerd' : ''}
+                </Text>
               )}
-            </TouchableOpacity>
+            </View>
 
-            {isDeleting ? (
-              <View style={styles.deleteConfirm}>
-                <Text style={styles.deleteConfirmText}>Verwijderen?</Text>
-                <TouchableOpacity onPress={onDeleteCancel}>
-                  <Text style={styles.deleteConfirmBtn}>✕</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onDeleteConfirm(schema.id)}>
-                  <Text style={[styles.deleteConfirmBtn, styles.deleteConfirmYes]}>✓</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.schemaActions}>
-                <TouchableOpacity onPress={() => onRenameStart(schema)} hitSlop={8}>
-                  <Text style={styles.schemaActionIcon}>✏</Text>
-                </TouchableOpacity>
-                {isActive && (
-                  <TouchableOpacity onPress={() => !exporting && onExport(schema)} hitSlop={8}>
-                    <Text style={styles.schemaActionIcon}>{exporting ? '…' : '↗'}</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => onDeleteRequest(schema.id)} hitSlop={8}>
-                  <Text style={[styles.schemaActionIcon, styles.schemaActionDelete]}>🗑</Text>
-                </TouchableOpacity>
-              </View>
+            {!isRenaming && (
+              <TouchableOpacity onPress={() => onOpenMenu(schema)} hitSlop={8} style={styles.menuBtn}>
+                <Text style={styles.schemaActionIcon}>⋯</Text>
+              </TouchableOpacity>
             )}
           </View>
         )
@@ -157,14 +122,17 @@ type Panel = 'schemas' | null
 export function ConnectSection() {
   const theme            = useTheme()
   const navigation       = useNavigation<any>()
-  const getToken         = useAuthStore(s => s.getToken)
-  const tokenSet         = useAuthStore(s => s.tokenSet)
-  const schemaId         = useDataStore(s => s.schemaId)
-  const schemaName       = useDataStore(s => s.schemaName)
-  const activities       = useDataStore(s => s.activities)
-  const activateImport   = useDataStore(s => s.activateImport)
-  const activateSchemaById = useDataStore(s => s.activateSchemaById)
-  const showToast        = useUiStore(s => s.showToast)
+  const getToken          = useAuthStore(s => s.getToken)
+  const tokenSet          = useAuthStore(s => s.tokenSet)
+  const schemaName        = useDataStore(s => s.schemaName)
+  const visibleSchemaIds  = useDataStore(s => s.visibleSchemaIds)
+  const schemaList        = useDataStore(s => s.schemaList)
+  const activities        = useDataStore(s => s.activities)
+  const loadMySchemas     = useDataStore(s => s.loadMySchemas)
+  const setSchemaVisible  = useDataStore(s => s.setSchemaVisible)
+  const archiveSchemaById = useDataStore(s => s.archiveSchemaById)
+  const activateImport    = useDataStore(s => s.activateImport)
+  const showToast         = useUiStore(s => s.showToast)
 
   const [panel,           setPanel]          = useState<Panel>(null)
   const [importOpen,      setImportOpen]      = useState(false)
@@ -172,13 +140,14 @@ export function ConnectSection() {
   const [exporting,       setExporting]       = useState(false)
 
   // Mijn schema's state
-  const [schemas,         setSchemas]         = useState<Schema[]>([])
   const [schemasLoading,  setSchemasLoading]  = useState(false)
   const [renamingId,      setRenamingId]      = useState<string | null>(null)
   const [renameValue,     setRenameValue]     = useState('')
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [menuSchemaId,    setMenuSchemaId]    = useState<string | null>(null)
 
-  async function handleExportToSheets(schema: Schema) {
+  const menuSchema = schemaList.find(s => s.id === menuSchemaId) ?? null
+
+  async function handleExportToSheets(schema: SchemaMeta) {
     if (tokenSet?.authMethod !== 'google') {
       showToast('Exporteren naar Sheets vereist inloggen met Google')
       return
@@ -188,7 +157,9 @@ export function ConnectSection() {
       const token = await getToken()
       if (!token) { showToast('Niet ingelogd'); return }
       const { id, url } = await createExportSheet(token, schema.name)
-      const { synced } = await syncActivitiesToSheet(id, 'Schema', token, activities)
+      // Exporteer alléén de activiteiten van dít schema (niet de samengevoegde lijst).
+      const schemaActivities = activities.filter(a => a.schemaId === schema.id)
+      const { synced } = await syncActivitiesToSheet(id, 'Schema', token, schemaActivities)
       showToast(`✓ ${synced} activiteiten geëxporteerd`)
       await Linking.openURL(url)
     } catch {
@@ -198,18 +169,18 @@ export function ConnectSection() {
     }
   }
 
+  function togglePanel(p: Panel) {
+    setPanel(prev => prev === p ? null : p)
+  }
+
   async function loadSchemas() {
     if (schemasLoading) return
     setSchemasLoading(true)
     try {
-      setSchemas(await getMySchemas())
+      await loadMySchemas()
     } finally {
       setSchemasLoading(false)
     }
-  }
-
-  function togglePanel(p: Panel) {
-    setPanel(prev => prev === p ? null : p)
   }
 
   async function handleCreateNew() {
@@ -225,23 +196,39 @@ export function ConnectSection() {
     }
   }
 
-  async function handleActivate(schema: Schema) {
-    if (schema.id === schemaId) return
+  async function handleToggleVisible(schema: SchemaMeta) {
     try {
-      await activateSchemaById(schema.id, schema.name)
-      showToast(`✓ ${schema.name} actief`)
+      await setSchemaVisible(schema.id, !schema.isVisible)
+      showToast(schema.isVisible ? `${schema.name} verborgen` : `✓ ${schema.name} weergegeven`)
     } catch {
-      showToast('Wisselen mislukt')
+      showToast('Wijzigen mislukt')
     }
   }
 
-  function handleRenameStart(schema: Schema) {
-    setDeleteConfirmId(null)
+  async function handleArchive(schema: SchemaMeta) {
+    try {
+      await archiveSchemaById(schema.id, true)
+      showToast(`${schema.name} gearchiveerd`)
+    } catch {
+      showToast('Archiveren mislukt')
+    }
+  }
+
+  async function handleUnarchive(schema: SchemaMeta) {
+    try {
+      await archiveSchemaById(schema.id, false)
+      showToast(`${schema.name} teruggezet`)
+    } catch {
+      showToast('Terugzetten mislukt')
+    }
+  }
+
+  function handleRenameStart(schema: SchemaMeta) {
     setRenamingId(schema.id)
     setRenameValue(schema.name)
   }
 
-  async function handleRenameCommit(schema: Schema) {
+  async function handleRenameCommit(schema: SchemaMeta) {
     if (!renameValue.trim() || renameValue.trim() === schema.name) {
       setRenamingId(null)
       return
@@ -250,31 +237,31 @@ export function ConnectSection() {
     setRenamingId(null)
     try {
       await renameSchema(schema.id, newName)
-      setSchemas(prev => prev.map(s => s.id === schema.id ? { ...s, name: newName } : s))
-      if (schema.id === schemaId) await activateImport(schema.id, newName)
+      await loadMySchemas()
     } catch {
       showToast('Hernoemen mislukt')
     }
   }
 
-  async function handleDeleteConfirm(id: string) {
-    setDeleteConfirmId(null)
-    try {
-      await deleteSchema(id)
-      setSchemas(prev => prev.filter(s => s.id !== id))
-      if (id === schemaId) {
-        await activateImport('', '')
-        showToast('Schema verwijderd')
-      } else {
-        showToast('Schema verwijderd')
-      }
-    } catch {
-      showToast('Verwijderen mislukt')
+  // Bouwt de menu-items voor één schema (verschilt voor gearchiveerd).
+  function menuItemsFor(schema: SchemaMeta): ActionMenuItem[] {
+    if (schema.isArchived) {
+      return [
+        { label: 'Terugzetten', icon: '↩', onPress: () => handleUnarchive(schema) },
+        { label: 'Hernoemen', icon: '✏', onPress: () => handleRenameStart(schema) },
+        { label: 'Exporteren', icon: '↗', onPress: () => handleExportToSheets(schema), disabled: exporting },
+      ]
     }
+    return [
+      { label: 'Weergeven', checked: schema.isVisible, onPress: () => handleToggleVisible(schema) },
+      { label: 'Hernoemen', icon: '✏', onPress: () => handleRenameStart(schema) },
+      { label: 'Exporteren', icon: '↗', onPress: () => handleExportToSheets(schema), disabled: exporting },
+      { label: 'Archiveren', icon: '📦', onPress: () => handleArchive(schema), destructive: true },
+    ]
   }
 
   const isSignedIn         = !!tokenSet
-  const isConnectedBackend = isSignedIn && !!schemaId
+  const isConnectedBackend = isSignedIn && visibleSchemaIds.length > 0
 
   if (isSignedIn) {
     return (
@@ -284,7 +271,10 @@ export function ConnectSection() {
           <View style={styles.connectedRow}>
             <View style={styles.greenDot} />
             <View style={styles.connectedInfo}>
-              <Text style={styles.fileName}>{schemaName ?? 'Schema'}</Text>
+              <Text style={styles.fileName}>
+                {schemaName ?? 'Schema'}
+                {visibleSchemaIds.length > 1 ? ` +${visibleSchemaIds.length - 1}` : ''}
+              </Text>
             </View>
           </View>
         )}
@@ -305,23 +295,23 @@ export function ConnectSection() {
             ? <ActivityIndicator color={LightTheme.accent} />
             : (
               <MySchemasList
-                schemas={schemas}
-                activeId={schemaId}
+                schemas={schemaList}
                 renamingId={renamingId}
                 renameValue={renameValue}
-                deleteConfirmId={deleteConfirmId}
-                exporting={exporting}
-                onActivate={handleActivate}
-                onRenameStart={handleRenameStart}
                 onRenameChange={setRenameValue}
                 onRenameCommit={handleRenameCommit}
-                onDeleteRequest={(id) => { setRenamingId(null); setDeleteConfirmId(id) }}
-                onDeleteCancel={() => setDeleteConfirmId(null)}
-                onDeleteConfirm={handleDeleteConfirm}
-                onExport={handleExportToSheets}
+                onOpenMenu={(schema) => setMenuSchemaId(schema.id)}
               />
             )
         )}
+
+        {/* Actie-menu per schema */}
+        <ActionMenu
+          visible={menuSchema !== null}
+          title={menuSchema?.name}
+          items={menuSchema ? menuItemsFor(menuSchema) : []}
+          onClose={() => setMenuSchemaId(null)}
+        />
 
         {/* Tiles — altijd zichtbaar */}
         <ImportSchemaTile recommended onPress={() => setImportOpen(true)} />
@@ -389,16 +379,10 @@ const styles = StyleSheet.create({
   schemaDot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.border, flexShrink: 0 },
   schemaDotActive:    { backgroundColor: LightTheme.accent },
   schemaName:         { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
+  schemaNameArchived: { color: LightTheme.muted },
   renameInput:        { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text, padding: 0 },
-  schemaActions:      { flexDirection: 'row', gap: Spacing.sm, marginLeft: Spacing.sm },
-  schemaActionIcon:   { fontSize: 16, color: LightTheme.muted },
-  schemaActionDelete: { color: LightTheme.muted },
-
-  // Delete confirm
-  deleteConfirm:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: Spacing.sm },
-  deleteConfirmText: { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
-  deleteConfirmBtn:  { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.muted },
-  deleteConfirmYes:  { color: '#e53e3e' },
+  menuBtn:            { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, marginLeft: Spacing.sm },
+  schemaActionIcon:   { fontSize: 18, color: LightTheme.muted },
 
   // Misc
   emptyText:      { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },

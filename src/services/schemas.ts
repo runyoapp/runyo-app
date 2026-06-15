@@ -63,11 +63,13 @@ export async function setSchemaVisibility(id: string, visible: boolean): Promise
 }
 
 // Archiveren: uit beeld halen zonder de historie te wissen (vervangt verwijderen).
-export async function archiveSchema(id: string): Promise<void> {
+// Omkeerbaar: archived=false zet het schema terug.
+export async function archiveSchema(id: string, archived = true): Promise<void> {
   const headers = await authHeaders()
   const res = await fetch(`${BACKEND}/api/schemas/${id}/archive`, {
     method: 'PATCH',
-    headers,
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ archived }),
   })
   ensureOk(res.status, 'archive schema')
 }

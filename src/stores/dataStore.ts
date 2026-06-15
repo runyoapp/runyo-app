@@ -82,7 +82,7 @@ type DataStore = {
   // Backend schema actions
   loadMySchemas: () => Promise<void>
   setSchemaVisible: (id: string, visible: boolean) => Promise<void>
-  archiveSchemaById: (id: string) => Promise<void>
+  archiveSchemaById: (id: string, archived?: boolean) => Promise<void>
   // Compat-aliassen (worden in fase 4 vervangen door bovenstaande):
   activateSchemaById: (id: string, name: string) => Promise<void>
   activateImport: (schemaId: string, schemaName: string) => Promise<void>
@@ -185,10 +185,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
     await persistVisible(d.visibleSchemaIds)
   },
 
-  archiveSchemaById: async (id) => {
-    await archiveSchema(id)
+  archiveSchemaById: async (id, archived = true) => {
+    await archiveSchema(id, archived)
     const schemaList = get().schemaList.map(s =>
-      s.id === id ? { ...s, isArchived: true, isVisible: false } : s,
+      s.id === id
+        ? { ...s, isArchived: archived, ...(archived ? { isVisible: false } : {}) }
+        : s,
     )
     const d = derive(schemaList)
     set({ schemaList, ...d })
