@@ -33,7 +33,8 @@ function formatBytes(bytes: number | null): string {
 }
 
 // Geschatte kosten obv het sonnet-4-6-tarief (USD per miljoen tokens).
-// TODO: tarief bevestigen tegen de actuele Anthropic-prijslijst.
+// Bevestigd tegen de Anthropic-prijslijst (jun 2026): $3 in / $15 out voor
+// prompts ≤200k tokens — onze imports zitten daar (na tekstextractie) ruim onder.
 const USD_PER_MTOK_IN = 3
 const USD_PER_MTOK_OUT = 15
 
