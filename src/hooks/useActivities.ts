@@ -27,10 +27,11 @@ export function useActivities() {
   // herberekent wanneer er echt nieuwe data is (voorkomt referentie-churn).
   const updatedKey = results.map(r => r.dataUpdatedAt).join(',')
   const idsKey = visibleSchemaIds.join(',')
+  // Deps bewust op de afgeleide sleutels (updatedKey/idsKey), niet op `results`
+  // zelf — zo herberekent de merge alleen bij echte data-updates.
   const merged = useMemo(() => {
     const all = results.flatMap(r => r.data ?? [])
     return all.sort((a, b) => a.datum.localeCompare(b.datum) || a.schemaId.localeCompare(b.schemaId))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updatedKey, idsKey])
 
   useEffect(() => {
