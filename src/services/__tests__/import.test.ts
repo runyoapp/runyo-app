@@ -126,6 +126,17 @@ describe('analyseSchemaFromUrl', () => {
     expect(body.system).toBe(SYSTEM_PROMPT)
   })
 
+  it('forwards the AbortSignal to fetch so a cancel reaches the backend', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => 'TITEL: T\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-06-01","type":"run","titel":"E","detail":"","km":8,"fase":""}]',
+    })
+    const ac = new AbortController()
+    await analyseSchemaFromUrl('https://docs.google.com/spreadsheets/d/abc', '2026-06-01', { mode: 'keep' }, async () => 'tok', () => {}, ac.signal)
+    expect(fetchMock.mock.calls[0][1].signal).toBe(ac.signal)
+  })
+
   it('keep-mode userText instructs to honor the document weekdays', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,

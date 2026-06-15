@@ -378,6 +378,7 @@ export async function analyseSchema(
   dayMode: DayMode,
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
+  signal?: AbortSignal,
 ): Promise<AnalyseResult> {
   const userText = buildUserText(startDate, dayMode)
 
@@ -420,6 +421,7 @@ export async function analyseSchema(
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),
+      signal,
     })
     if (!res.ok) {
       const errBody = await res.json().catch(() => null)
@@ -439,6 +441,7 @@ export async function analyseSchemaFromUrl(
   dayMode: DayMode,
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
+  signal?: AbortSignal,
 ): Promise<AnalyseResult> {
   const userText = buildUserText(startDate, dayMode)
 
@@ -456,6 +459,7 @@ export async function analyseSchemaFromUrl(
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
       }),
+      signal,
     })
     if (!res.ok) {
       const errBody = await res.json().catch(() => null)

@@ -61,8 +61,12 @@ export function ImportWizard({
   const [chooseDays, setChooseDays] = useState<boolean[]>([true, false, true, false, true, false, true])
   const [overlap, setOverlap] = useState(0)
   const analyzeRun = useRef(0)
+  // Abort van de lopende analyse → sluit de verbinding naar de backend, die de
+  // Anthropic-call afbreekt zodat we niet doorbetalen voor een antwoord dat
+  // niemand meer leest (annuleren of modal sluiten).
+  const analyzeAbort = useRef<AbortController | null>(null)
 
-  const close = useCallback(() => { flow.restart(); onClose() }, [flow, onClose])
+  const close = useCallback(() => { analyzeAbort.current?.abort(); flow.restart(); onClose() }, [flow, onClose])
   const finish = useCallback(() => { flow.restart(); (onSuccess ?? onClose)() }, [flow, onSuccess, onClose])
 
   // ── Bron kiezen ───────────────────────────────────────────────────────────
@@ -96,16 +100,19 @@ export function ImportWizard({
     // en wie te vroeg een knop ziet, drukt erop en moet opnieuw wachten.
     const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 180_000)
     const onProg = (pct: number) => { if (analyzeRun.current === runId) flow.setAPct(pct / 100) }
+    const abort = new AbortController()
+    analyzeAbort.current = abort
     try {
       const analysed = data.source === 'sheet'
-        ? await analyseSchemaFromUrl(data.link.trim(), data.startDate, data.dayMode, getToken, onProg)
-        : await analyseSchema(data.fileB64, data.fileMime, data.fileName, data.startDate, data.dayMode, getToken, onProg)
+        ? await analyseSchemaFromUrl(data.link.trim(), data.startDate, data.dayMode, getToken, onProg, abort.signal)
+        : await analyseSchema(data.fileB64, data.fileMime, data.fileName, data.startDate, data.dayMode, getToken, onProg, abort.signal)
       if (analyzeRun.current !== runId) return // geannuleerd
       flow.patch({ result: analysed, error: '' })
       flow.setAPct(1)
       flow.replace('review')
     } catch (e) {
       if (analyzeRun.current !== runId) return
+      if ((e as Error)?.name === 'AbortError') return // afgebroken (annuleren / modal dicht)
       const msg = (e as Error)?.message ?? ''
       if (/geen schema gevonden/i.test(msg)) { flow.replace('empty') }
       else { flow.patch({ error: msg || 'Analyse mislukt' }); flow.replace('analyzeError') }
@@ -116,6 +123,7 @@ export function ImportWizard({
 
   function cancelAnalyze() {
     analyzeRun.current++ // negeer een lopende analyse
+    analyzeAbort.current?.abort() // breek de backend/Anthropic-call af → geen tokens meer
     flow.jumpBackTo('trainingDays')
   }
 
