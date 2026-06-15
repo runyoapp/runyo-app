@@ -346,6 +346,23 @@ describe('parseRawResponse', () => {
     expect(() => parseRawResponse('TITEL: P\nWEKEN: 1\nPIEK: 0\nRAPPORT: niets.')).toThrow('Geen schema gevonden.')
   })
 
+  it('flags truncated when the max_tokens sentinel is present (B1)', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":5,"fase":""}]\n\nRUNYO_TRUNCATED_MAXTOKENS'
+    const res = parseRawResponse(raw)
+    expect(res.truncated).toBe(true)
+    expect(res.rows).toHaveLength(1)
+  })
+
+  it('leaves truncated false on a normal response', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":5,"fase":""}]'
+    expect(parseRawResponse(raw).truncated).toBe(false)
+  })
+
+  it('throws a truncation-specific error when cut off before a usable array', () => {
+    const raw = 'TITEL: P\nWEKEN: 12\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"run","titel":"E","detail":"lang verhaal zonder einde\n\nRUNYO_TRUNCATED_MAXTOKENS'
+    expect(() => parseRawResponse(raw)).toThrow(/te lang en is afgekapt/i)
+  })
+
   it('leaves daysSignal null when the signal is absent', () => {
     const raw = 'TITEL: P\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":5,"fase":""}]'
     expect(parseRawResponse(raw).daysSignal).toBeNull()

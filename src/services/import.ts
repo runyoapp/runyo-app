@@ -152,6 +152,9 @@ export type AnalyseResult = {
   // DAGEN-signaal uit de analyse: 'vast' = brondocument had echte weekdagen,
   // 'geen' = "dag 1, dag 2"-schema. Voedt de review-nudge. null = niet teruggegeven.
   daysSignal: 'vast' | 'geen' | null
+  // True als de generatie op het max_tokens-plafond is afgekapt (B1): het schema
+  // kan onvolledig zijn. De backend hangt hiervoor een sentinel aan de stream.
+  truncated: boolean
 }
 
 // Duidelijke melding wanneer een Excel-bestand niets bruikbaars oplevert
@@ -312,6 +315,10 @@ function findRowsArray(raw: string): unknown[] | null {
  * Pure function — safe to unit-test without mocking fetch.
  */
 export function parseRawResponse(raw: string): AnalyseResult {
+  // B1: de backend hangt deze sentinel aan de stream als de generatie op het
+  // max_tokens-plafond is afgekapt → schema mogelijk onvolledig.
+  const truncated = raw.includes('RUNYO_TRUNCATED_MAXTOKENS')
+
   const titelM   = raw.match(/TITEL\s*:\s*([^\n\r]{1,40})/i)
   const wekenM   = raw.match(/WEKEN\s*:\s*(\d+)/i)
   const dagenM   = raw.match(/DAGEN\s*:\s*(vast|geen)/i)
@@ -323,7 +330,13 @@ export function parseRawResponse(raw: string): AnalyseResult {
   const daysSignal  = dagenM ? (dagenM[1].toLowerCase() as 'vast' | 'geen') : null
 
   const parsed = findRowsArray(raw) as Array<Record<string, unknown>> | null
-  if (!Array.isArray(parsed) || !parsed.length) throw new Error('Geen schema gevonden.')
+  if (!Array.isArray(parsed) || !parsed.length) {
+    // Afgekapt vóór een bruikbare array → geen generieke "geen schema", maar een
+    // melding die de echte oorzaak benoemt (schema te lang).
+    throw new Error(truncated
+      ? 'Het schema was te lang en is afgekapt voordat het compleet was. Probeer een korter schema, of splits het in delen.'
+      : 'Geen schema gevonden.')
+  }
 
   const rows: ParsedRow[] = parsed
     .filter(r => typeof r?.datum === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
@@ -340,7 +353,7 @@ export function parseRawResponse(raw: string): AnalyseResult {
       }
     })
 
-  return { schemaTitle, wekenStr, rapport, rows, daysSignal }
+  return { schemaTitle, wekenStr, rapport, rows, daysSignal, truncated }
 }
 
 // De backend streamt de schema-tekst (text/plain) zodat lange generaties (~2 min)

@@ -302,6 +302,11 @@ export function ImportWizard({
             {data.error ? (
               <View style={[s.padH20, { paddingBottom: 6 }]}><HintRow t={t} tone="error">{data.error}</HintRow></View>
             ) : null}
+            {data.result?.truncated ? (
+              <View style={[s.padH20, { paddingBottom: 6 }]}>
+                <HintRow t={t} tone="warn">Let op: dit schema was lang en is mogelijk afgekapt. Controleer of de laatste weken kloppen - ontbreekt er iets, importeer dan een korter deel.</HintRow>
+              </View>
+            ) : null}
             <ReviewSummary t={t} title={data.result?.schemaTitle ?? ''} weeks={totals.weeks} trainings={totals.trainings} km={totals.km}
               showNudge={showNudge} onChooseDays={() => { flow.setDayMode({ mode: 'choose', days: chooseDays.map((on, k) => (on ? k : -1)).filter(k => k >= 0) }); flow.jumpBackTo('trainingDays') }} />
             <View style={s.padH20}><ReviewLegend t={t} /></View>
@@ -367,7 +372,7 @@ export function ImportWizard({
           <View style={s.fill}>
             <StepHead t={t} title="Er ging iets mis" sub="Het analyseren is niet gelukt. Je instellingen zijn bewaard - je kunt het zo opnieuw proberen." />
             <View style={[s.padH20, { paddingTop: 20, gap: 14 }]}>
-              <HintRow t={t} tone="error">{data.error.startsWith('Dit Excel-bestand') ? data.error : 'Het schema kon niet worden verwerkt. Misschien viel je verbinding weg, of staat het document anders in elkaar dan verwacht.'}</HintRow>
+              <HintRow t={t} tone="error">{(data.error.startsWith('Dit Excel-bestand') || data.error.startsWith('Het schema was te lang')) ? data.error : 'Het schema kon niet worden verwerkt. Misschien viel je verbinding weg, of staat het document anders in elkaar dan verwacht.'}</HintRow>
               <View style={[s.recap, { backgroundColor: t.surface, borderColor: t.border }]}>
                 {[['Bron', data.source === 'sheet' ? 'Google Sheet' : data.fileName || '-'],
                   ['Startdatum', friendlyDate(data.startDate)],
