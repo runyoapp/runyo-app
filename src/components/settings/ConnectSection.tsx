@@ -59,6 +59,7 @@ type MySchemasListProps = {
   renameValue: string
   onRenameChange: (value: string) => void
   onRenameCommit: (schema: SchemaMeta) => void
+  onRenameCancel: () => void
   onOpenMenu: (schema: SchemaMeta) => void
 }
 
@@ -68,6 +69,7 @@ function MySchemasList({
   renameValue,
   onRenameChange,
   onRenameCommit,
+  onRenameCancel,
   onOpenMenu,
 }: MySchemasListProps) {
   if (!schemas.length) {
@@ -89,8 +91,9 @@ function MySchemasList({
                   style={styles.renameInput}
                   value={renameValue}
                   onChangeText={onRenameChange}
-                  onBlur={() => onRenameCommit(schema)}
                   onSubmitEditing={() => onRenameCommit(schema)}
+                  placeholder="Schemanaam"
+                  placeholderTextColor={LightTheme.faint}
                   autoFocus
                 />
               ) : (
@@ -103,7 +106,16 @@ function MySchemasList({
               )}
             </View>
 
-            {!isRenaming && (
+            {isRenaming ? (
+              <View style={styles.renameActions}>
+                <TouchableOpacity onPress={onRenameCancel} hitSlop={8}>
+                  <Text style={styles.renameBtn}>✕</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onRenameCommit(schema)} hitSlop={8}>
+                  <Text style={[styles.renameBtn, styles.renameBtnOk]}>✓</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
               <TouchableOpacity onPress={() => onOpenMenu(schema)} hitSlop={8} style={styles.menuBtn}>
                 <Text style={styles.schemaActionIcon}>⋯</Text>
               </TouchableOpacity>
@@ -300,6 +312,7 @@ export function ConnectSection() {
                 renameValue={renameValue}
                 onRenameChange={setRenameValue}
                 onRenameCommit={handleRenameCommit}
+                onRenameCancel={() => setRenamingId(null)}
                 onOpenMenu={(schema) => setMenuSchemaId(schema.id)}
               />
             )
@@ -380,9 +393,12 @@ const styles = StyleSheet.create({
   schemaDotActive:    { backgroundColor: LightTheme.accent },
   schemaName:         { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
   schemaNameArchived: { color: LightTheme.muted },
-  renameInput:        { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text, padding: 0 },
+  renameInput:        { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text, paddingHorizontal: Spacing.sm, paddingVertical: 6, borderWidth: 1, borderColor: LightTheme.accent, borderRadius: Radius.sm, backgroundColor: LightTheme.bg },
   menuBtn:            { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, marginLeft: Spacing.sm },
   schemaActionIcon:   { fontSize: 18, color: LightTheme.muted },
+  renameActions:      { flexDirection: 'row', gap: Spacing.sm, marginLeft: Spacing.sm },
+  renameBtn:          { fontFamily: Fonts.displaySemiBold, fontSize: 16, color: LightTheme.muted },
+  renameBtnOk:        { color: LightTheme.accent },
 
   // Misc
   emptyText:      { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },
