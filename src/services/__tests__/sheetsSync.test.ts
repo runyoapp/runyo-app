@@ -10,6 +10,7 @@ const { activitiesToSheetRows } = await import('../sheets')
 function makeActivity(overrides: Partial<Activity> = {}): Activity {
   return {
     id:        'act-1',
+    schemaId:  'schema-1',
     datum:     '2025-03-01',
     type:      'run',
     titel:     'Rustige duurloop',

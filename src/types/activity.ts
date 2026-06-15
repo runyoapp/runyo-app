@@ -4,6 +4,7 @@ export type { ActivityType }
 
 export type Activity = {
   id: string
+  schemaId: string     // backend-schema waar deze activiteit bij hoort (multi-schema)
   datum: string        // YYYY-MM-DD
   type: ActivityType
   titel: string

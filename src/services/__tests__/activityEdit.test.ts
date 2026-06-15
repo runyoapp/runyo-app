@@ -33,6 +33,7 @@ import type { Activity } from '@/types/activity'
 function makeActivity(over: Partial<Activity> = {}): Activity {
   return {
     id: 'act-1',
+    schemaId: 'schema-1',
     datum: '2026-06-01',
     type: 'run',
     titel: 'Easy run',

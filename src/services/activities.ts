@@ -74,6 +74,7 @@ export function toActivity(row: BackendActivity): Activity {
   const now = new Date().toISOString()
   return {
     id: row.id,
+    schemaId: row.schemaId,
     datum: row.datum,
     type: normalizeType(row.type),
     titel: row.titel ?? '',

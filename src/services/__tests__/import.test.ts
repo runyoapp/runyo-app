@@ -258,7 +258,7 @@ describe('importToBackend (error)', () => {
 // ── 5. importToBackend integration ───────────────────────────────────────────
 
 const mkActivity = (over: Partial<Activity>): Activity => ({
-  id: 'a', datum: '2026-06-01', type: 'run', titel: '', detail: '', km: null,
+  id: 'a', schemaId: 'schema-1', datum: '2026-06-01', type: 'run', titel: '', detail: '', km: null,
   feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '',
   raceType: null, goalTime: null, isMainGoal: false, rowIndex: null, ...over,
 })

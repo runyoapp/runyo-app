@@ -4,7 +4,8 @@ export type Schema = {
   id: string
   userId: string
   name: string
-  isActive: boolean
+  isVisible: boolean
+  isArchived: boolean
   createdAt: string
 }
 
@@ -50,15 +51,29 @@ export async function renameSchema(id: string, name: string): Promise<void> {
   ensureOk(res.status, 'rename schema')
 }
 
-export async function activateSchema(id: string): Promise<void> {
+// Zet de zichtbaarheid van één schema (multi-schema: meerdere mogen zichtbaar zijn).
+export async function setSchemaVisibility(id: string, visible: boolean): Promise<void> {
   const headers = await authHeaders()
-  const res = await fetch(`${BACKEND}/api/schemas/${id}/activate`, {
+  const res = await fetch(`${BACKEND}/api/schemas/${id}/visibility`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visible }),
+  })
+  ensureOk(res.status, 'set schema visibility')
+}
+
+// Archiveren: uit beeld halen zonder de historie te wissen (vervangt verwijderen).
+export async function archiveSchema(id: string): Promise<void> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${id}/archive`, {
     method: 'PATCH',
     headers,
   })
-  ensureOk(res.status, 'activate schema')
+  ensureOk(res.status, 'archive schema')
 }
 
+// Hard verwijderen — alleen nog voor import-rollback (een net aangemaakt, leeg
+// schema opruimen bij een mislukte import). Niet meer in de UI.
 export async function deleteSchema(id: string): Promise<void> {
   const headers = await authHeaders()
   const res = await fetch(`${BACKEND}/api/schemas/${id}`, {
