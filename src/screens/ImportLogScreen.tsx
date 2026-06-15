@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  Linking,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
@@ -31,12 +32,40 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+// Geschatte kosten obv het sonnet-4-6-tarief (USD per miljoen tokens).
+// TODO: tarief bevestigen tegen de actuele Anthropic-prijslijst.
+const USD_PER_MTOK_IN = 3
+const USD_PER_MTOK_OUT = 15
+
+function estimateCostUsd(inTok: number | null, outTok: number | null): number {
+  return ((inTok ?? 0) / 1e6) * USD_PER_MTOK_IN + ((outTok ?? 0) / 1e6) * USD_PER_MTOK_OUT
+}
+
+function formatCost(usd: number): string {
+  if (usd < 0.005) return '<$0,01'
+  return `$${usd.toFixed(2).replace('.', ',')}`
+}
+
+function isUrl(s: string | null): boolean {
+  return !!s && /^https?:\/\//i.test(s)
+}
+
 function EntryCard({ entry }: { entry: ImportLogEntry }) {
   const theme = useTheme()
   const [expanded, setExpanded] = useState(false)
 
   const statusColor = entry.ok ? theme.accent : theme.danger
   const statusLabel = entry.ok ? '✓' : '✗'
+
+  // Stats-regel: rijen/titel alleen bij geslaagde imports; tokens + geschatte
+  // kosten zodra ze gelogd zijn (ook bij afgebroken imports met partieel gebruik).
+  const statParts: string[] = []
+  if (entry.ok && entry.rowCount != null) statParts.push(`${entry.rowCount} trainingen`)
+  if (entry.ok && entry.schemaTitle) statParts.push(entry.schemaTitle)
+  if (entry.inputTokens || entry.outputTokens) {
+    statParts.push(`${((entry.inputTokens ?? 0) / 1000).toFixed(1)}k → ${((entry.outputTokens ?? 0) / 1000).toFixed(1)}k tok`)
+    statParts.push(formatCost(estimateCostUsd(entry.inputTokens, entry.outputTokens)))
+  }
 
   async function download() {
     if (Platform.OS !== 'web') {
@@ -81,23 +110,22 @@ function EntryCard({ entry }: { entry: ImportLogEntry }) {
         <Text style={[styles.errorLine, { color: theme.danger }]}>{entry.error}</Text>
       )}
 
-      {/* Stats */}
-      {entry.ok && (
-        <Text style={[styles.statsLine, { color: theme.muted }]}>
-          {entry.rowCount != null ? `${entry.rowCount} trainingen` : ''}
-          {entry.schemaTitle ? `  ·  ${entry.schemaTitle}` : ''}
-          {(entry.inputTokens || entry.outputTokens)
-            ? `  ·  ${((entry.inputTokens ?? 0) / 1000).toFixed(1)}k → ${((entry.outputTokens ?? 0) / 1000).toFixed(1)}k tok`
-            : ''}
-        </Text>
+      {/* Stats — rijen/titel + tokens + geschatte kosten */}
+      {statParts.length > 0 && (
+        <Text style={[styles.statsLine, { color: theme.muted }]}>{statParts.join('  ·  ')}</Text>
       )}
 
-      {/* Expanded: raw preview + download */}
+      {/* Expanded: raw preview + bron-knop */}
       {expanded && (
         <View style={styles.expandedBlock}>
           {entry.hasFile && (
             <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.accentGlow }]} onPress={download}>
               <Text style={[styles.downloadBtnText, { color: theme.accent }]}>bestand downloaden</Text>
+            </TouchableOpacity>
+          )}
+          {!entry.hasFile && isUrl(entry.fileName) && (
+            <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.accentGlow }]} onPress={() => Linking.openURL(entry.fileName as string)}>
+              <Text style={[styles.downloadBtnText, { color: theme.accent }]}>sheet openen</Text>
             </TouchableOpacity>
           )}
           {entry.rawPreview ? (
@@ -137,11 +165,20 @@ export function ImportLogScreen() {
 
   useFocusEffect(useCallback(() => { load() }, []))
 
+  const totalUsd = entries.reduce((sum, e) => sum + estimateCostUsd(e.inputTokens, e.outputTokens), 0)
+
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       {/* Title bar */}
       <View style={styles.titleRow}>
-        <Text style={[styles.pageTitle, { color: theme.text }]}>importeerlog</Text>
+        <View>
+          <Text style={[styles.pageTitle, { color: theme.text }]}>importeerlog</Text>
+          {entries.length > 0 && (
+            <Text style={[styles.subTitle, { color: theme.muted }]}>
+              {entries.length} imports  ·  ~{formatCost(totalUsd)} totaal
+            </Text>
+          )}
+        </View>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
           <Text style={[styles.closeBtnText, { color: theme.muted }]}>✕</Text>
         </TouchableOpacity>
@@ -186,6 +223,7 @@ const styles = StyleSheet.create({
   root:        { flex: 1 },
   titleRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg },
   pageTitle:   { fontFamily: Fonts.displayBold, fontSize: 28, color: LightTheme.text, letterSpacing: -0.5 },
+  subTitle:    { fontFamily: Fonts.mono, fontSize: 11, marginTop: 2 },
   closeBtn:    { padding: Spacing.sm },
   closeBtnText:{ fontFamily: Fonts.display, fontSize: 20, color: LightTheme.muted },
   scroll:      { flex: 1 },

@@ -63,7 +63,6 @@ TRAININGSDAGEN — volg de instructie van de gebruiker:
 
 Schrijf eerst TITEL: (max 30 tekens — naam van het schema).
 Dan WEKEN: (getal, bijv. "12").
-Dan PIEK: (hoogste weekvolume in km, bijv. "65 km").
 Dan DAGEN: (vast als het brondocument echte vaste weekdagen heeft, geen als het een "dag 1, dag 2"-schema zonder weekdagen is).
 Dan RAPPORT: (max 2 zinnen, beschrijf het schema neutraal).
 Dan direct de JSON array, geen markdown.`
@@ -148,7 +147,6 @@ export type PickResult = {
 export type AnalyseResult = {
   schemaTitle: string
   wekenStr: string
-  piekStr: string
   rapport: string
   rows: ParsedRow[]
   // DAGEN-signaal uit de analyse: 'vast' = brondocument had echte weekdagen,
@@ -316,13 +314,11 @@ function findRowsArray(raw: string): unknown[] | null {
 export function parseRawResponse(raw: string): AnalyseResult {
   const titelM   = raw.match(/TITEL\s*:\s*([^\n\r]{1,40})/i)
   const wekenM   = raw.match(/WEKEN\s*:\s*(\d+)/i)
-  const piekM    = raw.match(/PIEK\s*:\s*([^\n\r]{1,20})/i)
   const dagenM   = raw.match(/DAGEN\s*:\s*(vast|geen)/i)
   const rapportM = raw.match(/RAPPORT\s*:\s*([\s\S]*?)(?=\[|$)/i)
 
   const schemaTitle = titelM?.[1]?.trim() ?? ''
   const wekenStr    = wekenM?.[1] ? `${wekenM[1]} weken` : ''
-  const piekStr     = piekM?.[1]?.trim() ?? ''
   const rapport     = rapportM?.[1]?.trim() ?? ''
   const daysSignal  = dagenM ? (dagenM[1].toLowerCase() as 'vast' | 'geen') : null
 
@@ -344,7 +340,7 @@ export function parseRawResponse(raw: string): AnalyseResult {
       }
     })
 
-  return { schemaTitle, wekenStr, piekStr, rapport, rows, daysSignal }
+  return { schemaTitle, wekenStr, rapport, rows, daysSignal }
 }
 
 // De backend streamt de schema-tekst (text/plain) zodat lange generaties (~2 min)
