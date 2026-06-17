@@ -28,12 +28,22 @@ function buildWeeks(activities: PlanWeekData['days'], today: string): PlanWeekDa
   // De looptijd wordt bepaald door échte trainingen, niet door races: een race ver
   // in de toekomst mag het plan niet helemaal doortrekken met lege weken. Andere
   // actieve activiteiten rekken de looptijd wél op.
-  const spanRows = real.filter(a => a.type !== 'race')
-  const span     = spanRows.length ? spanRows : real
-  const spanSort = [...span].sort((a, b) => a.datum.localeCompare(b.datum))
-  const sorted   = [...real].sort((a, b) => a.datum.localeCompare(b.datum))
-  const firstMon = weekStart(fromDateString(spanSort[0].datum))
-  const lastMon  = weekStart(fromDateString(spanSort[spanSort.length - 1].datum))
+  const trainings = real.filter(a => a.type !== 'race')
+  const span      = trainings.length ? trainings : real
+  const spanSort  = [...span].sort((a, b) => a.datum.localeCompare(b.datum))
+  const sorted    = [...real].sort((a, b) => a.datum.localeCompare(b.datum))
+  const firstMon  = weekStart(fromDateString(spanSort[0].datum))
+  let   lastMon   = weekStart(fromDateString(spanSort[spanSort.length - 1].datum))
+
+  // Een race in de wéék ná de laatste training mag het plan met één week oprekken
+  // (bv. een paar dagen taperen voor de wedstrijd). Races verder weg niet.
+  if (trainings.length) {
+    const nextMon = toDateString(addDays(lastMon, 7))
+    const raceNextWeek = real.some(a =>
+      a.type === 'race' && toDateString(weekStart(fromDateString(a.datum))) === nextMon,
+    )
+    if (raceNextWeek) lastMon = addDays(lastMon, 7)
+  }
 
   const weeks: PlanWeekData[] = []
   let cursor = firstMon
