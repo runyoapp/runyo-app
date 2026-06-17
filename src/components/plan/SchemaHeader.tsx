@@ -1,36 +1,38 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import { fromDateString, MONTHS_NL } from '@/utils/date'
+import { fromDateString, toDateString, MONTHS_NL } from '@/utils/date'
+import type { PlanWeekData } from '@/components/plan/PlanWeek'
 import type { Activity } from '@/types/activity'
 
-type Props = { activities: Activity[] }
+type Props = { weeks: PlanWeekData[]; activities: Activity[] }
 
 function fmt(dateStr: string): string {
   const d = fromDateString(dateStr)
   return `${d.getDate()} ${MONTHS_NL[d.getMonth()]}`
 }
 
-export function SchemaHeader({ activities }: Props) {
-  const theme     = useTheme()
-  const today     = new Date().toISOString().split('T')[0]
-  const allRows   = activities.filter(a => a.datum)
-  const totalKm   = allRows.reduce((s, a) => s + (a.km ?? 0), 0)
-  const races     = allRows.filter(a => a.type === 'race').sort((a, b) => a.datum.localeCompare(b.datum))
-  const nextRace  = races.find(r => r.datum >= today)
-  const schemaName = nextRace?.titel ?? 'Training'
-  const startDate  = allRows[0]?.datum
-  const endDate    = nextRace?.datum ?? allRows[allRows.length - 1]?.datum
+// Week-telling, km en voortgang komen uit dezelfde week-data als de lijst eronder,
+// zodat "Week X van Y" altijd klopt met het aantal week-rijen (één bron van waarheid).
+export function SchemaHeader({ weeks, activities }: Props) {
+  const theme      = useTheme()
+  const today      = toDateString(new Date())
+  const totalKm    = weeks.reduce((s, w) => s + w.goalKm, 0)
+  const totalWeeks = weeks.length
+  const doneCount  = weeks.filter(w => w.status === 'done').length
+  const current    = weeks.find(w => w.status === 'current')
+  const weekNum    = current ? current.num : Math.min(totalWeeks, doneCount + 1)
+  const pct        = totalWeeks > 0 ? Math.min(100, Math.round(doneCount / totalWeeks * 100)) : 0
 
-  let weekNum = 1, totalWeeks = 1, pct = 0
-  if (startDate && endDate) {
-    const s = fromDateString(startDate).getTime()
-    const e = fromDateString(endDate).getTime()
-    const n = new Date().setHours(12, 0, 0, 0)
-    totalWeeks = Math.max(1, Math.ceil((e - s) / 604800000))
-    weekNum    = Math.min(totalWeeks, Math.max(1, Math.ceil((n - s) / 604800000) + 1))
-    pct        = Math.min(100, Math.round((weekNum - 1) / totalWeeks * 100))
-  }
+  const races      = activities.filter(a => a.type === 'race').sort((a, b) => a.datum.localeCompare(b.datum))
+  const nextRace   = races.find(r => r.datum >= today)
+  const schemaName = nextRace?.titel ?? 'Training'
+
+  const firstWeek  = weeks[0]
+  const lastWeek   = weeks[weeks.length - 1]
+  const startDate  = firstWeek?.days[0]?.datum
+  const endDate    = nextRace?.datum ?? lastWeek?.days[lastWeek.days.length - 1]?.datum
+  const endLabel   = nextRace ? 'Race' : 'Eind'
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -48,7 +50,7 @@ export function SchemaHeader({ activities }: Props) {
       {startDate && endDate && (
         <View style={styles.dates}>
           <Text style={styles.dateLabel}>Start · {fmt(startDate)}</Text>
-          <Text style={styles.dateLabel}>Race · {fmt(endDate)}</Text>
+          <Text style={styles.dateLabel}>{endLabel} · {fmt(endDate)}</Text>
         </View>
       )}
     </View>

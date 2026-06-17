@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { AddActivityModal } from '@/screens/AddActivityModal'
+import { DayDetailModal } from '@/screens/DayDetailModal'
 import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
@@ -20,13 +21,19 @@ import type { Activity } from '@/types/activity'
 type PlanMode = 'plan' | 'week' | 'editor'
 
 // Groepeer activiteiten in maandag-zondag weken over de hele schema-looptijd.
-// Werk-items tellen niet mee in plan (dat is privé-agenda, geen training).
+// Werk-items én rustdagen tellen niet mee in plan (privé-agenda / geen training).
 function buildWeeks(activities: PlanWeekData['days'], today: string): PlanWeekData[] {
-  const real = activities.filter(a => a.datum && a.type !== 'work')
+  const real = activities.filter(a => a.datum && a.type !== 'work' && a.type !== 'rest')
   if (!real.length) return []
+  // De looptijd wordt bepaald door échte trainingen, niet door races: een race ver
+  // in de toekomst mag het plan niet helemaal doortrekken met lege weken. Andere
+  // actieve activiteiten rekken de looptijd wél op.
+  const spanRows = real.filter(a => a.type !== 'race')
+  const span     = spanRows.length ? spanRows : real
+  const spanSort = [...span].sort((a, b) => a.datum.localeCompare(b.datum))
   const sorted   = [...real].sort((a, b) => a.datum.localeCompare(b.datum))
-  const firstMon = weekStart(fromDateString(sorted[0].datum))
-  const lastMon  = weekStart(fromDateString(sorted[sorted.length - 1].datum))
+  const firstMon = weekStart(fromDateString(spanSort[0].datum))
+  const lastMon  = weekStart(fromDateString(spanSort[spanSort.length - 1].datum))
 
   const weeks: PlanWeekData[] = []
   let cursor = firstMon
@@ -72,6 +79,7 @@ export function PlanScreen() {
 
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [importOpen,   setImportOpen]   = useState(false)
+  const [detailActivity, setDetailActivity] = useState<Activity | null>(null)
 
   // Weekbouwer-navigatie: lokale screen-state (geen RootNavigator-wijziging).
   const [mode,            setMode]            = useState<PlanMode>('plan')
@@ -168,7 +176,7 @@ export function PlanScreen() {
             onContentSizeChange={() => setContentReady(true)}
             contentContainerStyle={styles.scrollContent}
           >
-            <SchemaHeader activities={activities} />
+            <SchemaHeader weeks={weeks} activities={activities} />
             {weeks.map(w => (
               <View
                 key={w.num}
@@ -179,14 +187,17 @@ export function PlanScreen() {
               >
                 <PlanWeek
                   week={w}
+                  today={today}
                   maxGoalKm={maxGoalKm}
                   expanded={openSet.has(w.num)}
                   onToggle={() => toggle(w.num)}
+                  onActivityPress={setDetailActivity}
                   onEditWeek={() => { setActiveWeekMonday(w.monday); setMode('week') }}
                 />
               </View>
             ))}
-            <View style={{ height: Spacing.xxl }} />
+            {/* Ruimte zodat de onderste week niet achter de zwevende tab-balk valt */}
+            <View style={{ height: insets.bottom + 96 }} />
           </ScrollView>
         )}
       </PageContainer>
@@ -198,6 +209,11 @@ export function PlanScreen() {
       <ImportWizard
         visible={importOpen}
         onClose={() => setImportOpen(false)}
+      />
+      <DayDetailModal
+        activity={detailActivity}
+        visible={detailActivity !== null}
+        onClose={() => setDetailActivity(null)}
       />
     </View>
   )

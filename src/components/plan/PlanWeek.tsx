@@ -18,43 +18,46 @@ export type PlanWeekData = {
 
 type Props = {
   week: PlanWeekData
+  today: string
   maxGoalKm: number
   expanded: boolean
   onToggle: () => void
+  onActivityPress: (a: Activity) => void
   onEditWeek: () => void   // → weekbouwer (stap 3); nu nog inert
 }
 
-// Eén dagrij in het uitgeklapte weekdetail. Rust = dunne, gedempte rij.
-function DayRow({ activity }: { activity: Activity }) {
+// Eén dagrij in het uitgeklapte weekdetail. Tikbaar → opent de activiteit-details.
+// Dagen in het verleden worden gedempt getoond.
+function DayRow({ activity, today, onPress }: { activity: Activity; today: string; onPress: () => void }) {
   const d       = fromDateString(activity.datum)
   const dayName = DAYS_NL[mondayIndex(d)].toLowerCase()
-  const rest    = activity.type === 'rest' || (activity.km ?? 0) === 0
   const isRace  = activity.type === 'race'
+  const past    = activity.datum < today
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label   = activity.titel || (TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type)
 
   return (
-    <View style={[styles.dayRow, rest && styles.dayRowRest]}>
-      <View style={[styles.dayBar, { backgroundColor: rest ? LightTheme.border : colors.text }]} />
+    <TouchableOpacity
+      style={[styles.dayRow, past && styles.dayRowPast]}
+      onPress={onPress}
+      activeOpacity={0.6}
+    >
+      <View style={[styles.dayBar, { backgroundColor: colors.text }]} />
       <Text style={styles.dayDate}>{dayName} {d.getDate()}</Text>
       <Text
-        style={[
-          styles.dayTitle,
-          rest && styles.dayTitleRest,
-          isRace && { color: ActivityColors.race.text },
-        ]}
+        style={[styles.dayTitle, isRace && { color: ActivityColors.race.text }]}
         numberOfLines={1}
       >
         {label}
       </Text>
-      {!rest && activity.km != null && (
+      {activity.km != null && (
         <Text style={styles.dayKm}>{activity.km} km</Text>
       )}
-    </View>
+    </TouchableOpacity>
   )
 }
 
-export function PlanWeek({ week, maxGoalKm, expanded, onToggle, onEditWeek }: Props) {
+export function PlanWeek({ week, today, maxGoalKm, expanded, onToggle, onActivityPress, onEditWeek }: Props) {
   const theme   = useTheme()
   const cur     = week.status === 'current'
   const done    = week.status === 'done'
@@ -93,7 +96,9 @@ export function PlanWeek({ week, maxGoalKm, expanded, onToggle, onEditWeek }: Pr
           styles.detail,
           { backgroundColor: theme.surface, borderColor: cur ? theme.accent : theme.border },
         ]}>
-          {week.days.map(a => <DayRow key={a.id} activity={a} />)}
+          {week.days.map(a => (
+            <DayRow key={a.id} activity={a} today={today} onPress={() => onActivityPress(a)} />
+          ))}
           <TouchableOpacity style={styles.editLink} onPress={onEditWeek} activeOpacity={0.7}>
             <Text style={styles.editLinkText}>
               Bewerk in <Text style={styles.editLinkStrong}>weekbouwer</Text>
@@ -119,11 +124,10 @@ const styles = StyleSheet.create({
 
   detail:         { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', marginTop: Spacing.sm },
   dayRow:         { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 9 },
-  dayRowRest:     { paddingVertical: 7 },
+  dayRowPast:     { opacity: 0.5 },
   dayBar:         { width: 3, height: 22, borderRadius: 2 },
   dayDate:        { width: 44, fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
   dayTitle:       { flex: 1, minWidth: 0, fontFamily: Fonts.displaySemiBold, fontSize: 13, color: LightTheme.text, letterSpacing: -0.1 },
-  dayTitleRest:   { fontFamily: Fonts.displayMedium, color: LightTheme.muted },
   dayKm:          { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.text2 },
 
   editLink:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11, borderTopWidth: 1, borderTopColor: LightTheme.border, backgroundColor: LightTheme.surface2 },
