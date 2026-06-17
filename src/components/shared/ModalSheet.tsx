@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated, useWindowDimensions } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated, useWindowDimensions, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Fonts, Spacing } from '@/constants/theme'
@@ -20,8 +20,8 @@ type Props = {
   scrollRef?: React.RefObject<ScrollView | null>
 }
 
-// Sluiten door naar beneden te swipen vanaf de header/handle. Voorbij deze drempel
-// (of bij een snelle flick) sluit het scherm; anders veert het terug.
+// Sluiten door naar beneden te swipen. Voorbij deze drempel (of bij een snelle
+// flick) sluit het scherm; anders veert het terug.
 const DISMISS_DISTANCE = 120
 const DISMISS_VELOCITY = 900
 
@@ -30,7 +30,14 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
   const theme  = useTheme()
   const { height } = useWindowDimensions()
 
+  const localScrollRef = useRef<ScrollView | null>(null)
+  const sv = scrollRef ?? localScrollRef
+
   const translateY = useRef(new Animated.Value(0)).current
+  // De swipe-vanaf-de-inhoud mag alleen dismissen als de scroll bovenaan staat;
+  // anders is omlaag trekken gewoon scrollen. Vastgelegd bij de start van een gebaar.
+  const atTop = useRef(true)
+  const allow = useRef(false)
 
   // Bij (her)openen altijd op 0 beginnen — een vorige sluit-swipe liet 'm onderaan staan.
   useEffect(() => { if (visible) translateY.setValue(0) }, [visible])
@@ -44,16 +51,32 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
       .start(() => onClose())
   }
 
-  // Pan op de header (handle + titel), niet op de scroll-inhoud: zo blijft scrollen werken.
-  // activeOffsetY(10) zorgt dat een tik op het kruisje niet als swipe telt.
-  const pan = Gesture.Pan()
+  function settle(translationY: number, velocityY: number) {
+    if (translationY > DISMISS_DISTANCE || velocityY > DISMISS_VELOCITY) dismiss()
+    else springBack()
+  }
+
+  // Header/handle: altijd swipebaar (geen scroll in de weg).
+  const headerPan = Gesture.Pan()
     .runOnJS(true)
     .activeOffsetY(10)
     .onUpdate(e => translateY.setValue(Math.max(0, e.translationY)))
-    .onEnd(e => {
-      if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) dismiss()
-      else springBack()
-    })
+    .onEnd(e => settle(e.translationY, e.velocityY))
+
+  // Inhoud/achtergrond: swipebaar zolang de scroll bovenaan staat (of niet scrollt).
+  // activeOffsetY(10) = alleen omlaag activeren; simultaan met de scroll zodat omhoog
+  // scrollen blijft werken.
+  const contentPan = Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetY(10)
+    .simultaneousWithExternalGesture(sv as unknown as React.RefObject<React.ComponentType>)
+    .onBegin(() => { allow.current = atTop.current })
+    .onUpdate(e => { if (allow.current) translateY.setValue(Math.max(0, e.translationY)) })
+    .onEnd(e => { if (allow.current) settle(e.translationY, e.velocityY); allow.current = false })
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    atTop.current = e.nativeEvent.contentOffset.y <= 0
+  }
 
   return (
     <Modal
@@ -68,7 +91,7 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <GestureDetector gesture={pan}>
+            <GestureDetector gesture={headerPan}>
               <View style={[styles.header, { paddingTop: insets.top + Spacing.xs }]}>
                 <View style={[styles.handle, { backgroundColor: theme.border }]} />
                 <View style={styles.headerRow}>
@@ -87,15 +110,19 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
               </View>
             </GestureDetector>
 
-            <ScrollView
-              ref={scrollRef}
-              style={styles.scroll}
-              contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {children}
-            </ScrollView>
+            <GestureDetector gesture={contentPan}>
+              <ScrollView
+                ref={sv}
+                style={styles.scroll}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+              >
+                {children}
+              </ScrollView>
+            </GestureDetector>
 
             {footer && (
               <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: insets.bottom + Spacing.md }]}>
