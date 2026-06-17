@@ -13,6 +13,7 @@ import { SeasonRibbon } from '@/components/races/SeasonRibbon'
 import { RaceHero } from '@/components/races/RaceHero'
 import { RaceUpNextList } from '@/components/races/RaceUpNextList'
 import { weekProgress } from '@/utils/raceProgress'
+import { fromDateString } from '@/utils/date'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 import type { Activity } from '@/types/activity'
 
@@ -37,6 +38,11 @@ export function RacesScreen() {
   const next   = races[0] ?? null
   const upNext = races.slice(1)
 
+  // "dit jaar" = aankomende races in het lopende kalenderjaar; "te gaan" = alle
+  // toekomstige races (incl. de eerstvolgende).
+  const yearNow   = new Date().getFullYear()
+  const thisYear  = races.filter(r => fromDateString(r.datum).getFullYear() === yearNow).length
+
   const heroProgress = (() => {
     if (!next) return 0
     const p = weekProgress(next, schemaList, activities)
@@ -51,7 +57,7 @@ export function RacesScreen() {
         <View style={styles.titleBlock}>
           <Text style={[styles.title, { color: theme.text }]}>Races</Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
-            {races.length} {races.length === 1 ? 'race' : 'races'} dit seizoen · {upNext.length} te gaan
+            {thisYear} {thisYear === 1 ? 'race' : 'races'} dit jaar · {races.length} te gaan
           </Text>
         </View>
 

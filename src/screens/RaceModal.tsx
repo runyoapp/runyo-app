@@ -3,9 +3,10 @@ import { View, Text, TextInput, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, DateField, ChipSelect, DistanceStepper, EditorTextField,
+  FieldLabel, ChipSelect, DistanceStepper, EditorTextField,
   EditorTextArea, Toggle, SaveBar, type ChipOption,
 } from '@/components/shared/editor'
+import { DayPicker } from '@/components/shared/DayPicker'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { createActivity, patchActivity } from '@/services/activities'
@@ -31,7 +32,7 @@ const RACE_DIST: { key: string; label: string; km: number | null }[] = [
 ]
 const RACE_TYPES = ['Weg', 'Baan', 'Trail', 'Ultra', 'Virtueel']
 
-const today = '2026-06-01'
+const today = new Date().toISOString().split('T')[0]
 function daysUntil(iso: string): number {
   const d = fromDateString(iso)
   const now = fromDateString(today)
@@ -84,7 +85,10 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const [notes,      setNotes]      = useState('')
   const [saving,     setSaving]     = useState(false)
 
+  // Reset telkens wanneer de modal opent (ook bij een nieuwe race ná een net
+  // toegevoegde race — anders blijven naam/datum/… van de vorige race staan).
   useEffect(() => {
+    if (!visible) return
     const km = activity?.km ?? null
     const rt = activity?.raceType ?? ''
     const g  = parseGoal(activity?.goalTime ?? '')
@@ -97,7 +101,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
     setH(g.h); setM(g.m); setS(g.s)
     setMainGoal(activity?.isMainGoal ?? false)
     setNotes(activity?.detail ?? '')
-  }, [activity?.id, prefillDate])
+  }, [visible, activity?.id, prefillDate])
 
   const distOpts: ChipOption[] = RACE_DIST.map(d => ({ key: d.key, label: d.label }))
   const typeOpts: ChipOption[] = [...RACE_TYPES.map(r => ({ key: r, label: r })), { key: '__custom', label: 'Anders' }]
@@ -176,7 +180,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
 
         <View>
           <FieldLabel>Datum</FieldLabel>
-          <DateField value={date} onChange={setDate} />
+          <DayPicker value={date} onChange={setDate} />
         </View>
 
         <View>
