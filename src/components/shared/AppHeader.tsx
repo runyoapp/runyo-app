@@ -71,15 +71,14 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       <View style={styles.header}>
         <Logo size={22} />
         <View style={styles.actions}>
-          {/* + button only in header on screens without race bar */}
-          {!showRacesBar && (
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: theme.text }]}
-              onPress={onAddPress}
-            >
-              <Text style={[styles.addBtnText, { color: theme.bg }]}>+</Text>
-            </TouchableOpacity>
-          )}
+          {/* + button: vaste plek rechtsboven op elk scherm (vervangt de
+              "+ Activiteit toevoegen"-tekstlink) — spec: race chip-prototype */}
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: theme.text }]}
+            onPress={onAddPress}
+          >
+            <Text style={[styles.addBtnText, { color: theme.bg }]}>+</Text>
+          </TouchableOpacity>
 
           {/* Avatar: surface bg, line border, 8px radius — spec: brand.md §7 */}
           {tokenSet ? (
@@ -102,23 +101,18 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
         </View>
       </View>
 
-      {/* Race header + add button */}
+      {/* Race header */}
       {showRacesBar && (
-        <>
-          <RacesBar
-            activities={activities}
-            onRacePress={activity => {
-              // Parent owns the RaceModal when it provides onRacePress;
-              // otherwise fall back to our internal modal. Two stacked
-              // <Modal> instances would block touches on Today.
-              if (onRacePress) onRacePress(activity.datum)
-              else setRaceActivity(activity)
-            }}
-          />
-          <TouchableOpacity style={styles.addBelowBar} onPress={onAddPress}>
-            <Text style={[styles.addBelowText, { color: theme.muted }]}>+ Activiteit toevoegen</Text>
-          </TouchableOpacity>
-        </>
+        <RacesBar
+          activities={activities}
+          onRacePress={activity => {
+            // Parent owns the RaceModal when it provides onRacePress;
+            // otherwise fall back to our internal modal. Two stacked
+            // <Modal> instances would block touches on Today.
+            if (onRacePress) onRacePress(activity.datum)
+            else setRaceActivity(activity)
+          }}
+        />
       )}
 
       {/* Avatar dropdown */}
@@ -189,8 +183,6 @@ const styles = StyleSheet.create({
   avatarText:        { fontFamily: Fonts.displayBold, fontSize: 13 },
   signInBtn:         { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.pill, borderWidth: 1 },
   signInText:        { fontFamily: Fonts.displayMedium, fontSize: 13 },
-  addBelowBar:       { marginHorizontal: Spacing.lg, marginBottom: 4, paddingVertical: 4, alignSelf: 'flex-start' },
-  addBelowText:      { fontFamily: Fonts.displayMedium, fontSize: 13 },
   loginError:        { backgroundColor: 'rgba(220,60,60,0.08)', borderRadius: Radius.md, padding: Spacing.md },
   loginErrorText:    { fontFamily: Fonts.display, fontSize: 13, color: '#C0392B', textAlign: 'center' },
   loginBtn:          { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', minHeight: 52, justifyContent: 'center' },

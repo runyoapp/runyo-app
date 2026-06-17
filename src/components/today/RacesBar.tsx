@@ -1,8 +1,11 @@
-import { useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { useState, useRef, useEffect } from 'react'
+import { View, Text, Pressable, Animated, Easing, PanResponder, StyleSheet } from 'react-native'
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg'
 import { useTheme } from '@/hooks/useTheme'
-import { Fonts, Spacing, Radius } from '@/constants/theme'
-import { raceCountdown as countdown } from '@/utils/date'
+import { useDataStore } from '@/stores/dataStore'
+import { Fonts, Spacing, ActivityColors, type Theme } from '@/constants/theme'
+import { raceCountdown, MONTHS_NL } from '@/utils/date'
+import { derivePace, weekProgress, type WeekProgress } from '@/utils/raceProgress'
 import type { Activity } from '@/types/activity'
 
 type Props = {
@@ -10,118 +13,296 @@ type Props = {
   onRacePress: (activity: Activity) => void
 }
 
-const MONTHS = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
+// Race chip — spec: claude design "runyo race chip.html" → ChipA4B7cSwipe.
+// Ingeklapt: forest-tegel met countdown + taper-streepje. Tik → klapt open tot
+// week-voortgangsbalk + doeltijd; swipe of pijltjes bladeren door geplande races.
+// Lang ingedrukt op een race → bewerken (RaceModal via onRacePress).
+const FOREST_A = '#234A3E'
+const FOREST_B = '#14302A'
+const MINT     = '#3DDFB1'
+const MINT_DIM = 'rgba(127,242,201,0.85)'
+const EASE     = Easing.bezier(0.4, 0, 0.2, 1)
 
-function fmtDate(dateStr: string): string {
-  const [,mm, dd] = dateStr.split('-')
-  return `${parseInt(dd)} ${MONTHS[parseInt(mm) - 1]}`
+function fmtDate(datum: string): string {
+  const [, mm, dd] = datum.split('-')
+  return `${parseInt(dd, 10)} ${MONTHS_NL[parseInt(mm, 10) - 1]}`
 }
 
-// Canonical race chip header — spec: runyo-pwa.jsx RaceHeader
-// Collapsed: primary race row. Expanded: timeline of upcoming races.
-export function RacesBar({ activities, onRacePress }: Props) {
-  const theme  = useTheme()
-  const today  = new Date().toISOString().split('T')[0]
-  const [open, setOpen] = useState(false)
+function fmtKm(km: number): string {
+  return km % 1 === 0 ? String(km) : km.toFixed(1).replace('.', ',')
+}
 
+export function RacesBar({ activities, onRacePress }: Props) {
+  const theme      = useTheme()
+  const schemaList = useDataStore(s => s.schemaList)
+
+  const [open,   setOpen]   = useState(false)
+  const [idx,    setIdx]    = useState(0)
+  const [bodyH,  setBodyH]  = useState(0)
+
+  const anim   = useRef(new Animated.Value(0)).current
+  const swapX  = useRef(new Animated.Value(0)).current
+  const swapO  = useRef(new Animated.Value(1)).current
+  const prevIdx = useRef(0)
+
+  const today = new Date().toISOString().split('T')[0]
   const races = activities
     .filter(a => a.type === 'race' && a.datum >= today)
     .sort((a, b) => a.datum.localeCompare(b.datum))
     .slice(0, 5)
+  const safeIdx = races.length ? Math.min(idx, races.length - 1) : 0
+
+  const go = (d: number) => {
+    const n = safeIdx + d
+    if (n >= 0 && n < races.length) setIdx(n)
+  }
+  // Refs zodat de eenmalig-gemaakte PanResponder de actuele waarden ziet.
+  const openRef = useRef(open); openRef.current = open
+  const goRef   = useRef(go);   goRef.current = go
+
+  // Open/dicht-morf (tegel groeit, voortgang vouwt open) — één geanimeerde waarde.
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: open ? 1 : 0, duration: 320, easing: EASE, useNativeDriver: false,
+    }).start()
+  }, [open, anim])
+
+  // Carrousel-wissel: korte schuif-fade bij het bladeren tussen races.
+  useEffect(() => {
+    if (prevIdx.current === safeIdx) return
+    const dir = safeIdx > prevIdx.current ? 1 : -1
+    prevIdx.current = safeIdx
+    swapX.setValue(dir * 14)
+    swapO.setValue(0.4)
+    Animated.parallel([
+      Animated.timing(swapX, { toValue: 0, duration: 260, easing: EASE, useNativeDriver: true }),
+      Animated.timing(swapO, { toValue: 1, duration: 240, useNativeDriver: true }),
+    ]).start()
+  }, [safeIdx, swapX, swapO])
+
+  const pan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_e, g) =>
+      openRef.current && Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+    onPanResponderRelease: (_e, g) => {
+      if (g.dx > 40) goRef.current(-1)
+      else if (g.dx < -40) goRef.current(1)
+    },
+  })).current
 
   if (!races.length) return null
 
-  const main = races[0]
-  const cd   = countdown(main.datum)
-  const rest = races.slice(1)
+  const r       = races[safeIdx]
+  const cd      = raceCountdown(r.datum)
+  const big     = cd.val.length >= 3 || Number.isNaN(Number(cd.val))
+  const pace    = derivePace(r.goalTime, r.km)
+  const prog    = weekProgress(r, schemaList, activities)
+  const hasDoel = !!r.goalTime
+  const hasFold = !!prog || races.length > 1
+
+  // Interpolaties op de open/dicht-waarde.
+  const i = (a: number, b: number) => anim.interpolate({ inputRange: [0, 1], outputRange: [a, b] })
+  const tileSize      = i(44, 64)
+  const numFont       = anim.interpolate({ inputRange: [0, 1], outputRange: big ? [19, 28] : [27, 38] })
+  const numLine       = anim.interpolate({ inputRange: [0, 1], outputRange: big ? [21, 31] : [29, 41] })
+  const unitFont      = i(7.5, 12)
+  const unitLine      = i(10, 15)
+  const unitMargin    = i(-1, -2)
+  const chevronRot    = anim.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '-90deg'] })
+  const shadowOpacity = i(0, 0.1)
+  const doelH         = i(0, 25)
+  const foldH         = anim.interpolate({ inputRange: [0, 1], outputRange: [0, bodyH] })
+  const sliverH       = i(3, 0)
+  const sliverOpacity = i(1, 0)
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      {/* Primary race row */}
-      <TouchableOpacity
-        style={styles.mainRow}
-        onPress={() => rest.length > 0 ? setOpen(o => !o) : onRacePress(main)}
-        activeOpacity={0.8}
+    <View style={styles.outer} {...pan.panHandlers}>
+      <Animated.View
+        style={[styles.card, {
+          backgroundColor: theme.surface,
+          borderColor: theme.border,
+          shadowOpacity,
+          elevation: open ? 6 : 0,
+        }]}
       >
-        <View style={[styles.dot, { shadowColor: '#C8336B' }]} />
-        <View style={styles.body}>
-          <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
-            {main.isMainGoal ? <Text style={{ color: '#C8336B' }}>★ </Text> : null}
-            {main.titel || main.datum}
-            {main.km != null ? ` · ${main.km} km` : ''}
-          </Text>
-          <Text style={[styles.meta, { color: theme.muted }]}>
-            {fmtDate(main.datum)}{main.isMainGoal ? ' · Hoofddoel' : ''}
-          </Text>
-        </View>
-        {/* Countdown */}
-        <View style={styles.countdownBox}>
-          <Text style={[styles.countdownVal, { color: '#C8336B' }]}>{cd.val}</Text>
-          <Text style={[styles.countdownUnit, { color: theme.muted }]}>{cd.unit}</Text>
-        </View>
-        {/* Edit button on primary race */}
-        <TouchableOpacity onPress={() => onRacePress(main)} style={styles.editBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={[styles.editBtnText, { color: theme.muted }]}>Bewerk</Text>
-        </TouchableOpacity>
-        {rest.length > 0 && (
-          <Text style={[styles.chevron, { color: theme.muted, transform: [{ rotate: open ? '90deg' : '0deg' }] }]}>›</Text>
-        )}
-      </TouchableOpacity>
+        <Animated.View style={{ transform: [{ translateX: swapX }], opacity: swapO }}>
+          {/* Header — tegel + naam/meta + chevron (tik = open/dicht) */}
+          <Pressable
+            onPress={() => setOpen(o => !o)}
+            onLongPress={() => onRacePress(r)}
+            style={styles.header}
+          >
+            <Animated.View style={[styles.tile, { width: tileSize, height: tileSize }]}>
+              <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+                <Defs>
+                  <LinearGradient id="runyoForestTile" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor={FOREST_A} />
+                    <Stop offset="1" stopColor={FOREST_B} />
+                  </LinearGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill="url(#runyoForestTile)" />
+              </Svg>
+              <Animated.Text style={{
+                fontFamily: Fonts.displayBold, color: MINT,
+                fontSize: numFont, lineHeight: numLine, letterSpacing: -1,
+              }}>{cd.val}</Animated.Text>
+              <Animated.Text style={{
+                fontFamily: Fonts.display, color: MINT_DIM, letterSpacing: 0.4,
+                textTransform: 'uppercase', fontSize: unitFont, lineHeight: unitLine, marginTop: unitMargin,
+              }}>{cd.unit}</Animated.Text>
+            </Animated.View>
 
-      {/* Expanded timeline */}
-      {open && rest.length > 0 && (
-        <View style={[styles.timeline, { borderTopColor: theme.border }]}>
-          <Text style={[styles.timelineTitle, { color: theme.muted }]}>Volgende races</Text>
-          <View style={styles.timelineList}>
-            <View style={[styles.timelineLine, { backgroundColor: theme.border }]} />
-            {rest.map((race, i) => {
-              const rcd = countdown(race.datum)
-              return (
-                <TouchableOpacity key={race.id} style={styles.timelineRow} onPress={() => onRacePress(race)}>
-                  <View style={[styles.timelineDot, { backgroundColor: theme.muted, borderColor: theme.surface }]} />
-                  <View style={styles.timelineBody}>
-                    <Text style={[styles.timelineRaceName, { color: theme.text2 }]} numberOfLines={1}>
-                      {race.isMainGoal ? <Text style={{ color: '#C8336B' }}>★ </Text> : null}
-                      {race.titel || race.datum}{race.km != null ? ` · ${race.km} km` : ''}
-                    </Text>
-                    <Text style={[styles.timelineRaceMeta, { color: theme.muted }]}>
-                      {fmtDate(race.datum)}{race.isMainGoal ? ' · Hoofddoel' : ''}
+            <View style={styles.body}>
+              <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+                {r.titel || fmtDate(r.datum)}
+              </Text>
+              <Text style={[styles.meta, { color: theme.muted }]}>
+                {fmtDate(r.datum)}{r.km != null ? ` · ${fmtKm(r.km)} km` : ''}
+                {open && r.isMainGoal ? ' · Hoofddoel' : ''}
+              </Text>
+              {hasDoel && (
+                <Animated.View style={{ height: doelH, opacity: anim, overflow: 'hidden' }}>
+                  <View style={styles.doelRow}>
+                    <View style={[styles.doelDot, { backgroundColor: theme.accent }]} />
+                    <Text style={[styles.doelText, { color: theme.text2 }]}>
+                      doel {r.goalTime}
+                      {pace ? <Text style={{ color: theme.muted }}> · {pace}/km</Text> : null}
                     </Text>
                   </View>
-                  <Text style={[styles.timelineDays, { color: theme.muted }]}>{rcd.val} {rcd.unit}</Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        </View>
+                </Animated.View>
+              )}
+            </View>
+
+            <Animated.View style={[styles.chevron, {
+              backgroundColor: theme.surface2, borderColor: theme.border,
+              transform: [{ rotate: chevronRot }],
+            }]}>
+              <Text style={[styles.chevronText, { color: theme.muted }]}>›</Text>
+            </Animated.View>
+          </Pressable>
+
+          {/* Open: week-voortgangsbalk + carrousel-besturing */}
+          {hasFold && (
+            <Animated.View style={{ height: foldH, opacity: anim, overflow: 'hidden' }}>
+              <View
+                onLayout={e => {
+                  const h = Math.round(e.nativeEvent.layout.height)
+                  if (h && h !== bodyH) setBodyH(h)
+                }}
+                style={styles.fold}
+              >
+                {prog && <WeekBar prog={prog} theme={theme} />}
+                {races.length > 1 && (
+                  <Carousel idx={safeIdx} total={races.length} go={go} theme={theme} />
+                )}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Ingeklapt: dunne taper-sliver onderlangs */}
+          {prog && (
+            <Animated.View style={{ height: sliverH, opacity: sliverOpacity, backgroundColor: theme.border }}>
+              <View style={{
+                width: `${(prog.done / prog.total) * 100}%`, height: '100%', backgroundColor: theme.accent,
+              }} />
+            </Animated.View>
+          )}
+        </Animated.View>
+      </Animated.View>
+
+      {open && races.length > 1 && (
+        <Text style={[styles.hint, { color: theme.muted }]}>
+          swipe of tik de pijltjes voor je andere races
+        </Text>
       )}
     </View>
   )
 }
 
-const styles = StyleSheet.create({
-  container:       { marginHorizontal: Spacing.lg, marginBottom: 2, borderRadius: Radius.md, borderWidth: 1, overflow: 'hidden' },
-  mainRow:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  dot:             { width: 8, height: 8, borderRadius: 4, backgroundColor: '#C8336B', flexShrink: 0, shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
-  body:            { flex: 1, minWidth: 0 },
-  name:            { fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.1 },
-  meta:            { fontFamily: Fonts.display, fontSize: 12, marginTop: 1 },
-  countdownBox:    { alignItems: 'flex-end' },
-  countdownVal:    { fontFamily: Fonts.displayBold, fontSize: 22, letterSpacing: -0.5, lineHeight: 24 },
-  countdownUnit:   { fontFamily: Fonts.display, fontSize: 11, marginTop: 1 },
-  editBtn:         { paddingHorizontal: 6, paddingVertical: 2 },
-  editBtnText:     { fontFamily: Fonts.displayMedium, fontSize: 12 },
-  chevron:         { fontFamily: Fonts.display, fontSize: 14, width: 14, textAlign: 'center' },
+function WeekBar({ prog, theme }: { prog: WeekProgress; theme: Theme }) {
+  const raceHex = ActivityColors.race.text
+  return (
+    <View style={styles.weekBar}>
+      <View style={styles.weekSegRow}>
+        {Array.from({ length: prog.total }).map((_, i) => (
+          <View key={i} style={[styles.weekSeg, {
+            backgroundColor: i < prog.done ? theme.accent
+              : i === prog.total - 1 ? raceHex : theme.border,
+          }]} />
+        ))}
+      </View>
+      <Text style={[styles.weekLabel, { color: theme.muted }]}>
+        week {prog.done} van {prog.total}{prog.taper ? ' · taperfase' : ''}
+      </Text>
+    </View>
+  )
+}
 
-  // Timeline (expanded)
-  timeline:        { borderTopWidth: 1, padding: 14 },
-  timelineTitle:   { fontFamily: Fonts.displaySemiBold, fontSize: 12, letterSpacing: -0.1, marginBottom: 12 },
-  timelineList:    { position: 'relative', paddingLeft: 14 },
-  timelineLine:    { position: 'absolute', left: 3, top: 4, bottom: 4, width: 1 },
-  timelineRow:     { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  timelineDot:     { position: 'absolute', left: -14, top: 10, width: 6, height: 6, borderRadius: 3, borderWidth: 2 },
-  timelineBody:    { flex: 1, minWidth: 0 },
-  timelineRaceName:{ fontFamily: Fonts.displayMedium, fontSize: 13, letterSpacing: -0.1 },
-  timelineRaceMeta:{ fontFamily: Fonts.display, fontSize: 11, marginTop: 1 },
-  timelineDays:    { fontFamily: Fonts.displaySemiBold, fontSize: 13 },
+function Carousel({ idx, total, go, theme }: {
+  idx: number; total: number; go: (d: number) => void; theme: Theme
+}) {
+  return (
+    <View style={styles.carousel}>
+      <Arrow dir="prev" disabled={idx === 0} onPress={() => go(-1)} theme={theme} />
+      <View style={styles.dots}>
+        {Array.from({ length: total }).map((_, i) => (
+          <View key={i} style={[styles.dot, {
+            width: i === idx ? 18 : 6, backgroundColor: i === idx ? theme.accent : theme.border,
+          }]} />
+        ))}
+      </View>
+      <Arrow dir="next" disabled={idx === total - 1} onPress={() => go(1)} theme={theme} />
+    </View>
+  )
+}
+
+function Arrow({ dir, disabled, onPress, theme }: {
+  dir: 'prev' | 'next'; disabled: boolean; onPress: () => void; theme: Theme
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={6}
+      style={[styles.arrow, {
+        borderColor: theme.border, backgroundColor: theme.surface, opacity: disabled ? 0.45 : 1,
+      }]}
+    >
+      <Text style={[styles.arrowText, { color: disabled ? theme.border : theme.text }]}>
+        {dir === 'prev' ? '‹' : '›'}
+      </Text>
+    </Pressable>
+  )
+}
+
+const styles = StyleSheet.create({
+  outer:       { marginHorizontal: Spacing.lg, marginBottom: 2 },
+  card:        {
+    borderRadius: 14, borderWidth: 1, overflow: 'hidden',
+    shadowColor: '#0E1F1A', shadowRadius: 22, shadowOffset: { width: 0, height: 8 },
+  },
+  header:      { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 8 },
+  tile:        { borderRadius: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  body:        { flex: 1, minWidth: 0 },
+  name:        { fontFamily: Fonts.displaySemiBold, fontSize: 15, letterSpacing: -0.2 },
+  meta:        { fontFamily: Fonts.display, fontSize: 12, marginTop: 2 },
+  doelRow:     { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7 },
+  doelDot:     { width: 6, height: 6, borderRadius: 3 },
+  doelText:    { fontFamily: Fonts.mono, fontSize: 11 },
+  chevron:     {
+    width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignSelf: 'flex-start', marginTop: 2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  chevronText: { fontFamily: Fonts.display, fontSize: 13, lineHeight: 15 },
+  fold:        { paddingHorizontal: 12, paddingBottom: 10 },
+  weekBar:     { paddingHorizontal: 4, marginTop: 12 },
+  weekSegRow:  { flexDirection: 'row', gap: 3 },
+  weekSeg:     { flex: 1, height: 4, borderRadius: 2 },
+  weekLabel:   { fontFamily: Fonts.mono, fontSize: 10.5, marginTop: 7 },
+  carousel:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  dots:        { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot:         { height: 6, borderRadius: 3 },
+  arrow:       { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  arrowText:   { fontFamily: Fonts.display, fontSize: 15, lineHeight: 17 },
+  hint:        { fontFamily: Fonts.mono, fontSize: 10, textAlign: 'center', marginTop: 6, letterSpacing: 0.2 },
 })
