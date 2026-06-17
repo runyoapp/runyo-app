@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
-import { useSwipeAnimation, useDayStripAnimation } from '@/hooks/useSwipeAnimation'
+import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { useTodayData } from '@/hooks/useTodayData'
 import { useDaySwipe } from '@/hooks/useDaySwipe'
-import { DayStrip } from '@/components/today/DayStrip'
 import { HeroCard, RestCard, WorkCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
 import { RescheduleWeek } from '@/components/today/RescheduleWeek'
@@ -46,7 +45,6 @@ export function TodayScreen() {
 
   const { isLoading }  = useActivities()
   const swipeAnim      = useSwipeAnimation(dayOffset)
-  const stripAnim      = useDayStripAnimation(dayOffset)
   const panHandlers    = useDaySwipe(dayOffset, setDayOffset)
 
   const [editingFeedback,  setEditingFeedback]  = useState(false)
@@ -82,17 +80,6 @@ export function TodayScreen() {
           if (race) setRaceActivity(race)
         }}
       />
-
-      {/* U40: DayStrip statisch, animeert alleen bij week-grens */}
-      <Animated.View style={stripAnim.style}>
-        <DayStrip
-          dayOffset={dayOffset}
-          activities={activities}
-          onSelectDay={setDayOffset}
-          onPrevWeek={() => setDayOffset(dayOffset - 7)}
-          onNextWeek={() => setDayOffset(dayOffset + 7)}
-        />
-      </Animated.View>
 
       {/* U40: alleen tab-inhoud animeert bij elke dag-wissel */}
       <Animated.ScrollView
@@ -142,14 +129,16 @@ export function TodayScreen() {
           </>
         )}
 
-        {/* "Deze week" reschedule-strip: alleen op vandaag (week is relatief
-            t.o.v. nu) en als er een schema gekoppeld is. */}
-        {dayOffset === 0 && schemaId && !isLoading && (
-          <RescheduleWeek activities={activities} />
-        )}
-
+        {/* Morgen-kaart boven "Deze week" (alleen op vandaag zichtbaar) */}
         {tmrRow && (
           <TomorrowCard activity={tmrRow} onPress={() => setDayOffset(1)} />
+        )}
+
+        {/* "Deze week" reschedule-strip: op elke dag zichtbaar (week blijft
+            relatief t.o.v. nu), zodat de open/dicht-stand bewaard blijft bij
+            het swipen tussen dagen. */}
+        {schemaId && !isLoading && (
+          <RescheduleWeek activities={activities} />
         )}
 
         <View style={{ height: 100 }} />
@@ -195,8 +184,8 @@ const styles = StyleSheet.create({
   root:          { flex: 1, backgroundColor: LightTheme.bg },
   scroll:        { flex: 1 },
   scrollContent: { paddingTop: Spacing.sm },
-  kickerRow:     { paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
-  kicker:        { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text2 },
+  kickerRow:     { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  kicker:        { fontFamily: Fonts.displayBold, fontSize: 22, color: LightTheme.text, letterSpacing: -0.5 },
   loadingRow:    { padding: Spacing.xl, alignItems: 'center' },
   loadingText:   { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
   todayBtn:      {

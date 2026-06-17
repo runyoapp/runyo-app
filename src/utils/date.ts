@@ -1,5 +1,7 @@
 export const DAYS_NL  = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 export const DAYS_EN  = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+export const DAYS_FULL_NL = ['maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag','zondag']
+export const DAYS_FULL_EN = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 export const MONTHS_NL = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec']
 export const MONTHS_EN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
 export const MONTHS_FULL_NL = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december']
@@ -52,10 +54,12 @@ export function dayOffsetFromDate(date: Date): number {
 }
 
 export function formatDayLabel(date: Date, dayOffset: number, lang: 'nl' | 'en'): string {
-  const days   = lang === 'en' ? DAYS_EN : DAYS_NL
+  const days   = lang === 'en' ? DAYS_FULL_EN : DAYS_FULL_NL
   const months = lang === 'en' ? MONTHS_FULL_EN : MONTHS_FULL_NL
-  if (dayOffset === 0) return `${days[mondayIndex(date)]} · vandaag`
-  return `${days[mondayIndex(date)]} ${date.getDate()} ${months[date.getMonth()]}`
+  const name   = days[mondayIndex(date)]
+  const cap    = name.charAt(0).toUpperCase() + name.slice(1)
+  const full   = `${cap} ${date.getDate()} ${months[date.getMonth()]}`
+  return dayOffset === 0 ? `${full} · vandaag` : full
 }
 
 // Returns 7 YYYY-MM-DD strings for the week that is `weekOffset` weeks from now (Mon–Sun)
