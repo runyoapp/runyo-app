@@ -105,8 +105,10 @@ export function RacesBar({ activities, onRacePress }: Props) {
   const tileSize      = i(44, 64)
   const numFont       = anim.interpolate({ inputRange: [0, 1], outputRange: big ? [19, 28] : [27, 38] })
   const numLine       = anim.interpolate({ inputRange: [0, 1], outputRange: big ? [21, 31] : [29, 41] })
-  const unitFont      = i(7.5, 12)
-  const unitLine      = i(10, 15)
+  // Lange units ("maanden") passen niet op dezelfde maat → iets kleiner + nooit wrappen.
+  const unitLong      = cd.unit.length >= 6
+  const unitFont      = anim.interpolate({ inputRange: [0, 1], outputRange: unitLong ? [6.5, 10] : [7.5, 12] })
+  const unitLine      = anim.interpolate({ inputRange: [0, 1], outputRange: unitLong ? [9, 13] : [10, 15] })
   const unitMargin    = i(-1, -2)
   const chevronRot    = anim.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '-90deg'] })
   const shadowOpacity = i(0, 0.1)
@@ -146,8 +148,8 @@ export function RacesBar({ activities, onRacePress }: Props) {
                 fontFamily: Fonts.displayBold, color: MINT,
                 fontSize: numFont, lineHeight: numLine, letterSpacing: -1,
               }}>{cd.val}</Animated.Text>
-              <Animated.Text style={{
-                fontFamily: Fonts.display, color: MINT_DIM, letterSpacing: 0.4,
+              <Animated.Text numberOfLines={1} style={{
+                fontFamily: Fonts.display, color: MINT_DIM, letterSpacing: unitLong ? 0.2 : 0.4,
                 textTransform: 'uppercase', fontSize: unitFont, lineHeight: unitLine, marginTop: unitMargin,
               }}>{cd.unit}</Animated.Text>
             </Animated.View>
@@ -295,7 +297,7 @@ const styles = StyleSheet.create({
   },
   chevronText: { fontFamily: Fonts.display, fontSize: 13, lineHeight: 15 },
   fold:        { paddingHorizontal: 12, paddingBottom: 10 },
-  weekBar:     { paddingHorizontal: 4, marginTop: 12 },
+  weekBar:     { paddingHorizontal: 4, marginTop: 2 },
   weekSegRow:  { flexDirection: 'row', gap: 3 },
   weekSeg:     { flex: 1, height: 4, borderRadius: 2 },
   weekLabel:   { fontFamily: Fonts.mono, fontSize: 10.5, marginTop: 7 },
