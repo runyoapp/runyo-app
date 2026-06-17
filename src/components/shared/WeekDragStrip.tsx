@@ -33,6 +33,8 @@ export type WeekCell = {
 type Rect = { x: number; y: number; width: number; height: number }
 
 const ROW_GAP = 4
+// Vaste breedte van de sleep-ghost; het greepje (rechts) blijft onder de vinger.
+const GHOST_W = 240
 
 // Bouwt de 7 dag-cellen voor een willekeurige week (maandag-eerst dagdatums).
 export function buildWeekCells(
@@ -252,7 +254,7 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
         {dragId != null && ghost && dragActivityRef.current && (
           <View
             pointerEvents="none"
-            style={[styles.ghost, { left: ghost.x - 60, top: ghost.y - 18 }]}
+            style={[styles.ghost, { left: ghost.x - (GHOST_W - 24), top: ghost.y - 22 }]}
           >
             <View style={styles.ghostInner}>
               <SessionPill session={dragActivityRef.current} theme={theme} dragging />
@@ -347,6 +349,8 @@ const styles = StyleSheet.create({
   grip:        { gap: 3, opacity: 0.55 },
   gripLine:    { width: 15, height: 1.5, borderRadius: 1 },
 
-  ghost:       { position: 'absolute', left: 48, right: 0, top: -15 },
-  ghostInner:  { maxWidth: 300 },
+  // Ghost: het greepje blijft onder de vinger, de kaart komt naar links uit
+  // (je pakt 'm rechts vast), zodat-ie niet buiten beeld naar rechts schiet.
+  ghost:       { position: 'absolute' },
+  ghostInner:  { width: GHOST_W },
 })
