@@ -272,7 +272,7 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
             </View>
           </Animated.View>
 
-          <View style={{ height: insets.bottom + 96 }} />
+          <View style={{ height: insets.bottom + 24 }} />
         </ScrollView>
       </PageContainer>
 
