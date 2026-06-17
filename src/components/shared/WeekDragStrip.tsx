@@ -33,7 +33,9 @@ export type WeekCell = {
 type Rect = { x: number; y: number; width: number; height: number }
 
 const ROW_GAP = 4
-const LONG_PRESS_MS = 250
+// Korte houd-druk: lang genoeg om bewust slepen van scrollen te scheiden, kort
+// genoeg om vlot aan te voelen.
+const LONG_PRESS_MS = 180
 
 // Bouwt de 7 dag-cellen voor een willekeurige week (maandag-eerst dagdatums).
 export function buildWeekCells(
@@ -98,6 +100,9 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   const weekRef         = useRef(week); weekRef.current = week
   const dragActivityRef = useRef<Activity | null>(null)
   const clearTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Welke sessie de long-press heeft "opgetild" → pas dán mag de pan activeren.
+  // Tot die tijd staat de pan op manualActivation, zodat scrollen direct werkt.
+  const armedRef        = useRef<string | null>(null)
 
   // Drop-doelen: per dag-index de scherm-rect (measureInWindow) + de View-refs.
   const stripRef    = useRef<View>(null)
@@ -208,18 +213,35 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
                 {d.sessions.length > 0 ? (
                   d.sessions.map(session => {
                     const isSrc = dragId === session.id
-                    // Pan op de hele pill, activeert pas na korte houd-druk:
-                    // losse tik valt door naar onPress (details), vasthouden → sleep.
-                    const pan = Gesture.Pan()
-                      .activateAfterLongPress(LONG_PRESS_MS)
+                    // Scroll bezit standaard de aanraking; een korte houd-druk
+                    // (long-press) "tilt" de sessie op en armt pas dán de pan.
+                    // Vegen scrollt dus direct (geen rem), vasthouden → slepen,
+                    // losse tik valt door naar onPress (details).
+                    const longPress = Gesture.LongPress()
+                      .minDuration(LONG_PRESS_MS)
                       .runOnJS(true)
-                      .onStart(e => handleStart(session, i, e.absoluteX, e.absoluteY))
+                      .onStart(e => {
+                        armedRef.current = session.id
+                        handleStart(session, i, e.absoluteX, e.absoluteY)
+                      })
+
+                    const pan = Gesture.Pan()
+                      .manualActivation(true)
+                      .runOnJS(true)
+                      .onTouchesMove((_e, state) => {
+                        if (armedRef.current === session.id) state.activate()
+                      })
                       .onUpdate(e => handleMove(e.absoluteX, e.absoluteY))
                       .onEnd(e => handleEnd(e.absoluteX, e.absoluteY, false))
-                      .onFinalize((e, success) => { if (!success) handleEnd(e.absoluteX, e.absoluteY, true) })
+                      .onFinalize((e, success) => {
+                        if (armedRef.current === session.id) armedRef.current = null
+                        if (!success) handleEnd(e.absoluteX, e.absoluteY, true)
+                      })
+
+                    const gesture = Gesture.Simultaneous(longPress, pan)
 
                     return (
-                      <GestureDetector key={session.id} gesture={pan}>
+                      <GestureDetector key={session.id} gesture={gesture}>
                         <Pressable
                           style={{ opacity: isSrc ? 0.25 : 1 }}
                           onPress={() => onOpenActivity(session)}
@@ -325,7 +347,7 @@ const styles = StyleSheet.create({
 
   pillWrap:    { },
   pill:        { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 11 },
-  pillDragging:{ shadowColor: '#0E1F1A', shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  pillDragging:{ transform: [{ scale: 1.04 }], shadowColor: '#0E1F1A', shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
   pillBar:     { width: 4, height: 26, borderRadius: 2 },
   pillBody:    { flex: 1, minWidth: 0 },
   pillTitle:   { fontFamily: Fonts.displaySemiBold, fontSize: 13.5, letterSpacing: -0.1 },

@@ -8,7 +8,7 @@ import { patchActivity, createActivity, deleteActivity } from '@/services/activi
 import { Calendar } from '@/components/shared/DayPicker'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { activityColor } from '@/utils/runCategory'
-import { DAYS_NL, MONTHS_NL, fromDateString, toDateString } from '@/utils/date'
+import { DAYS_NL, MONTHS_NL, MONTHS_FULL_NL, fromDateString, toDateString } from '@/utils/date'
 import type { Activity } from '@/types/activity'
 
 type Props = {
@@ -27,6 +27,12 @@ function dayLabel(datum: string): string {
 function fullDayLabel(datum: string): string {
   const d = fromDateString(datum)
   return `${DAYS_NL[(d.getDay() + 6) % 7].toLowerCase()} ${d.getDate()} ${MONTHS_NL[d.getMonth()]}`
+}
+
+// "12 juli" — voor de bevestigknop.
+function targetLabel(datum: string): string {
+  const d = fromDateString(datum)
+  return `${d.getDate()} ${MONTHS_FULL_NL[d.getMonth()]}`
 }
 
 // Velden die we kopiëren bij dupliceren (geen feedback/rating).
@@ -52,9 +58,16 @@ export function ActivityActionSheet({ activity, onClose, onEdit }: Props) {
   const queryClient    = useQueryClient()
 
   const [picker, setPicker] = useState<Picker>(null)
+  const [target, setTarget] = useState<string | null>(null)
+
+  function openPicker(p: Picker) {
+    setTarget(null)
+    setPicker(p)
+  }
 
   function close() {
     setPicker(null)
+    setTarget(null)
     onClose()
   }
 
@@ -105,8 +118,8 @@ export function ActivityActionSheet({ activity, onClose, onEdit }: Props) {
 
   const actions = [
     { icon: '✎', label: 'Bewerken', sub: 'afstand, intervallen, pace', onPress: () => onEdit(act) },
-    { icon: '↔', label: 'Verplaatsen naar…', sub: 'kies een dag in de kalender', onPress: () => setPicker('move') },
-    { icon: '⎘', label: 'Dupliceren naar…', sub: 'kies een dag in de kalender', onPress: () => setPicker('duplicate') },
+    { icon: '↔', label: 'Verplaatsen naar…', sub: 'kies een dag in de kalender', onPress: () => openPicker('move') },
+    { icon: '⎘', label: 'Dupliceren naar…', sub: 'kies een dag in de kalender', onPress: () => openPicker('duplicate') },
     { icon: '×', label: 'Verwijderen', danger: true, onPress: handleDelete },
   ]
 
@@ -144,11 +157,29 @@ export function ActivityActionSheet({ activity, onClose, onEdit }: Props) {
 
               <Calendar
                 t={theme}
-                selISO={act.datum}
+                selISO={target ?? act.datum}
                 todayISO={todayISO}
-                base={fromDateString(act.datum)}
-                onPick={iso => picker === 'move' ? commitMove(iso) : handleDuplicate(iso)}
+                base={fromDateString(target ?? act.datum)}
+                onPick={setTarget}
               />
+
+              <Pressable
+                disabled={!target}
+                onPress={() => {
+                  if (!target) return
+                  picker === 'move' ? commitMove(target) : handleDuplicate(target)
+                }}
+                style={[
+                  styles.confirmBtn,
+                  { backgroundColor: target ? theme.accent : theme.surface2, borderColor: theme.border },
+                ]}
+              >
+                <Text style={[styles.confirmText, { color: target ? theme.accentInk : theme.muted }]}>
+                  {target
+                    ? `${picker === 'move' ? 'Verplaats' : 'Dupliceer'} naar ${targetLabel(target)}`
+                    : 'Kies een dag in de kalender'}
+                </Text>
+              </Pressable>
             </>
           ) : (
             <>
@@ -206,6 +237,9 @@ const styles = StyleSheet.create({
   pickerHead:  { flexDirection: 'row', alignItems: 'center', gap: 11, paddingBottom: 14, marginBottom: 4 },
   backBtn:     { width: 32, height: 32, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   backChevron: { fontFamily: Fonts.displaySemiBold, fontSize: 17, lineHeight: 20 },
+
+  confirmBtn:  { marginTop: 14, borderWidth: 1, borderRadius: Radius.md, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+  confirmText: { fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.1 },
 
   actionList:  { gap: 6 },
   actionItem:  { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 12, borderRadius: Radius.md, borderWidth: 1 },
