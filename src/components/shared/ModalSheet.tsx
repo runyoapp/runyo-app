@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated, useWindowDimensions, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated, useWindowDimensions, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Fonts, Spacing } from '@/constants/theme'
@@ -24,6 +24,7 @@ type Props = {
 // flick) sluit het scherm; anders veert het terug.
 const DISMISS_DISTANCE = 120
 const DISMISS_VELOCITY = 900
+const BACKDROP_MAX     = 0.5
 
 export function ModalSheet({ visible, title, onClose, children, subtitle, accentDot, footer, scrollRef }: Props) {
   const insets = useSafeAreaInsets()
@@ -33,26 +34,39 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
   const localScrollRef = useRef<ScrollView | null>(null)
   const sv = scrollRef ?? localScrollRef
 
-  const translateY = useRef(new Animated.Value(0)).current
+  // Verticale offset van de sheet. De backdrop-dimming hangt eraan vast: terwijl je
+  // omlaag swipet zakt de sheet én vervaagt de backdrop, zodat het scherm erachter
+  // gedimd doorschemert.
+  const translateY = useRef(new Animated.Value(height)).current
+  const backdrop   = translateY.interpolate({
+    inputRange: [0, height],
+    outputRange: [BACKDROP_MAX, 0],
+    extrapolate: 'clamp',
+  })
+
   // De swipe-vanaf-de-inhoud mag alleen dismissen als de scroll bovenaan staat;
   // anders is omlaag trekken gewoon scrollen. Vastgelegd bij de start van een gebaar.
   const atTop = useRef(true)
   const allow = useRef(false)
 
-  // Bij (her)openen altijd op 0 beginnen — een vorige sluit-swipe liet 'm onderaan staan.
-  useEffect(() => { if (visible) translateY.setValue(0) }, [visible])
+  // Inschuiven van onderaf bij (her)openen.
+  useEffect(() => {
+    if (!visible) return
+    translateY.setValue(height)
+    Animated.spring(translateY, { toValue: 0, tension: 90, friction: 14, overshootClamping: true, useNativeDriver: true }).start()
+  }, [visible])
 
   function springBack() {
     Animated.spring(translateY, { toValue: 0, tension: 220, friction: 22, useNativeDriver: true }).start()
   }
 
-  function dismiss() {
-    Animated.timing(translateY, { toValue: height, duration: 180, useNativeDriver: true })
-      .start(() => onClose())
+  // Wegschuiven naar onderen en dán pas echt sluiten (zodat de backdrop netjes mee-uitfadet).
+  function animateOut() {
+    Animated.timing(translateY, { toValue: height, duration: 200, useNativeDriver: true }).start(() => onClose())
   }
 
   function settle(translationY: number, velocityY: number) {
-    if (translationY > DISMISS_DISTANCE || velocityY > DISMISS_VELOCITY) dismiss()
+    if (translationY > DISMISS_DISTANCE || velocityY > DISMISS_VELOCITY) animateOut()
     else springBack()
   }
 
@@ -81,12 +95,17 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      transparent
+      animationType="none"
+      onRequestClose={animateOut}
     >
       <GestureHandlerRootView style={styles.flex}>
-        <Animated.View style={[styles.flex, { backgroundColor: theme.bg, transform: [{ translateY }] }]}>
+        {/* Gedimde achtergrond — toont (gedimd) het scherm erachter, vervaagt mee bij swipen */}
+        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: backdrop }]}>
+          <Pressable style={styles.flex} onPress={animateOut} />
+        </Animated.View>
+
+        <Animated.View style={[styles.sheet, { backgroundColor: theme.bg, transform: [{ translateY }] }]}>
           <KeyboardAvoidingView
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -102,7 +121,7 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
                     </View>
                     {subtitle && <Text style={[styles.subtitle, { color: theme.muted }]}>{subtitle}</Text>}
                   </View>
-                  <TouchableOpacity onPress={onClose}
+                  <TouchableOpacity onPress={animateOut}
                     style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <Text style={[styles.closeText, { color: theme.muted }]}>✕</Text>
                   </TouchableOpacity>
@@ -138,6 +157,9 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
 
 const styles = StyleSheet.create({
   flex:          { flex: 1 },
+  backdrop:      { backgroundColor: '#0E1F1A' },
+  // Sheet vult bijna het hele scherm maar laat bovenaan een rand backdrop zien (echte-sheet-look).
+  sheet:         { flex: 1, marginTop: Spacing.md, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden' },
   header:        { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
   handle:        { width: 38, height: 4, borderRadius: 999, alignSelf: 'center', marginBottom: Spacing.md },
   headerRow:     { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.md },
