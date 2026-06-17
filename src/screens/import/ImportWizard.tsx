@@ -379,7 +379,7 @@ export function ImportWizard({
               <View style={[s.overlapBox, { backgroundColor: t.surface2 }]}>
                 <View style={[s.overlapBadge, { borderColor: t.muted }]}><Text style={[s.overlapBadgeTxt, { color: t.muted }]}>i</Text></View>
                 <Text style={[s.overlapTxt, { color: t.muted }]}>
-                  <Text style={{ fontFamily: Fonts.displaySemiBold, color: t.text2 }}>{overlap === 1 ? '1 dag had al een training' : `${overlap} dagen hadden al een training`}</Text> - die staan nu samen. Je ontdubbelt ze zo in de schema-maker.
+                  <Text style={{ fontFamily: Fonts.displaySemiBold, color: t.text2 }}>{overlap === 1 ? '1 dag had al een training' : `${overlap} dagen hadden al een training`}</Text> - die staan nu samen. Je ontdubbelt ze zo in de weekbouwer.
                 </Text>
               </View>
             ) : null}

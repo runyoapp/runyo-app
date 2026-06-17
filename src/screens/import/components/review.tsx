@@ -155,7 +155,7 @@ export function ReviewSummary({
       </Text>
       <Text style={[s.summaryMetric, { color: t.muted }]}>{trainings} trainingen · {km} km</Text>
       <View style={{ marginTop: 14 }}>
-        <HintRow t={t}>Wil je nog iets aanpassen? Je past je schema straks makkelijk aan in de schema-maker in de app.</HintRow>
+        <HintRow t={t}>Wil je nog iets aanpassen? Je past je schema straks makkelijk aan in de weekbouwer in de app.</HintRow>
       </View>
       {showNudge ? (
         <View style={[s.nudge]}>
