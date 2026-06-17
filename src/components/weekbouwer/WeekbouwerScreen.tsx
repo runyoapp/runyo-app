@@ -71,13 +71,44 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
 
   const today = useMemo(() => toDateString(new Date()), [])
 
+  // Virtuele toekomst-weken: zolang je een week-kopie vasthebt kun je voorbij de
+  // laatste schema-week swipen om een kopie buiten het schema te plakken. Er worden
+  // staafjes voor gemaakt tot de week waar je nu bent; swipe je terug, dan verdwijnen
+  // ze weer. Plak je er echt in, dan worden het op de volgende render gewone weken.
+  const displayWeeks = useMemo(() => {
+    if (!weeks.length) return weeks
+    const last = weeks[weeks.length - 1]
+    const diff = Math.round(
+      (fromDateString(weekMonday).getTime() - fromDateString(last.monday).getTime()) / (7 * 86400000),
+    )
+    if (diff <= 0) return weeks
+    const extra: PlanWeekData[] = Array.from({ length: diff }, (_, k) => {
+      const mon   = toDateString(addDays(fromDateString(last.monday), 7 * (k + 1)))
+      const dates = Array.from({ length: 7 }, (_, i) => toDateString(addDays(fromDateString(mon), i)))
+      const days  = allActivities
+        .filter(a => dates.includes(a.datum) && a.type !== 'work' && a.type !== 'rest')
+        .sort((a, b) => a.datum.localeCompare(b.datum))
+      return {
+        num: last.num + k + 1, monday: mon, range: weekRange(mon),
+        goalKm: Math.round(days.reduce((s, a) => s + (a.km ?? 0), 0)),
+        doneKm: 0, status: 'next' as const,
+        hasRace: days.some(a => a.type === 'race'), days,
+      }
+    })
+    return [...weeks, ...extra]
+  }, [weeks, weekMonday, allActivities])
+
   // Weekindex + zijwaartse navigatie tussen weken.
-  const weekIdx  = useMemo(() => weeks.findIndex(w => w.monday === weekMonday), [weeks, weekMonday])
-  const weekMeta = weekIdx >= 0 ? weeks[weekIdx] : undefined
+  const weekIdx  = useMemo(() => displayWeeks.findIndex(w => w.monday === weekMonday), [displayWeeks, weekMonday])
+  const weekMeta = weekIdx >= 0 ? displayWeeks[weekIdx] : undefined
   const swipeAnim   = useSwipeAnimation(weekIdx)
   const goWeek = (dir: number) => {
-    const target = weeks[weekIdx + dir]
-    if (target) onJumpToWeek(target.monday)
+    const target = displayWeeks[weekIdx + dir]
+    if (target) { onJumpToWeek(target.monday); return }
+    // Voorbij de laatste week: alleen vooruit, en alleen met een week-kopie vast.
+    if (dir > 0 && clipboard) {
+      onJumpToWeek(toDateString(addDays(fromDateString(weekMonday), 7)))
+    }
   }
   // Hergebruik de dag-swipe-hook: ±1 stap = ±1 week.
   const panHandlers = useDaySwipe(weekIdx, (next) => goWeek(next - weekIdx))
@@ -188,7 +219,7 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
         >
           {/* 1. Weekblokken over de hele looptijd — tik om te wisselen */}
           <View style={styles.blocksWrap}>
-            <WeekBlocks weeks={weeks} activeMonday={weekMonday} onPickWeek={onJumpToWeek} />
+            <WeekBlocks weeks={displayWeeks} activeMonday={weekMonday} onPickWeek={onJumpToWeek} futureFrom={weeks.length} />
           </View>
 
           {/* Onderstaande inhoud schuift mee bij week-wissel */}

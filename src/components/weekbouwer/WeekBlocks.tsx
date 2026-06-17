@@ -7,6 +7,8 @@ type Props = {
   weeks: PlanWeekData[]
   activeMonday: string
   onPickWeek: (monday: string) => void
+  // Index vanaf waar de weken virtueel zijn (toekomst buiten het schema).
+  futureFrom?: number
 }
 
 const BAR_MAX_H = 64
@@ -14,7 +16,8 @@ const BAR_MAX_H = 64
 // Inline blokken-grafiek over de hele schema-looptijd: één staaf per week.
 // Hoogte = goalKm genormaliseerd; kleur = mint-intensiteit op km (donkerder =
 // meer volume), raceweek = rood. Actieve week = outline. Tik = spring erheen.
-export function WeekBlocks({ weeks, activeMonday, onPickWeek }: Props) {
+// Virtuele toekomst-weken (≥ futureFrom) krijgen een gestippeld leeg staafje.
+export function WeekBlocks({ weeks, activeMonday, onPickWeek, futureFrom = Infinity }: Props) {
   const theme = useTheme()
   const maxKm = weeks.reduce((m, w) => Math.max(m, w.goalKm), 0) || 1
   const hex   = theme.accent.replace('#', '')
@@ -24,9 +27,10 @@ export function WeekBlocks({ weeks, activeMonday, onPickWeek }: Props) {
 
   return (
     <View style={styles.chart}>
-      {weeks.map(w => {
+      {weeks.map((w, idx) => {
+        const future  = idx >= futureFrom
         const frac    = w.goalKm / maxKm
-        const h       = Math.max(4, frac * BAR_MAX_H)
+        const h       = future ? 22 : Math.max(4, frac * BAR_MAX_H)
         const current = w.monday === activeMonday
         // Mint-intensiteit: 0.35 (laag) → 1 (hoog) op km.
         const opacity = 0.35 + frac * 0.65
@@ -47,12 +51,20 @@ export function WeekBlocks({ weeks, activeMonday, onPickWeek }: Props) {
             <View
               style={[
                 styles.bar,
-                {
-                  height: h,
-                  backgroundColor: color,
-                  borderWidth: current ? 2 : 0,
-                  borderColor: current ? theme.text : 'transparent',
-                },
+                future
+                  ? {
+                      height: h,
+                      backgroundColor: 'transparent',
+                      borderWidth: current ? 2 : 1,
+                      borderStyle: 'dashed',
+                      borderColor: current ? theme.text : theme.border,
+                    }
+                  : {
+                      height: h,
+                      backgroundColor: color,
+                      borderWidth: current ? 2 : 0,
+                      borderColor: current ? theme.text : 'transparent',
+                    },
               ]}
             />
             <Text style={[styles.barNum, {
