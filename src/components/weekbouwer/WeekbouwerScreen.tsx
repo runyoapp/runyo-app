@@ -123,11 +123,13 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
   }, [allActivities, weekDates, weekMonday])
 
   function handleCopyWeek() {
-    if (!sessions.length) {
+    // Races niet meekopiëren — alleen de andere trainingen.
+    const copySessions = sessions.filter(a => a.type !== 'race')
+    if (!copySessions.length) {
       showToast('Geen activiteiten om te kopiëren')
       return
     }
-    setClipboard({ sourceMonday: weekMonday, sourceNum: weekMeta?.num ?? 0, sessions })
+    setClipboard({ sourceMonday: weekMonday, sourceNum: weekMeta?.num ?? 0, sessions: copySessions })
     showToast('Week gekopieerd — kies een week om te plakken')
   }
 
