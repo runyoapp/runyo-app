@@ -138,7 +138,11 @@ export function TodayScreen() {
             relatief t.o.v. nu), zodat de open/dicht-stand bewaard blijft bij
             het swipen tussen dagen. */}
         {schemaId && !isLoading && (
-          <RescheduleWeek activities={activities} />
+          <RescheduleWeek
+            activities={activities}
+            selectedDate={dateStr}
+            onOpenActivity={a => a.type === 'race' ? setRaceActivity(a) : setSelectedActivity(a)}
+          />
         )}
 
         <View style={{ height: 100 }} />

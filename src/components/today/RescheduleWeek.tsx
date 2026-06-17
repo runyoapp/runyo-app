@@ -9,7 +9,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { patchActivity } from '@/services/activities'
 import { ActivityColors, Fonts, Spacing, Radius, type Theme } from '@/constants/theme'
-import { DAYS_NL, getWeekDates, toDateString } from '@/utils/date'
+import { DAYS_NL, getWeekDates } from '@/utils/date'
 import { TYPE_DISPLAY, type ActivityType } from '@/constants/activities'
 import type { Activity } from '@/types/activity'
 
@@ -19,13 +19,17 @@ function typeLabel(type: ActivityType): string {
 
 type Props = {
   activities: Activity[]
+  // Geselecteerde dag (YYYY-MM-DD) — bepaalt welke dag-stip oplicht; volgt het swipen.
+  selectedDate: string
+  // Tik op een sessie → details tonen (afgehandeld door TodayScreen).
+  onOpenActivity: (activity: Activity) => void
 }
 
 type DayCell = {
   datum: string
   label: string
   dayNum: number
-  isToday: boolean
+  isSelected: boolean
   // Eerste echte training van die dag (rust/werk tellen niet als verplaatsbare sessie).
   session: Activity | null
 }
@@ -37,8 +41,7 @@ type DragState = {
 
 const ROW_GAP = 4
 
-function buildWeek(activities: Activity[]): DayCell[] {
-  const todayStr = toDateString(new Date())
+function buildWeek(activities: Activity[], selectedDate: string): DayCell[] {
   const dates = getWeekDates(0)
   return dates.map((datum, i) => {
     const session = activities.find(
@@ -48,7 +51,7 @@ function buildWeek(activities: Activity[]): DayCell[] {
       datum,
       label: DAYS_NL[i],
       dayNum: Number(datum.slice(8, 10)),
-      isToday: datum === todayStr,
+      isSelected: datum === selectedDate,
       session,
     }
   })
@@ -62,7 +65,7 @@ function catColor(type: ActivityType, theme: Theme): string {
 // volledige weekstrip waarin je een sessie kunt vastpakken (PanResponder) en op
 // een vrije dag laat vallen → reschedule (datum-patch + optimistic update).
 // Spec: runyo-vandaag.jsx RescheduleWeek.
-export function RescheduleWeek({ activities }: Props) {
+export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Props) {
   const theme          = useTheme()
   const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
@@ -72,7 +75,7 @@ export function RescheduleWeek({ activities }: Props) {
   const [open, setOpen] = useState(false)
   const [drag, setDrag] = useState<DragState | null>(null)
 
-  const week = useMemo(() => buildWeek(activities), [activities])
+  const week = useMemo(() => buildWeek(activities, selectedDate), [activities, selectedDate])
 
   // Y-posities van de rijen binnen de strip — RN-equivalent van getBoundingClientRect.
   const rowY = useRef<number[]>([])
@@ -109,16 +112,23 @@ export function RescheduleWeek({ activities }: Props) {
     }
   }
 
-  function makePanResponder(idx: number) {
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_e, g) =>
-        Math.abs(g.dy) > 6 && Math.abs(g.dy) >= Math.abs(g.dx),
-      onPanResponderGrant: (e) => {
-        const localY = e.nativeEvent.pageY - stripTopRef.current
+  // Eén strip-brede PanResponder. Een verticale sleep wordt via de CAPTURE-fase
+  // overgenomen — ook van de Pressables op de sessies — zodat slepen werkt; losse
+  // tikken (geen beweging) vallen door naar de Pressable.onPress (→ details).
+  // Slepen start alleen op een rij die een sessie heeft.
+  const panResponder = PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponderCapture: (_e, g) => {
+        if (Math.abs(g.dy) <= 6 || Math.abs(g.dy) < Math.abs(g.dx)) return false
+        const fromIdx = rowToIdx(g.y0 - stripTopRef.current)
+        return !!weekRef.current[fromIdx]?.session
+      },
+      onPanResponderGrant: (e, g) => {
+        const fromIdx = rowToIdx(g.y0 - stripTopRef.current)
+        const localY  = e.nativeEvent.pageY - stripTopRef.current
         ghostY.setValue(localY)
-        dragRef.current = { fromIdx: idx, overIdx: idx }
-        setDrag({ fromIdx: idx, overIdx: idx })
+        dragRef.current = { fromIdx, overIdx: fromIdx }
+        setDrag({ fromIdx, overIdx: fromIdx })
       },
       onPanResponderMove: (e) => {
         const localY = e.nativeEvent.pageY - stripTopRef.current
@@ -141,8 +151,7 @@ export function RescheduleWeek({ activities }: Props) {
         dragRef.current = null
         setDrag(null)
       },
-    })
-  }
+  })
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -156,10 +165,10 @@ export function RescheduleWeek({ activities }: Props) {
               style={[
                 styles.dot,
                 {
-                  width: d.isToday ? 22 : 18,
-                  height: d.isToday ? 22 : 18,
-                  backgroundColor: d.isToday ? theme.text : theme.surface2,
-                  borderColor: d.isToday ? theme.text : theme.border,
+                  width: d.isSelected ? 22 : 18,
+                  height: d.isSelected ? 22 : 18,
+                  backgroundColor: d.isSelected ? theme.text : theme.surface2,
+                  borderColor: d.isSelected ? theme.text : theme.border,
                 },
               ]}
             >
@@ -167,7 +176,7 @@ export function RescheduleWeek({ activities }: Props) {
                 <View
                   style={[
                     styles.dotInner,
-                    { backgroundColor: d.isToday ? theme.accent : catColor(d.session.type, theme) },
+                    { backgroundColor: d.isSelected ? theme.accent : catColor(d.session.type, theme) },
                   ]}
                 />
               )}
@@ -189,6 +198,7 @@ export function RescheduleWeek({ activities }: Props) {
             onLayout={(e: LayoutChangeEvent) => {
               e.currentTarget.measureInWindow((_x, y) => { stripTopRef.current = y })
             }}
+            {...panResponder.panHandlers}
           >
             {week.map((d, i) => {
               const isSrc = drag?.fromIdx === i
@@ -204,12 +214,12 @@ export function RescheduleWeek({ activities }: Props) {
                   onLayout={(e: LayoutChangeEvent) => { rowY.current[i] = e.nativeEvent.layout.y }}
                 >
                   <View style={styles.dayCol}>
-                    <Text style={[styles.dayName, { color: d.isToday ? theme.accent : theme.muted }]}>
+                    <Text style={[styles.dayName, { color: d.isSelected ? theme.accent : theme.muted }]}>
                       {d.label.toUpperCase()}
                     </Text>
                     <Text style={[styles.dayNum, {
-                      color: d.isToday ? theme.text : theme.text2,
-                      fontFamily: d.isToday ? Fonts.displayBold : Fonts.displaySemiBold,
+                      color: d.isSelected ? theme.text : theme.text2,
+                      fontFamily: d.isSelected ? Fonts.displayBold : Fonts.displaySemiBold,
                     }]}>
                       {d.dayNum}
                     </Text>
@@ -217,12 +227,12 @@ export function RescheduleWeek({ activities }: Props) {
 
                   <View style={styles.slot}>
                     {d.session ? (
-                      <View
+                      <Pressable
                         style={{ opacity: isSrc ? 0.25 : 1 }}
-                        {...makePanResponder(i).panHandlers}
+                        onPress={() => onOpenActivity(d.session!)}
                       >
                         <SessionPill session={d.session} theme={theme} />
-                      </View>
+                      </Pressable>
                     ) : (
                       <View style={[
                         styles.empty,
