@@ -1,4 +1,6 @@
-import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { useRef, useEffect } from 'react'
+import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated, useWindowDimensions } from 'react-native'
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -18,9 +20,40 @@ type Props = {
   scrollRef?: React.RefObject<ScrollView | null>
 }
 
+// Sluiten door naar beneden te swipen vanaf de header/handle. Voorbij deze drempel
+// (of bij een snelle flick) sluit het scherm; anders veert het terug.
+const DISMISS_DISTANCE = 120
+const DISMISS_VELOCITY = 900
+
 export function ModalSheet({ visible, title, onClose, children, subtitle, accentDot, footer, scrollRef }: Props) {
   const insets = useSafeAreaInsets()
   const theme  = useTheme()
+  const { height } = useWindowDimensions()
+
+  const translateY = useRef(new Animated.Value(0)).current
+
+  // Bij (her)openen altijd op 0 beginnen — een vorige sluit-swipe liet 'm onderaan staan.
+  useEffect(() => { if (visible) translateY.setValue(0) }, [visible])
+
+  function springBack() {
+    Animated.spring(translateY, { toValue: 0, tension: 220, friction: 22, useNativeDriver: true }).start()
+  }
+
+  function dismiss() {
+    Animated.timing(translateY, { toValue: height, duration: 180, useNativeDriver: true })
+      .start(() => onClose())
+  }
+
+  // Pan op de header (handle + titel), niet op de scroll-inhoud: zo blijft scrollen werken.
+  // activeOffsetY(10) zorgt dat een tik op het kruisje niet als swipe telt.
+  const pan = Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetY(10)
+    .onUpdate(e => translateY.setValue(Math.max(0, e.translationY)))
+    .onEnd(e => {
+      if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) dismiss()
+      else springBack()
+    })
 
   return (
     <Modal
@@ -29,49 +62,55 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={[styles.root, { backgroundColor: theme.bg }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={[styles.header, { paddingTop: insets.top + Spacing.xs }]}>
-          <View style={[styles.handle, { backgroundColor: theme.border }]} />
-          <View style={styles.headerRow}>
-            <View style={styles.titleWrap}>
-              <View style={styles.titleRow}>
-                {accentDot && <View style={[styles.dot, { backgroundColor: accentDot }]} />}
-                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{title}</Text>
+      <GestureHandlerRootView style={styles.flex}>
+        <Animated.View style={[styles.flex, { backgroundColor: theme.bg, transform: [{ translateY }] }]}>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <GestureDetector gesture={pan}>
+              <View style={[styles.header, { paddingTop: insets.top + Spacing.xs }]}>
+                <View style={[styles.handle, { backgroundColor: theme.border }]} />
+                <View style={styles.headerRow}>
+                  <View style={styles.titleWrap}>
+                    <View style={styles.titleRow}>
+                      {accentDot && <View style={[styles.dot, { backgroundColor: accentDot }]} />}
+                      <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{title}</Text>
+                    </View>
+                    {subtitle && <Text style={[styles.subtitle, { color: theme.muted }]}>{subtitle}</Text>}
+                  </View>
+                  <TouchableOpacity onPress={onClose}
+                    style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <Text style={[styles.closeText, { color: theme.muted }]}>✕</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              {subtitle && <Text style={[styles.subtitle, { color: theme.muted }]}>{subtitle}</Text>}
-            </View>
-            <TouchableOpacity onPress={onClose}
-              style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.closeText, { color: theme.muted }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </GestureDetector>
 
-        <ScrollView
-          ref={scrollRef}
-          style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </ScrollView>
+            <ScrollView
+              ref={scrollRef}
+              style={styles.scroll}
+              contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
 
-        {footer && (
-          <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: insets.bottom + Spacing.md }]}>
-            {footer}
-          </View>
-        )}
-      </KeyboardAvoidingView>
+            {footer && (
+              <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: insets.bottom + Spacing.md }]}>
+                {footer}
+              </View>
+            )}
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </GestureHandlerRootView>
     </Modal>
   )
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1 },
+  flex:          { flex: 1 },
   header:        { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
   handle:        { width: 38, height: 4, borderRadius: 999, alignSelf: 'center', marginBottom: Spacing.md },
   headerRow:     { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.md },
