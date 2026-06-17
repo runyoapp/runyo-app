@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { View, Text, Pressable, Animated, StyleSheet } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '@/hooks/useTheme'
@@ -29,8 +29,9 @@ type DayCell = {
   dayNum: number
   isSelected: boolean
   isPast: boolean
-  // Eerste echte training van die dag (rust/werk tellen niet als verplaatsbare sessie).
-  session: Activity | null
+  // Alle echte trainingen van die dag (rust/werk tellen niet mee). Een dag kan er
+  // meerdere hebben — verslepen kan dus ook landen op een al bezette dag.
+  sessions: Activity[]
 }
 
 type Rect = { x: number; y: number; width: number; height: number }
@@ -42,16 +43,16 @@ function buildWeek(activities: Activity[], selectedDate: string): DayCell[] {
   const dates = getWeekDates(0)
   const todayStr = toDateString(new Date())
   return dates.map((datum, i) => {
-    const session = activities.find(
+    const sessions = activities.filter(
       a => a.datum === datum && a.type !== 'rest' && a.type !== 'work',
-    ) ?? null
+    )
     return {
       datum,
       label: DAYS_NL[i],
       dayNum: Number(datum.slice(8, 10)),
       isSelected: datum === selectedDate,
       isPast: datum < todayStr,
-      session,
+      sessions,
     }
   })
 }
@@ -62,12 +63,13 @@ function catColor(type: ActivityType, theme: Theme): string {
 
 // Inklapbare "Deze week"-strip. Ingeklapt: dag-dots als context. Uitgeklapt:
 // volledige weekstrip waarin je een sessie kunt vastpakken (houd vast → sleep) en
-// op een vrije dag laat vallen → reschedule (datum-patch + optimistic update).
+// op een andere dag laat vallen → reschedule (datum-patch + optimistic update).
+// Landen op een al bezette dag mag: de verplaatste sessie wipt er vloeiend tussen.
 //
 // Drag = react-native-gesture-handler (Gesture.Pan), net als het oude week-tabblad:
 // .activateAfterLongPress laat losse tikken (→ details) en verticaal scrollen met
-// rust, en hit-testen gebeurt op absolute scherm-coördinaten tegen gemeten rij-rects
-// — werkt betrouwbaar op web én touch (de oude PanResponder + pageY deed dat niet).
+// rust; hit-testen op absolute scherm-coördinaten tegen gemeten rij-rects werkt
+// betrouwbaar op web én touch.
 export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Props) {
   const theme          = useTheme()
   const schemaId       = useDataStore(s => s.schemaId)
@@ -75,23 +77,29 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
   const showToast      = useUiStore(s => s.showToast)
   const queryClient    = useQueryClient()
 
-  const [open,    setOpen]    = useState(false)
-  const [dragIdx, setDragIdx] = useState<number | null>(null)
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+  const [open,        setOpen]        = useState(false)
+  const [dragId,      setDragId]      = useState<string | null>(null)
+  const [dragFromIdx, setDragFromIdx] = useState<number | null>(null)
+  const [hoverIdx,    setHoverIdx]    = useState<number | null>(null)
+  // Net-verplaatste sessie → krijgt de in-spring-animatie op de nieuwe dag.
+  const [justMovedId, setJustMovedId] = useState<string | null>(null)
   // Ghost-positie, lokaal binnen de strip (abs scherm-coord − strip-oorsprong).
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null)
 
   const week = useMemo(() => buildWeek(activities, selectedDate), [activities, selectedDate])
 
   // Refs zodat de runOnJS-gesturecallbacks de actuele week/drag-bron zien.
-  const weekRef    = useRef(week); weekRef.current = week
-  const dragIdxRef = useRef<number | null>(null)
+  const weekRef        = useRef(week); weekRef.current = week
+  const dragActivityRef = useRef<Activity | null>(null)
+  const clearTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Drop-doelen: per rij-index de scherm-rect (measureInWindow) + de View-refs.
+  // Drop-doelen: per dag-index de scherm-rect (measureInWindow) + de View-refs.
   const stripRef    = useRef<View>(null)
   const stripOrigin = useRef({ x: 0, y: 0 })
   const rowRefs     = useRef<Map<number, View | null>>(new Map())
   const rowRects    = useRef<Map<number, Rect>>(new Map())
+
+  useEffect(() => () => { if (clearTimer.current) clearTimeout(clearTimer.current) }, [])
 
   function measureTargets() {
     stripRef.current?.measureInWindow((x, y) => { stripOrigin.current = { x, y } })
@@ -107,29 +115,33 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
     return null
   }
 
-  async function commitMove(fromIdx: number, toIdx: number) {
-    const w = weekRef.current
-    const session = w[fromIdx]?.session
-    const target  = w[toIdx]
-    if (!session || !target || target.session || !schemaId) return
+  async function commitMove(activity: Activity, toIdx: number) {
+    const target = weekRef.current[toIdx]
+    if (!target || !schemaId || target.datum === activity.datum) return
 
-    const moved = { ...session, datum: target.datum }
-    upsertActivity(moved)                 // optimistic
+    // Markeer als net-verplaatst → de pill mount op de nieuwe dag met de in-animatie.
+    setJustMovedId(activity.id)
+    if (clearTimer.current) clearTimeout(clearTimer.current)
+    clearTimer.current = setTimeout(() => setJustMovedId(null), 600)
+
+    upsertActivity({ ...activity, datum: target.datum })   // optimistic
     try {
-      await patchActivity(schemaId, session.id, { datum: target.datum })
+      await patchActivity(schemaId, activity.id, { datum: target.datum })
       await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
       showToast(`Verplaatst naar ${target.label} ${target.dayNum}`)
     } catch {
-      upsertActivity(session)             // rollback
+      upsertActivity(activity)             // rollback
+      setJustMovedId(null)
       showToast('Verplaatsen mislukt, probeer opnieuw.')
     }
   }
 
-  function handleStart(idx: number, absX: number, absY: number) {
+  function handleStart(activity: Activity, fromIdx: number, absX: number, absY: number) {
     measureTargets()
-    dragIdxRef.current = idx
-    setDragIdx(idx)
-    setHoverIdx(idx)
+    dragActivityRef.current = activity
+    setDragId(activity.id)
+    setDragFromIdx(fromIdx)
+    setHoverIdx(fromIdx)
     setGhost({ x: absX - stripOrigin.current.x, y: absY - stripOrigin.current.y })
   }
 
@@ -139,14 +151,17 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
   }
 
   function handleEnd(absX: number, absY: number, cancelled: boolean) {
-    const from = dragIdxRef.current
-    dragIdxRef.current = null
-    setDragIdx(null)
+    const activity = dragActivityRef.current
+    dragActivityRef.current = null
+    setDragId(null)
+    setDragFromIdx(null)
     setHoverIdx(null)
     setGhost(null)
-    if (cancelled || from == null) return
+    if (cancelled || !activity) return
     const to = hitTest(absX, absY)
-    if (to != null && to !== from && !weekRef.current[to]?.session) void commitMove(from, to)
+    if (to != null && weekRef.current[to] && weekRef.current[to].datum !== activity.datum) {
+      void commitMove(activity, to)
+    }
   }
 
   return (
@@ -168,11 +183,11 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
                 },
               ]}
             >
-              {d.session && (
+              {d.sessions[0] && (
                 <View
                   style={[
                     styles.dotInner,
-                    { backgroundColor: d.isSelected ? theme.accent : catColor(d.session.type, theme) },
+                    { backgroundColor: d.isSelected ? theme.accent : catColor(d.sessions[0].type, theme) },
                   ]}
                 />
               )}
@@ -186,32 +201,12 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
       {open && (
         <View style={[styles.body, { borderTopColor: theme.border }]}>
           <Text style={[styles.hint, { color: theme.muted }]}>
-            {dragIdx != null ? 'laat los op een vrije dag' : 'houd een sessie vast om te verplaatsen'}
+            {dragId != null ? 'laat los op een dag' : 'houd een sessie vast om te verplaatsen'}
           </Text>
 
           <View ref={stripRef} style={styles.strip} collapsable={false}>
             {week.map((d, i) => {
-              const isSrc = dragIdx === i
-              const isTgt = dragIdx != null && hoverIdx === i && i !== dragIdx && !d.session
-
-              const pill = d.session && (
-                <Pressable
-                  style={{ opacity: isSrc ? 0.25 : 1 }}
-                  onPress={() => onOpenActivity(d.session!)}
-                >
-                  <SessionPill session={d.session} theme={theme} />
-                </Pressable>
-              )
-
-              // Pan zit op de hele pill, maar activeert pas na een korte houd-druk:
-              // losse tik valt door naar onPress (details), vasthouden → sleep.
-              const pan = Gesture.Pan()
-                .activateAfterLongPress(LONG_PRESS_MS)
-                .runOnJS(true)
-                .onStart(e => handleStart(i, e.absoluteX, e.absoluteY))
-                .onUpdate(e => handleMove(e.absoluteX, e.absoluteY))
-                .onEnd(e => handleEnd(e.absoluteX, e.absoluteY, false))
-                .onFinalize((e, success) => { if (!success) handleEnd(e.absoluteX, e.absoluteY, true) })
+              const isTgt = dragId != null && hoverIdx === i && i !== dragFromIdx
 
               return (
                 <View
@@ -238,10 +233,34 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
                   </View>
 
                   <View style={styles.slot}>
-                    {d.session ? (
-                      <GestureDetector gesture={pan}>
-                        {pill as React.ReactElement}
-                      </GestureDetector>
+                    {d.sessions.length > 0 ? (
+                      d.sessions.map(session => {
+                        const isSrc = dragId === session.id
+                        // Pan op de hele pill, activeert pas na korte houd-druk:
+                        // losse tik valt door naar onPress (details), vasthouden → sleep.
+                        const pan = Gesture.Pan()
+                          .activateAfterLongPress(LONG_PRESS_MS)
+                          .runOnJS(true)
+                          .onStart(e => handleStart(session, i, e.absoluteX, e.absoluteY))
+                          .onUpdate(e => handleMove(e.absoluteX, e.absoluteY))
+                          .onEnd(e => handleEnd(e.absoluteX, e.absoluteY, false))
+                          .onFinalize((e, success) => { if (!success) handleEnd(e.absoluteX, e.absoluteY, true) })
+
+                        return (
+                          <GestureDetector key={session.id} gesture={pan}>
+                            <Pressable
+                              style={{ opacity: isSrc ? 0.25 : 1 }}
+                              onPress={() => onOpenActivity(session)}
+                            >
+                              <SessionPill
+                                session={session}
+                                theme={theme}
+                                animateIn={justMovedId === session.id}
+                              />
+                            </Pressable>
+                          </GestureDetector>
+                        )
+                      })
                     ) : (
                       <View style={[
                         styles.empty,
@@ -258,13 +277,13 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
             })}
 
             {/* Zwevende sleep-ghost — volgt de vinger binnen de strip */}
-            {dragIdx != null && ghost && week[dragIdx].session && (
+            {dragId != null && ghost && dragActivityRef.current && (
               <View
                 pointerEvents="none"
                 style={[styles.ghost, { left: ghost.x - 60, top: ghost.y - 18 }]}
               >
                 <View style={styles.ghostInner}>
-                  <SessionPill session={week[dragIdx].session!} theme={theme} dragging />
+                  <SessionPill session={dragActivityRef.current} theme={theme} dragging />
                 </View>
               </View>
             )}
@@ -275,29 +294,50 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
   )
 }
 
-function SessionPill({ session, theme, dragging = false }: {
-  session: Activity; theme: Theme; dragging?: boolean
+function SessionPill({ session, theme, dragging = false, animateIn = false }: {
+  session: Activity; theme: Theme; dragging?: boolean; animateIn?: boolean
 }) {
+  // In-spring: opacity + lichte translateY/scale wanneer de pill net op deze dag
+  // is geland (justMovedId). Anders meteen op de eindstand (geen animatie).
+  const anim = useRef(new Animated.Value(animateIn ? 0 : 1)).current
+  useEffect(() => {
+    if (!animateIn) return
+    anim.setValue(0)
+    Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 7, tension: 90 }).start()
+  }, [animateIn, anim])
+
+  const animStyle = animateIn
+    ? {
+        opacity: anim,
+        transform: [
+          { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) },
+          { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+        ],
+      }
+    : null
+
   return (
-    <View style={[styles.pill, {
-      backgroundColor: dragging ? theme.surface : theme.surface2,
-      borderColor: dragging ? theme.accent : theme.border,
-    }, dragging && styles.pillDragging]}>
-      <View style={[styles.pillBar, { backgroundColor: catColor(session.type, theme) }]} />
-      <View style={styles.pillBody}>
-        <Text style={[styles.pillTitle, { color: theme.text }]} numberOfLines={1}>
-          {session.titel || typeLabel(session.type)}
-        </Text>
-        <Text style={[styles.pillMeta, { color: theme.muted }]} numberOfLines={1}>
-          {session.km != null ? `${session.km} km` : typeLabel(session.type)}
-        </Text>
+    <Animated.View style={[styles.pillWrap, animStyle]}>
+      <View style={[styles.pill, {
+        backgroundColor: dragging ? theme.surface : theme.surface2,
+        borderColor: dragging ? theme.accent : theme.border,
+      }, dragging && styles.pillDragging]}>
+        <View style={[styles.pillBar, { backgroundColor: catColor(session.type, theme) }]} />
+        <View style={styles.pillBody}>
+          <Text style={[styles.pillTitle, { color: theme.text }]} numberOfLines={1}>
+            {session.titel || typeLabel(session.type)}
+          </Text>
+          <Text style={[styles.pillMeta, { color: theme.muted }]} numberOfLines={1}>
+            {session.km != null ? `${session.km} km` : typeLabel(session.type)}
+          </Text>
+        </View>
+        <View style={styles.grip}>
+          {[0, 1, 2].map(i => (
+            <View key={i} style={[styles.gripLine, { backgroundColor: theme.text }]} />
+          ))}
+        </View>
       </View>
-      <View style={styles.grip}>
-        {[0, 1, 2].map(i => (
-          <View key={i} style={[styles.gripLine, { backgroundColor: theme.text }]} />
-        ))}
-      </View>
-    </View>
+    </Animated.View>
   )
 }
 
@@ -319,10 +359,11 @@ const styles = StyleSheet.create({
   dayCol:      { width: 38, alignItems: 'center' },
   dayName:     { fontFamily: Fonts.mono, fontSize: 10, letterSpacing: 0.4 },
   dayNum:      { fontSize: 17, letterSpacing: -0.3, marginTop: 1 },
-  slot:        { flex: 1, minHeight: 30, justifyContent: 'center' },
+  slot:        { flex: 1, minHeight: 30, justifyContent: 'center', gap: ROW_GAP },
   empty:       { height: 30, borderRadius: 9, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', paddingLeft: 12 },
   emptyText:   { fontFamily: Fonts.display, fontSize: 12 },
 
+  pillWrap:    { },
   pill:        { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 11 },
   pillDragging:{ shadowColor: '#0E1F1A', shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
   pillBar:     { width: 4, height: 26, borderRadius: 2 },
