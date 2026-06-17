@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
 import { useTheme } from '@/hooks/useTheme'
 import { Fonts, Radius } from '@/constants/theme'
@@ -9,6 +9,7 @@ import type { Activity } from '@/types/activity'
 type Props = {
   race: Activity
   progress: number      // 0..1 blokvoortgang
+  onPress?: () => void
 }
 
 const RING = 104
@@ -27,16 +28,22 @@ function fmtDate(datum: string): string {
 
 // Eerstvolgende race: ring = blokvoortgang, midden = dagen-countdown,
 // rechts tier-A badge "hoofddoel" + naam + datum·afstand + doel-pill.
-export function RaceHero({ race, progress }: Props) {
+export function RaceHero({ race, progress, onPress }: Props) {
   const theme = useTheme()
   const pace  = derivePace(race.goalTime, race.km)
   const dash  = CIRC * Math.min(1, Math.max(0, progress))
   // Slimme aftelling: dagen < 3 weken, daarna weken, daarna maanden ('vandaag' bij 0).
   const cd    = raceCountdown(race.datum)
   const big   = cd.val.length >= 3 || Number.isNaN(Number(cd.val))
+  // Tier volgt de echte hoofddoel-vlag, zodat hero en seizoens-tijdlijn matchen.
+  const isMain = !!race.isMainGoal
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: `${theme.accent}66` }]}>
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: theme.surface, borderColor: `${theme.accent}66` }]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.85 : 1}
+    >
       <View style={styles.ringBox}>
         <Svg width={RING} height={RING} viewBox={`0 0 ${RING} ${RING}`}>
           <Circle cx={RING / 2} cy={RING / 2} r={R} fill="none" stroke={theme.border} strokeWidth={STROKE} />
@@ -63,10 +70,15 @@ export function RaceHero({ race, progress }: Props) {
 
       <View style={styles.info}>
         <View style={styles.tierRow}>
-          <View style={[styles.tierBadge, { backgroundColor: theme.accent }]}>
-            <Text style={styles.tierBadgeText}>A</Text>
+          <View style={[styles.tierBadge, {
+            backgroundColor: isMain ? theme.accent : theme.surface2,
+            borderWidth: isMain ? 0 : 1, borderColor: theme.border,
+          }]}>
+            <Text style={[styles.tierBadgeText, { color: isMain ? '#fff' : theme.text2 }]}>{isMain ? 'A' : 'B'}</Text>
           </View>
-          <Text style={[styles.kicker, { color: theme.accent }]}>hoofddoel</Text>
+          <Text style={[styles.kicker, { color: isMain ? theme.accent : theme.muted }]}>
+            {isMain ? 'hoofddoel' : 'eerstvolgende race'}
+          </Text>
         </View>
 
         <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
@@ -85,7 +97,7 @@ export function RaceHero({ race, progress }: Props) {
           </View>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 

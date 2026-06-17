@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { PageContainer } from '@/components/shared/PageContainer'
 import { RaceModal } from '@/screens/RaceModal'
+import { RaceDetailModal } from '@/screens/RaceDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { SeasonRibbon } from '@/components/races/SeasonRibbon'
 import { RaceHero } from '@/components/races/RaceHero'
@@ -22,11 +23,11 @@ export function RacesScreen() {
   const schemaList = useDataStore(s => s.schemaList)
   useActivities()
 
-  // raceActivity = bestaande race bewerken; addRaceOpen = nieuwe race;
-  // addOpen = generieke "+ activiteit" uit de header.
-  const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
-  const [addRaceOpen,  setAddRaceOpen]  = useState(false)
-  const [addOpen,      setAddOpen]      = useState(false)
+  // detailRace = bestaande race bekijken (detail → bewerken); addRaceOpen = nieuwe
+  // race; addOpen = generieke "+ activiteit" uit de header.
+  const [detailRace, setDetailRace] = useState<Activity | null>(null)
+  const [addRaceOpen, setAddRaceOpen] = useState(false)
+  const [addOpen,     setAddOpen]     = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const races = activities
@@ -63,9 +64,9 @@ export function RacesScreen() {
             <>
               <SeasonRibbon races={races} />
               <View style={{ height: 14 }} />
-              <RaceHero race={next} progress={heroProgress} />
+              <RaceHero race={next} progress={heroProgress} onPress={() => setDetailRace(next)} />
               {upNext.length > 0 && (
-                <RaceUpNextList races={upNext} onPress={setRaceActivity} />
+                <RaceUpNextList races={upNext} onPress={setDetailRace} />
               )}
             </>
           ) : (
@@ -90,7 +91,7 @@ export function RacesScreen() {
         </ScrollView>
       </PageContainer>
 
-      <RaceModal activity={raceActivity} visible={!!raceActivity} onClose={() => setRaceActivity(null)} />
+      <RaceDetailModal activity={detailRace} visible={!!detailRace} onClose={() => setDetailRace(null)} />
       <RaceModal activity={null} prefillDate={today} visible={addRaceOpen} onClose={() => setAddRaceOpen(false)} />
       <AddActivityModal visible={addOpen} prefillDate={today} onClose={() => setAddOpen(false)} />
     </View>

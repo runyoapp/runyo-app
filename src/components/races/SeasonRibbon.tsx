@@ -17,26 +17,17 @@ type Props = {
 
 const PAD = 16
 
-// Maand-as van de eerste t/m de laatste geplande race. "nu"-stip + race-vlaggen
-// op tijd-evenredige posities. Alle x-posities leven in een track-laag die links
-// en rechts met PAD is ingesprongen, zodat pos 0..1 exact tussen de randen valt.
+// Volledig kalenderjaar (jan t/m dec) van de eerstvolgende race als tijd-as.
+// "nu"-stip + race-vlaggen op tijd-evenredige posities binnen dat jaar. Alle
+// x-posities leven in een track-laag die links en rechts met PAD is ingesprongen,
+// zodat pos 0..1 exact tussen de randen valt.
 export function SeasonRibbon({ races }: Props) {
   const theme = useTheme()
 
-  const first = fromDateString(races[0].datum)
-  const last  = fromDateString(races[races.length - 1].datum)
-
-  const startMs = new Date(first.getFullYear(), first.getMonth(), 1).getTime()
-  const endMs   = new Date(last.getFullYear(), last.getMonth() + 1, 0).getTime()
+  const year    = fromDateString(races[0].datum).getFullYear()
+  const startMs = new Date(year, 0, 1).getTime()
+  const endMs   = new Date(year, 11, 31, 23, 59, 59, 999).getTime()
   const span    = Math.max(endMs - startMs, 1)
-
-  const months: string[] = []
-  const cursor    = new Date(first.getFullYear(), first.getMonth(), 1)
-  const endCursor = new Date(last.getFullYear(), last.getMonth(), 1)
-  while (cursor <= endCursor) {
-    months.push(MONTHS_NL[cursor.getMonth()])
-    cursor.setMonth(cursor.getMonth() + 1)
-  }
 
   const posOf  = (ms: number) => Math.min(1, Math.max(0, (ms - startMs) / span))
   const nowPos = posOf(Date.now())
@@ -55,10 +46,12 @@ export function SeasonRibbon({ races }: Props) {
         <View style={[styles.axis, { backgroundColor: theme.border }]} />
         <View style={[styles.axisDone, { backgroundColor: theme.accent, width: pct(nowPos) }]} />
 
-        {/* Maandlabels */}
+        {/* Maandlabels — alle 12 maanden als gelijke kolommen */}
         <View style={styles.monthRow}>
-          {months.map((m, i) => (
-            <Text key={`${m}-${i}`} style={[styles.month, { color: theme.muted }]}>{m}</Text>
+          {MONTHS_NL.map((m, i) => (
+            <View key={i} style={styles.monthCell}>
+              <Text style={[styles.month, { color: theme.muted }]} numberOfLines={1}>{m}</Text>
+            </View>
           ))}
         </View>
 
@@ -118,8 +111,9 @@ const styles = StyleSheet.create({
   track:     { flex: 1, marginHorizontal: PAD },
   axis:      { position: 'absolute', left: 0, right: 0, top: 54, height: 3, borderRadius: 999 },
   axisDone:  { position: 'absolute', left: 0, top: 54, height: 3, borderRadius: 999 },
-  monthRow:  { position: 'absolute', left: 0, right: 0, top: 64, flexDirection: 'row', justifyContent: 'space-between' },
-  month:     { fontFamily: Fonts.mono, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 0.3 },
+  monthRow:  { position: 'absolute', left: 0, right: 0, top: 64, flexDirection: 'row' },
+  monthCell: { flex: 1, alignItems: 'center' },
+  month:     { fontFamily: Fonts.mono, fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.2 },
   dotWrap:   { position: 'absolute', top: 49 },
   dot:       { width: 10, height: 10, borderRadius: 5, borderWidth: 2, marginLeft: -5 },
   flagWrap:  { position: 'absolute', top: 12, alignItems: 'center', marginLeft: -13 },
