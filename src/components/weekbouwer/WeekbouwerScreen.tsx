@@ -1,38 +1,35 @@
 import { useMemo, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/hooks/useTheme'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
+import { useDaySwipe } from '@/hooks/useDaySwipe'
 import { createActivitiesBatch, type ActivityCreateInput } from '@/services/activities'
 import { PageContainer } from '@/components/shared/PageContainer'
+import { WeekDragStrip } from '@/components/shared/WeekDragStrip'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ActivityActionSheet } from '@/components/weekbouwer/ActivityActionSheet'
-import { BlokOverzicht } from '@/components/weekbouwer/BlokOverzicht'
+import { WeekBlocks } from '@/components/weekbouwer/WeekBlocks'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
-import { activityColor, volumeCategory, categoryLabel, categoryColor } from '@/utils/runCategory'
+import { volumeCategory, categoryLabel, categoryColor } from '@/utils/runCategory'
 import {
-  DAYS_NL, MONTHS_NL, fromDateString, addDays, toDateString,
+  MONTHS_NL, fromDateString, addDays, toDateString,
 } from '@/utils/date'
 import type { PlanWeekData } from '@/components/plan/PlanWeek'
 import type { Activity } from '@/types/activity'
 
 type Props = {
   weekMonday: string
-  weeks: PlanWeekData[]      // alle weken (num/range/goalKm) voor identificatie + blok-overzicht
+  weeks: PlanWeekData[]      // alle weken (num/range/goalKm) voor identificatie + blokken
   onBack: () => void
   onEditActivity: (activity: Activity) => void
   onJumpToWeek: (monday: string) => void
 }
 
-type DayCell = {
-  datum: string
-  label: string
-  dayNum: number
-  isToday: boolean
-  activities: Activity[]
-}
+type Clipboard = { sourceMonday: string; sourceNum: number; sessions: Activity[] }
 
 function weekRange(monday: string): string {
   const d0 = fromDateString(monday)
@@ -42,6 +39,20 @@ function weekRange(monday: string): string {
   return m0 === m6
     ? `${d0.getDate()} - ${d6.getDate()} ${m6}`
     : `${d0.getDate()} ${m0} - ${d6.getDate()} ${m6}`
+}
+
+// Velden die we kopiëren bij plakken (geen feedback/rating).
+function copyInput(a: Activity, datum: string): ActivityCreateInput {
+  return {
+    datum,
+    type: a.type,
+    titel: a.titel || null,
+    detail: a.detail || null,
+    km: a.km,
+    targetPace: a.targetPace,
+    targetHr: a.targetHr,
+    intervals: a.intervals,
+  }
 }
 
 export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, onJumpToWeek }: Props) {
@@ -55,38 +66,34 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
 
   const [sheetActivity, setSheetActivity] = useState<Activity | null>(null)
   const [addOpen, setAddOpen]             = useState(false)
-  const [overzichtOpen, setOverzichtOpen] = useState(false)
-  const [copying, setCopying]             = useState(false)
+  const [clipboard, setClipboard]         = useState<Clipboard | null>(null)
+  const [pasting, setPasting]             = useState(false)
 
   const today = useMemo(() => toDateString(new Date()), [])
-  const sunday = useMemo(() => toDateString(addDays(fromDateString(weekMonday), 6)), [weekMonday])
 
-  const weekMeta = useMemo(() => weeks.find(w => w.monday === weekMonday), [weeks, weekMonday])
+  // Weekindex + zijwaartse navigatie tussen weken.
+  const weekIdx  = useMemo(() => weeks.findIndex(w => w.monday === weekMonday), [weeks, weekMonday])
+  const weekMeta = weekIdx >= 0 ? weeks[weekIdx] : undefined
+  const swipeAnim   = useSwipeAnimation(weekIdx)
+  const goWeek = (dir: number) => {
+    const target = weeks[weekIdx + dir]
+    if (target) onJumpToWeek(target.monday)
+  }
+  // Hergebruik de dag-swipe-hook: ±1 stap = ±1 week.
+  const panHandlers = useDaySwipe(weekIdx, (next) => goWeek(next - weekIdx))
 
-  // Dagen live afgeleid uit de store (geen snapshot) zodat optimistic updates
-  // meteen zichtbaar zijn. Werk-items tellen niet mee in de weekbouwer.
-  const days = useMemo<DayCell[]>(() => {
-    const mon = fromDateString(weekMonday)
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(mon, i)
-      const datum = toDateString(d)
-      const acts = allActivities
-        .filter(a => a.datum === datum && a.type !== 'work')
-        .sort((x, y) => x.id.localeCompare(y.id))
-      return {
-        datum,
-        label: DAYS_NL[i],
-        dayNum: d.getDate(),
-        isToday: datum === today,
-        activities: acts,
-      }
-    })
-  }, [allActivities, weekMonday, today])
+  // 7 dagdatums (Ma–Zo) van de actieve week.
+  const weekDates = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => toDateString(addDays(fromDateString(weekMonday), i))),
+    [weekMonday],
+  )
 
-  // Trainingsactiviteiten van de week (zonder rust) — basis voor km + kopie.
+  // Trainingen van de week (zonder rust/werk) — basis voor km + verdeling + kopie.
   const sessions = useMemo(
-    () => days.flatMap(d => d.activities).filter(a => a.type !== 'rest'),
-    [days],
+    () => allActivities.filter(
+      a => weekDates.includes(a.datum) && a.type !== 'work' && a.type !== 'rest',
+    ),
+    [allActivities, weekDates],
   )
 
   const planKm = useMemo(
@@ -110,39 +117,42 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
 
   const segSum = segments.reduce((s, x) => s + x.km, 0) || 1
 
-  const firstEmptyDatum = useMemo(
-    () => days.find(d => d.activities.length === 0)?.datum ?? weekMonday,
-    [days, weekMonday],
-  )
+  const firstEmptyDatum = useMemo(() => {
+    const occupied = new Set(allActivities.filter(a => a.type !== 'work').map(a => a.datum))
+    return weekDates.find(d => !occupied.has(d)) ?? weekMonday
+  }, [allActivities, weekDates, weekMonday])
 
-  async function handleCopyWeek() {
-    if (!schemaId || copying) return
+  function handleCopyWeek() {
     if (!sessions.length) {
       showToast('Geen activiteiten om te kopiëren')
       return
     }
-    setCopying(true)
-    const inputs: ActivityCreateInput[] = sessions.map(a => ({
-      datum: toDateString(addDays(fromDateString(a.datum), 7)),
-      type: a.type,
-      titel: a.titel || null,
-      detail: a.detail || null,
-      km: a.km,
-      targetPace: a.targetPace,
-      targetHr: a.targetHr,
-      intervals: a.intervals,
-    }))
+    setClipboard({ sourceMonday: weekMonday, sourceNum: weekMeta?.num ?? 0, sessions })
+    showToast('Week gekopieerd — kies een week om te plakken')
+  }
+
+  async function handlePaste() {
+    if (!clipboard || !schemaId || pasting) return
+    setPasting(true)
+    const srcMon = fromDateString(clipboard.sourceMonday)
+    const tgtMon = fromDateString(weekMonday)
+    const inputs: ActivityCreateInput[] = clipboard.sessions.map(a => {
+      const dayIdx = Math.round((fromDateString(a.datum).getTime() - srcMon.getTime()) / 86400000)
+      return copyInput(a, toDateString(addDays(tgtMon, dayIdx)))
+    })
     try {
       const created = await createActivitiesBatch(schemaId, inputs)
       created.forEach(upsertActivity)
       await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      showToast(`Week gekopieerd naar volgende week`)
+      showToast(`Geplakt in week ${weekMeta?.num ?? ''}`.trim())
     } catch {
-      showToast('Kopiëren mislukt, probeer opnieuw.')
+      showToast('Plakken mislukt, probeer opnieuw.')
     } finally {
-      setCopying(false)
+      setPasting(false)
     }
   }
+
+  const onSourceWeek = clipboard?.sourceMonday === weekMonday
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -169,103 +179,100 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
           </TouchableOpacity>
         </View>
 
-        {/* Week-opbouw header */}
-        <View style={[styles.buildHead, { borderBottomColor: theme.border }]}>
-          <View style={styles.buildTopRow}>
-            <TouchableOpacity
-              style={styles.buildPillRow}
-              onPress={() => setOverzichtOpen(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buildLabel, { color: theme.muted }]}>week-opbouw</Text>
-              <View style={[styles.blokPill, { backgroundColor: theme.accentGlow, borderColor: theme.accent }]}>
-                <Text style={[styles.blokPillText, { color: theme.accent }]}>toon blok ↑</Text>
-              </View>
-            </TouchableOpacity>
-            <Text style={[styles.buildKm, { color: theme.text }]}>{planKm} km</Text>
-          </View>
-
-          <View style={styles.volTrack}>
-            {segments.map(seg => (
-              <View
-                key={seg.key}
-                style={{
-                  flex: seg.km / segSum,
-                  backgroundColor: categoryColor(seg.key, theme),
-                  borderRadius: 999,
-                }}
-              />
-            ))}
-            {!segments.length && <View style={[styles.volEmpty, { backgroundColor: theme.border }]} />}
-          </View>
-
-          <View style={styles.legend}>
-            {segments.map(seg => (
-              <View key={seg.key} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: categoryColor(seg.key, theme) }]} />
-                <Text style={[styles.legendText, { color: theme.muted }]}>
-                  {categoryLabel(seg.key)} {seg.km}km
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Action row */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: theme.surface, borderColor: theme.border }, copying && { opacity: 0.5 }]}
-            onPress={handleCopyWeek}
-            activeOpacity={0.8}
-            disabled={copying}
-          >
-            <Text style={[styles.actionBtnText, { color: theme.text2 }]}>
-              {copying ? 'Kopiëren…' : 'Kopieer week'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Dagenlijst */}
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.daysScroll}
+          contentContainerStyle={styles.scroll}
+          {...panHandlers}
         >
-          {days.map(day => (
-            <View key={day.datum} style={styles.dayGroup}>
-              <View style={styles.dayHead}>
-                <Text style={[styles.dayName, { color: day.isToday ? theme.accent : theme.muted }]}>
-                  {day.label.toUpperCase()}
-                </Text>
-                <Text style={[styles.dayNum, {
-                  color: day.isToday ? theme.text : theme.text2,
-                  fontFamily: day.isToday ? Fonts.displayBold : Fonts.displaySemiBold,
-                }]}>
-                  {day.dayNum}
-                </Text>
-                {day.isToday && (
-                  <Text style={[styles.todayBadge, { color: theme.accent }]}>vandaag</Text>
-                )}
+          {/* 1. Weekblokken over de hele looptijd — tik om te wisselen */}
+          <View style={styles.blocksWrap}>
+            <WeekBlocks weeks={weeks} activeMonday={weekMonday} onPickWeek={onJumpToWeek} />
+          </View>
+
+          {/* Onderstaande inhoud schuift mee bij week-wissel */}
+          <Animated.View style={swipeAnim.style}>
+            {/* 2. Verdeling per type-balkje */}
+            <View style={[styles.buildHead, { borderBottomColor: theme.border }]}>
+              <View style={styles.buildTopRow}>
+                <Text style={[styles.buildLabel, { color: theme.muted }]}>week-opbouw</Text>
+                <Text style={[styles.buildKm, { color: theme.text }]}>{planKm} km</Text>
               </View>
 
-              <View style={styles.dayBody}>
-                {day.activities.length > 0 ? (
-                  day.activities.map(a => (
-                    <ActivityCard
-                      key={a.id}
-                      activity={a}
-                      isToday={day.isToday}
-                      onPress={() => setSheetActivity(a)}
-                    />
-                  ))
-                ) : (
-                  <View style={[styles.restRow, { borderColor: theme.border }]}>
-                    <Text style={[styles.restText, { color: theme.muted }]}>rustdag</Text>
+              <View style={styles.volTrack}>
+                {segments.map(seg => (
+                  <View
+                    key={seg.key}
+                    style={{
+                      flex: seg.km / segSum,
+                      backgroundColor: categoryColor(seg.key, theme),
+                      borderRadius: 999,
+                    }}
+                  />
+                ))}
+                {!segments.length && <View style={[styles.volEmpty, { backgroundColor: theme.border }]} />}
+              </View>
+
+              <View style={styles.legend}>
+                {segments.map(seg => (
+                  <View key={seg.key} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: categoryColor(seg.key, theme) }]} />
+                    <Text style={[styles.legendText, { color: theme.muted }]}>
+                      {categoryLabel(seg.key)} {seg.km}km
+                    </Text>
                   </View>
-                )}
+                ))}
               </View>
             </View>
-          ))}
-          <View style={{ height: Spacing.xxl }} />
+
+            {/* Kopieer / plak */}
+            <View style={styles.actionRow}>
+              {clipboard ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: theme.accent }, pasting && { opacity: 0.5 }]}
+                    onPress={handlePaste}
+                    activeOpacity={0.85}
+                    disabled={pasting}
+                  >
+                    <Text style={[styles.actionBtnText, { color: theme.accentInk }]}>
+                      {pasting
+                        ? 'Plakken…'
+                        : onSourceWeek
+                          ? `Plak nogmaals (week ${clipboard.sourceNum})`
+                          : `Plak week ${clipboard.sourceNum} hier`}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                    onPress={() => setClipboard(null)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.cancelBtnText, { color: theme.muted }]}>×</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
+                  onPress={handleCopyWeek}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.actionBtnText, { color: theme.text2 }]}>Kopieer week</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* 3. Versleepbare week-overzicht */}
+            <View style={styles.stripWrap}>
+              <WeekDragStrip
+                weekDates={weekDates}
+                activities={allActivities}
+                selectedDate={today}
+                onOpenActivity={setSheetActivity}
+              />
+            </View>
+          </Animated.View>
+
+          <View style={{ height: insets.bottom + 96 }} />
         </ScrollView>
       </PageContainer>
 
@@ -276,75 +283,12 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
         onEdit={(a) => { setSheetActivity(null); onEditActivity(a) }}
       />
 
-      <BlokOverzicht
-        visible={overzichtOpen}
-        weeks={weeks}
-        activeMonday={weekMonday}
-        onClose={() => setOverzichtOpen(false)}
-        onPickWeek={(monday) => { setOverzichtOpen(false); onJumpToWeek(monday) }}
-      />
-
       <AddActivityModal
         visible={addOpen}
         prefillDate={firstEmptyDatum}
         onClose={() => setAddOpen(false)}
       />
     </View>
-  )
-}
-
-// Detail-tekst van een activiteit: km of duur uit detail.
-function activitySub(activity: Activity): string {
-  if (activity.detail) return activity.detail
-  if (activity.targetPace) return `${activity.targetPace}/km`
-  return ''
-}
-
-function activityMeta(activity: Activity): string {
-  if (activity.km != null && activity.km > 0) return `${activity.km} km`
-  const min = activity.detail?.match(/(\d+)\s*min/i)
-  return min ? `${min[1]} min` : ''
-}
-
-function ActivityCard({ activity, isToday, onPress }: {
-  activity: Activity
-  isToday: boolean
-  onPress: () => void
-}) {
-  const theme = useTheme()
-  const sub = activitySub(activity)
-  const meta = activityMeta(activity)
-  const done = activity.feedback != null
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.surface,
-          borderColor: isToday ? theme.accent : theme.border,
-        },
-        isToday && { shadowColor: theme.accent, shadowOpacity: 1, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, elevation: 0 },
-      ]}
-    >
-      <View style={[styles.cardBar, { backgroundColor: activityColor(activity, theme) }]} />
-      <View style={styles.cardBody}>
-        <View style={styles.cardTopRow}>
-          <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
-            {activity.titel || activity.type}
-          </Text>
-          {!!meta && <Text style={[styles.cardMeta, { color: theme.muted }]}>{meta}</Text>}
-        </View>
-        {!!sub && <Text style={[styles.cardSub, { color: theme.muted }]} numberOfLines={1}>{sub}</Text>}
-      </View>
-      {done && (
-        <View style={[styles.cardDone, { backgroundColor: theme.accentGlow }]}>
-          <Text style={[styles.cardDoneText, { color: theme.accent }]}>✓</Text>
-        </View>
-      )}
-    </TouchableOpacity>
   )
 }
 
@@ -358,12 +302,12 @@ const styles = StyleSheet.create({
   headTitle:   { fontFamily: Fonts.displayBold, fontSize: 17, letterSpacing: -0.3 },
   headRange:   { fontFamily: Fonts.display, fontSize: 12, marginTop: 1 },
 
+  scroll:      { paddingTop: 4 },
+  blocksWrap:  { paddingHorizontal: Spacing.lg, paddingBottom: 14 },
+
   buildHead:   { paddingHorizontal: Spacing.lg, paddingBottom: 12, borderBottomWidth: 1 },
   buildTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
-  buildPillRow:{ flexDirection: 'row', alignItems: 'center', gap: 7 },
   buildLabel:  { fontFamily: Fonts.display, fontSize: 12.5 },
-  blokPill:    { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  blokPillText:{ fontFamily: Fonts.mono, fontSize: 10, letterSpacing: 0.3 },
   buildKm:     { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.3 },
 
   volTrack:    { flexDirection: 'row', height: 6, borderRadius: 999, overflow: 'hidden', gap: 2 },
@@ -373,28 +317,11 @@ const styles = StyleSheet.create({
   legendDot:   { width: 7, height: 7, borderRadius: 999 },
   legendText:  { fontFamily: Fonts.display, fontSize: 11 },
 
-  actionRow:   { flexDirection: 'row', gap: 7, paddingHorizontal: Spacing.lg, paddingTop: 8, paddingBottom: 4 },
-  actionBtn:   { flex: 1, borderWidth: 1, borderRadius: 9, paddingVertical: 9, alignItems: 'center' },
+  actionRow:   { flexDirection: 'row', gap: 7, paddingHorizontal: Spacing.lg, paddingTop: 10, paddingBottom: 4 },
+  actionBtn:   { flex: 1, borderRadius: 9, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
   actionBtnText:{ fontFamily: Fonts.displaySemiBold, fontSize: 12.5 },
+  cancelBtn:   { width: 40, borderWidth: 1, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  cancelBtnText:{ fontFamily: Fonts.displaySemiBold, fontSize: 18, lineHeight: 20 },
 
-  daysScroll:  { paddingHorizontal: Spacing.md, paddingTop: 10 },
-  dayGroup:    { marginBottom: 12 },
-  dayHead:     { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 6, paddingHorizontal: 4 },
-  dayName:     { fontFamily: Fonts.mono, fontSize: 10.5, letterSpacing: 0.4, minWidth: 22 },
-  dayNum:      { fontSize: 15, letterSpacing: -0.3 },
-  todayBadge:  { fontFamily: Fonts.displaySemiBold, fontSize: 10.5 },
-  dayBody:     { gap: 6 },
-
-  card:        { flexDirection: 'row', alignItems: 'stretch', borderWidth: 1, borderRadius: Radius.lg, overflow: 'hidden' },
-  cardBar:     { width: 4 },
-  cardBody:    { flex: 1, paddingVertical: 11, paddingLeft: 13, paddingRight: 12, minWidth: 0 },
-  cardTopRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardTitle:   { flex: 1, fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.1 },
-  cardMeta:    { fontFamily: Fonts.mono, fontSize: 12 },
-  cardSub:     { fontFamily: Fonts.display, fontSize: 12, marginTop: 2 },
-  cardDone:    { width: 36, alignItems: 'center', justifyContent: 'center' },
-  cardDoneText:{ fontSize: 14 },
-
-  restRow:     { height: 32, borderWidth: 1, borderStyle: 'dashed', borderRadius: Radius.md, justifyContent: 'center', paddingLeft: 14 },
-  restText:    { fontFamily: Fonts.display, fontSize: 12 },
+  stripWrap:   { paddingHorizontal: Spacing.md, paddingTop: 12 },
 })
