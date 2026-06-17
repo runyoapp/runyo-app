@@ -11,13 +11,16 @@ type SwipeHandlers = ReturnType<typeof PanResponder.create>['panHandlers']
 export function useDaySwipe(
   dayOffset: number,
   setDayOffset: (offset: number) => void,
+  // Zolang locked → geen zijwaartse navigatie (bv. tijdens het slepen van een sessie).
+  locked = false,
 ): SwipeHandlers {
-  const navRef = useRef({ dayOffset, setDayOffset })
-  navRef.current = { dayOffset, setDayOffset }
+  const navRef = useRef({ dayOffset, setDayOffset, locked })
+  navRef.current = { dayOffset, setDayOffset, locked }
 
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
+    onMoveShouldSetPanResponder: (_, g) =>
+      !navRef.current.locked && Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 12,
     onPanResponderRelease: (_, g) => {
       if (Math.abs(g.dx) > 50) {
         const { dayOffset: d, setDayOffset: set } = navRef.current

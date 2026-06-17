@@ -68,6 +68,7 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
   const [addOpen, setAddOpen]             = useState(false)
   const [clipboard, setClipboard]         = useState<Clipboard | null>(null)
   const [pasting, setPasting]             = useState(false)
+  const [dragging, setDragging]           = useState(false)
 
   const today = useMemo(() => toDateString(new Date()), [])
 
@@ -110,8 +111,9 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
       onJumpToWeek(toDateString(addDays(fromDateString(weekMonday), 7)))
     }
   }
-  // Hergebruik de dag-swipe-hook: ±1 stap = ±1 week.
-  const panHandlers = useDaySwipe(weekIdx, (next) => goWeek(next - weekIdx))
+  // Hergebruik de dag-swipe-hook: ±1 stap = ±1 week. Tijdens slepen gelocked,
+  // zodat een zijwaartse sleepbeweging niet ook de week wisselt.
+  const panHandlers = useDaySwipe(weekIdx, (next) => goWeek(next - weekIdx), dragging)
 
   // 7 dagdatums (Ma–Zo) van de actieve week.
   const weekDates = useMemo(
@@ -215,6 +217,7 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
+          scrollEnabled={!dragging}
           {...panHandlers}
         >
           {/* 1. Weekblokken over de hele looptijd — tik om te wisselen */}
@@ -301,6 +304,7 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
                 activities={allActivities}
                 selectedDate={today}
                 onOpenActivity={setSheetActivity}
+                onDragChange={setDragging}
               />
             </View>
           </Animated.View>

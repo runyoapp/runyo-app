@@ -66,6 +66,8 @@ type Props = {
   selectedDate?: string
   // Tik op een sessie → details tonen (afgehandeld door de parent).
   onOpenActivity: (activity: Activity) => void
+  // Meldt of er nu een sessie gesleept wordt (parent kan zo de week-swipe locken).
+  onDragChange?: (dragging: boolean) => void
 }
 
 // Versleepbare weekstrip waarin je een sessie vastpakt (houd vast → sleep) en op
@@ -75,7 +77,7 @@ type Props = {
 // Drag = react-native-gesture-handler (Gesture.Pan): .activateAfterLongPress laat
 // losse tikken (→ details) en verticaal scrollen met rust; hit-testen op absolute
 // scherm-coördinaten tegen gemeten rij-rects werkt betrouwbaar op web én touch.
-export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActivity }: Props) {
+export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActivity, onDragChange }: Props) {
   const theme          = useTheme()
   const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
@@ -107,6 +109,9 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   const rowRects    = useRef<Map<number, Rect>>(new Map())
 
   useEffect(() => () => { if (clearTimer.current) clearTimeout(clearTimer.current) }, [])
+
+  // Laat de parent weten wanneer er gesleept wordt → week-swipe pauzeren.
+  useEffect(() => { onDragChange?.(dragId != null) }, [dragId, onDragChange])
 
   function measureTargets() {
     stripRef.current?.measureInWindow((x, y) => { stripOrigin.current = { x, y } })
