@@ -33,9 +33,6 @@ export type WeekCell = {
 type Rect = { x: number; y: number; width: number; height: number }
 
 const ROW_GAP = 4
-// Korte houd-druk: lang genoeg om bewust slepen van scrollen te scheiden, kort
-// genoeg om vlot aan te voelen.
-const LONG_PRESS_MS = 100
 
 // Bouwt de 7 dag-cellen voor een willekeurige week (maandag-eerst dagdatums).
 export function buildWeekCells(
@@ -100,9 +97,6 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   const weekRef         = useRef(week); weekRef.current = week
   const dragActivityRef = useRef<Activity | null>(null)
   const clearTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Welke sessie de long-press heeft "opgetild" → pas dán mag de pan activeren.
-  // Tot die tijd staat de pan op manualActivation, zodat scrollen direct werkt.
-  const armedRef        = useRef<string | null>(null)
 
   // Drop-doelen: per dag-index de scherm-rect (measureInWindow) + de View-refs.
   const stripRef    = useRef<View>(null)
@@ -178,7 +172,7 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   return (
     <>
       <Text style={[styles.hint, { color: theme.muted }]}>
-        {dragId != null ? 'laat los op een dag' : 'houd een sessie vast om te verplaatsen'}
+        {dragId != null ? 'laat los op een dag' : 'sleep aan het greepje ⠿ om te verplaatsen'}
       </Text>
 
       <View ref={stripRef} style={styles.strip} collapsable={false}>
@@ -213,49 +207,30 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
                 {d.sessions.length > 0 ? (
                   d.sessions.map(session => {
                     const isSrc = dragId === session.id
-                    // Scroll bezit standaard de aanraking; een korte houd-druk
-                    // (long-press) "tilt" de sessie op en armt pas dán de pan.
-                    // Vegen scrollt dus direct (geen rem), vasthouden → slepen,
-                    // losse tik valt door naar onPress (details).
-                    const longPress = Gesture.LongPress()
-                      .minDuration(LONG_PRESS_MS)
-                      .runOnJS(true)
-                      .onStart(e => {
-                        armedRef.current = session.id
-                        handleStart(session, i, e.absoluteX, e.absoluteY)
-                      })
-
+                    // Slepen via het greep-handvat (de pan zit alleen daar, met
+                    // touchAction "none"). De rest van de kaart scrollt en tikt
+                    // normaal — op web de enige betrouwbare manier om scrollen en
+                    // slepen op dezelfde lijst te combineren.
                     const pan = Gesture.Pan()
-                      .manualActivation(true)
                       .runOnJS(true)
-                      .onTouchesMove((_e, state) => {
-                        if (armedRef.current === session.id) state.activate()
-                      })
+                      .onStart(e => handleStart(session, i, e.absoluteX, e.absoluteY))
                       .onUpdate(e => handleMove(e.absoluteX, e.absoluteY))
                       .onEnd(e => handleEnd(e.absoluteX, e.absoluteY, false))
-                      .onFinalize((e, success) => {
-                        if (armedRef.current === session.id) armedRef.current = null
-                        if (!success) handleEnd(e.absoluteX, e.absoluteY, true)
-                      })
-
-                    const gesture = Gesture.Simultaneous(longPress, pan)
+                      .onFinalize((e, success) => { if (!success) handleEnd(e.absoluteX, e.absoluteY, true) })
 
                     return (
-                      // touchAction="pan-y": op web mag de browser verticaal blijven
-                      // scrollen over de pill; pas als de long-press de pan activeert
-                      // neemt gesture-handler de aanraking over (en blokkeert scroll).
-                      <GestureDetector key={session.id} gesture={gesture} touchAction="pan-y">
-                        <Pressable
-                          style={{ opacity: isSrc ? 0.25 : 1 }}
-                          onPress={() => onOpenActivity(session)}
-                        >
-                          <SessionPill
-                            session={session}
-                            theme={theme}
-                            animateIn={justMovedId === session.id}
-                          />
-                        </Pressable>
-                      </GestureDetector>
+                      <Pressable
+                        key={session.id}
+                        style={{ opacity: isSrc ? 0.25 : 1 }}
+                        onPress={() => onOpenActivity(session)}
+                      >
+                        <SessionPill
+                          session={session}
+                          theme={theme}
+                          animateIn={justMovedId === session.id}
+                          dragGesture={pan}
+                        />
+                      </Pressable>
                     )
                   })
                 ) : (
@@ -289,8 +264,9 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   )
 }
 
-function SessionPill({ session, theme, dragging = false, animateIn = false }: {
+function SessionPill({ session, theme, dragging = false, animateIn = false, dragGesture }: {
   session: Activity; theme: Theme; dragging?: boolean; animateIn?: boolean
+  dragGesture?: ReturnType<typeof Gesture.Pan>
 }) {
   // In-spring: opacity + lichte translateY/scale wanneer de pill net op deze dag
   // is geland (justMovedId). Anders meteen op de eindstand (geen animatie).
@@ -326,11 +302,23 @@ function SessionPill({ session, theme, dragging = false, animateIn = false }: {
             {session.km != null ? `${session.km} km` : typeLabel(session.type)}
           </Text>
         </View>
-        <View style={styles.grip}>
-          {[0, 1, 2].map(i => (
-            <View key={i} style={[styles.gripLine, { backgroundColor: theme.text }]} />
-          ))}
-        </View>
+        {dragGesture ? (
+          <GestureDetector gesture={dragGesture} touchAction="none">
+            <View style={styles.gripTouch}>
+              <View style={styles.grip}>
+                {[0, 1, 2].map(i => (
+                  <View key={i} style={[styles.gripLine, { backgroundColor: theme.text }]} />
+                ))}
+              </View>
+            </View>
+          </GestureDetector>
+        ) : (
+          <View style={styles.grip}>
+            {[0, 1, 2].map(i => (
+              <View key={i} style={[styles.gripLine, { backgroundColor: theme.text }]} />
+            ))}
+          </View>
+        )}
       </View>
     </Animated.View>
   )
@@ -355,8 +343,9 @@ const styles = StyleSheet.create({
   pillBody:    { flex: 1, minWidth: 0 },
   pillTitle:   { fontFamily: Fonts.displaySemiBold, fontSize: 13.5, letterSpacing: -0.1 },
   pillMeta:    { fontFamily: Fonts.mono, fontSize: 10.5, marginTop: 1 },
-  grip:        { gap: 2.5, opacity: 0.4 },
-  gripLine:    { width: 13, height: 1.5, borderRadius: 1 },
+  gripTouch:   { paddingVertical: 9, paddingLeft: 12, paddingRight: 2, marginVertical: -9, marginRight: -2, justifyContent: 'center' },
+  grip:        { gap: 3, opacity: 0.55 },
+  gripLine:    { width: 15, height: 1.5, borderRadius: 1 },
 
   ghost:       { position: 'absolute', left: 48, right: 0, top: -15 },
   ghostInner:  { maxWidth: 300 },
