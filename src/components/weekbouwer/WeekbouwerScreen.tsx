@@ -278,7 +278,6 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
 
       <ActivityActionSheet
         activity={sheetActivity}
-        weekMonday={weekMonday}
         onClose={() => setSheetActivity(null)}
         onEdit={(a) => { setSheetActivity(null); onEditActivity(a) }}
       />

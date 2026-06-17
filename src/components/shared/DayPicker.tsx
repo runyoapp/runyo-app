@@ -57,7 +57,7 @@ export function DayPicker({ value, onChange }: { value: string; onChange: (iso: 
   )
 }
 
-function Calendar({
+export function Calendar({
   t, selISO, todayISO, base, onPick,
 }: {
   t: Theme; selISO: string; todayISO: string; base: Date; onPick: (iso: string) => void
