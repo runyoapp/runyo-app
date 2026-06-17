@@ -7,6 +7,7 @@ import type { Activity, ActivityType } from '@/types/activity'
 
 export type PlanWeekData = {
   num: number
+  monday: string     // maandag-ISO van deze week (identificeert de week in de weekbouwer)
   range: string
   goalKm: number
   doneKm: number

@@ -9,10 +9,15 @@ import { useDataStore } from '@/stores/dataStore'
 import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
+import { WeekbouwerScreen } from '@/components/weekbouwer/WeekbouwerScreen'
+import { EditorScreen } from '@/components/weekbouwer/EditorScreen'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
 import { toDateString, fromDateString, weekStart, addDays, MONTHS_NL } from '@/utils/date'
+import type { Activity } from '@/types/activity'
+
+type PlanMode = 'plan' | 'week' | 'editor'
 
 // Groepeer activiteiten in maandag-zondag weken over de hele schema-looptijd.
 // Werk-items tellen niet mee in plan (dat is privé-agenda, geen training).
@@ -46,7 +51,7 @@ function buildWeeks(activities: PlanWeekData['days'], today: string): PlanWeekDa
       sun < today ? 'done' : (mon <= today ? 'current' : 'next')
 
     weeks.push({
-      num, range, goalKm, doneKm, status,
+      num, monday: mon, range, goalKm, doneKm, status,
       hasRace: days.some(a => a.type === 'race'),
       days,
     })
@@ -67,6 +72,11 @@ export function PlanScreen() {
 
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [importOpen,   setImportOpen]   = useState(false)
+
+  // Weekbouwer-navigatie: lokale screen-state (geen RootNavigator-wijziging).
+  const [mode,            setMode]            = useState<PlanMode>('plan')
+  const [activeWeekMonday, setActiveWeekMonday] = useState<string | null>(null)
+  const [editActivity,    setEditActivity]    = useState<Activity | null>(null)
 
   const weeks = useMemo(() => buildWeeks(activities, today), [activities, today])
   const maxGoalKm = useMemo(() => weeks.reduce((m, w) => Math.max(m, w.goalKm), 0), [weeks])
@@ -105,6 +115,29 @@ export function PlanScreen() {
 
   const noSchema = !schemaId
   const noData   = !noSchema && !weeks.length
+
+  // Weekbouwer (week-overzicht van één week, dagen live uit de store).
+  if (mode === 'week' && activeWeekMonday) {
+    return (
+      <WeekbouwerScreen
+        weekMonday={activeWeekMonday}
+        weeks={weeks}
+        onBack={() => setMode('plan')}
+        onEditActivity={(a) => { setEditActivity(a); setMode('editor') }}
+        onJumpToWeek={(monday) => setActiveWeekMonday(monday)}
+      />
+    )
+  }
+
+  // Editor (één activiteit bewerken).
+  if (mode === 'editor' && editActivity) {
+    return (
+      <EditorScreen
+        activity={editActivity}
+        onBack={() => { setEditActivity(null); setMode('week') }}
+      />
+    )
+  }
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -149,7 +182,7 @@ export function PlanScreen() {
                   maxGoalKm={maxGoalKm}
                   expanded={openSet.has(w.num)}
                   onToggle={() => toggle(w.num)}
-                  onEditWeek={() => {/* weekbouwer — stap 3 */}}
+                  onEditWeek={() => { setActiveWeekMonday(w.monday); setMode('week') }}
                 />
               </View>
             ))}
