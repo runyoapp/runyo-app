@@ -3,9 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, DateField, EditorTextField, EditorTextArea, ChipSelect,
+  FieldLabel, EditorTextField, EditorTextArea, ChipSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
+import { DayPicker } from '@/components/shared/DayPicker'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -220,7 +221,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
         <View style={{ gap: Spacing.lg }}>
           <View>
             <FieldLabel>Datum</FieldLabel>
-            <DateField value={datum} onChange={setDatum} />
+            <DayPicker value={datum} onChange={setDatum} />
           </View>
 
           <View>

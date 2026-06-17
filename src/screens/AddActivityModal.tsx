@@ -3,9 +3,10 @@ import { View } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, DateField, EditorTextField, EditorTextArea, ChipSelect,
+  FieldLabel, EditorTextField, EditorTextArea, ChipSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
+import { DayPicker } from '@/components/shared/DayPicker'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { createActivity } from '@/services/activities'
@@ -136,7 +137,7 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
       <View style={{ gap: Spacing.lg }}>
         <View>
           <FieldLabel>Datum</FieldLabel>
-          <DateField value={datum} onChange={setDatum} />
+          <DayPicker value={datum} onChange={setDatum} />
         </View>
 
         <View>
