@@ -98,7 +98,10 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
           onPress={onFeedbackPress}
         >
           <Text style={[styles.ctaText, { color: theme.accentInk }]}>
-            {isRun ? 'Beoordeel run' : 'Beoordeel training'}
+            {/* Vandaag: "Start run" (opent de beoordeel-flow); eerdere dagen: "Beoordeel" */}
+            {activity.datum === today
+              ? (isRun ? 'Start run' : 'Start training')
+              : (isRun ? 'Beoordeel run' : 'Beoordeel training')}
           </Text>
           <Text style={[styles.ctaArrow, { color: theme.accentInk }]}>→</Text>
         </TouchableOpacity>

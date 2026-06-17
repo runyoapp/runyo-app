@@ -4,28 +4,25 @@ import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { TodayScreen } from '@/screens/TodayScreen'
-import { WeekScreen } from '@/screens/WeekScreen'
 import { PlanScreen } from '@/screens/PlanScreen'
-import { CalendarScreen } from '@/screens/CalendarScreen'
+import { RacesScreen } from '@/screens/RacesScreen'
 import { Fonts, GlassBg, LightTheme, DarkTheme, Spacing } from '@/constants/theme'
 import { useIsDesktop } from '@/hooks/useBreakpoint'
 import { useTheme } from '@/hooks/useTheme'
 import { Toast } from '@/components/shared/Toast'
 
 export type MainTabParamList = {
-  Today:    undefined
-  Week:     undefined
-  Plan:     undefined
-  Calendar: undefined
+  Today: undefined
+  Plan:  undefined
+  Races: undefined
 }
 
 const Tab = createBottomTabNavigator<MainTabParamList>()
 
 const TAB_LABELS: Record<string, string> = {
-  Today:    'vandaag',
-  Week:     'week',
-  Plan:     'training',
-  Calendar: 'kalender',
+  Today: 'vandaag',
+  Plan:  'plan',
+  Races: 'races',
 }
 
 // Canonical glass tab bar — spec: brand.md §7, runyo-pwa.jsx GlassTabBar
@@ -118,10 +115,9 @@ export function MainNavigator() {
         }
         screenOptions={{ headerShown: false }}
       >
-        <Tab.Screen name="Today"    component={TodayScreen} />
-        <Tab.Screen name="Week"     component={WeekScreen} />
-        <Tab.Screen name="Plan"     component={PlanScreen} />
-        <Tab.Screen name="Calendar" component={CalendarScreen} />
+        <Tab.Screen name="Today" component={TodayScreen} />
+        <Tab.Screen name="Plan"  component={PlanScreen} />
+        <Tab.Screen name="Races" component={RacesScreen} />
       </Tab.Navigator>
       {/* Globaal — toast werkt zo op elke tab, niet alleen op Vandaag */}
       <Toast />

@@ -10,6 +10,7 @@ import { useDaySwipe } from '@/hooks/useDaySwipe'
 import { DayStrip } from '@/components/today/DayStrip'
 import { HeroCard, RestCard, WorkCard, NoSchemaCard } from '@/components/today/HeroCard'
 import { TomorrowCard } from '@/components/today/TomorrowCard'
+import { RescheduleWeek } from '@/components/today/RescheduleWeek'
 import { FeedbackSection } from '@/components/today/FeedbackSection'
 import { WeatherWidget } from '@/components/today/WeatherWidget'
 import { AppHeader } from '@/components/shared/AppHeader'
@@ -139,6 +140,12 @@ export function TodayScreen() {
               />
             )}
           </>
+        )}
+
+        {/* "Deze week" reschedule-strip: alleen op vandaag (week is relatief
+            t.o.v. nu) en als er een schema gekoppeld is. */}
+        {dayOffset === 0 && schemaId && !isLoading && (
+          <RescheduleWeek activities={activities} />
         )}
 
         {tmrRow && (
