@@ -3,6 +3,7 @@ import { Text, View, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { BlurView } from 'expo-blur'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useUiStore } from '@/stores/uiStore'
 import { TodayScreen } from '@/screens/TodayScreen'
 import { PlanScreen } from '@/screens/PlanScreen'
 import { RacesScreen } from '@/screens/RacesScreen'
@@ -104,14 +105,17 @@ function DesktopSidebar({ state, navigation }: any) {
 }
 
 export function MainNavigator() {
-  const isDesktop = useIsDesktop()
+  const isDesktop    = useIsDesktop()
+  const tabBarHidden = useUiStore(s => s.tabBarHidden)
 
   return (
     <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
       <Tab.Navigator
-        tabBar={props => isDesktop
-          ? <DesktopSidebar {...props} />
-          : <FloatingTabBar {...props} />
+        tabBar={props => tabBarHidden
+          ? null
+          : isDesktop
+            ? <DesktopSidebar {...props} />
+            : <FloatingTabBar {...props} />
         }
         screenOptions={{ headerShown: false }}
       >

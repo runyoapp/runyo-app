@@ -7,6 +7,7 @@ import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
+import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
@@ -95,6 +96,13 @@ export function PlanScreen() {
   const [mode,            setMode]            = useState<PlanMode>('plan')
   const [activeWeekMonday, setActiveWeekMonday] = useState<string | null>(null)
   const [editActivity,    setEditActivity]    = useState<Activity | null>(null)
+
+  // Verberg de tab-balk zolang de weekbouwer/editor (full-screen) open is.
+  const setTabBarHidden = useUiStore(s => s.setTabBarHidden)
+  useEffect(() => {
+    setTabBarHidden(mode !== 'plan')
+    return () => setTabBarHidden(false)
+  }, [mode, setTabBarHidden])
 
   const weeks = useMemo(() => buildWeeks(activities, today), [activities, today])
   const maxGoalKm = useMemo(() => weeks.reduce((m, w) => Math.max(m, w.goalKm), 0), [weeks])

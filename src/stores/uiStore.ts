@@ -15,8 +15,10 @@ type UiStore = {
   activeModal: ModalName
   modalData: unknown
   loginSheetOpen: boolean
+  tabBarHidden: boolean
 
   setLoading: (loading: boolean, message?: string | null) => void
+  setTabBarHidden: (hidden: boolean) => void
   showToast: (message: string, durationMs?: number, action?: ToastAction) => void
   hideToast: () => void
   openModal: (modal: NonNullable<ModalName>, data?: unknown) => void
@@ -35,9 +37,12 @@ export const useUiStore = create<UiStore>((set) => ({
   activeModal: null,
   modalData: null,
   loginSheetOpen: false,
+  tabBarHidden: false,
 
   setLoading: (isLoading, loadingMessage = null) =>
     set({ isLoading, loadingMessage }),
+
+  setTabBarHidden: (tabBarHidden) => set({ tabBarHidden }),
 
   showToast: (message, durationMs = 3000, action) => {
     if (toastTimer) clearTimeout(toastTimer)
