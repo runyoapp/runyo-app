@@ -11,6 +11,7 @@ import { RaceDetailModal } from '@/screens/RaceDetailModal'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { SeasonRibbon } from '@/components/races/SeasonRibbon'
 import { RaceHero } from '@/components/races/RaceHero'
+import { RaceResultCard } from '@/components/races/RaceResultCard'
 import { RaceUpNextList } from '@/components/races/RaceUpNextList'
 import { weekProgress } from '@/utils/raceProgress'
 import { fromDateString } from '@/utils/date'
@@ -24,24 +25,36 @@ export function RacesScreen() {
   const schemaList = useDataStore(s => s.schemaList)
   useActivities()
 
-  // detailRace = bestaande race bekijken (detail → bewerken); addRaceOpen = nieuwe
-  // race; addOpen = generieke "+ activiteit" uit de header.
-  const [detailRace, setDetailRace] = useState<Activity | null>(null)
-  const [addRaceOpen, setAddRaceOpen] = useState(false)
-  const [addOpen,     setAddOpen]     = useState(false)
+  // detailRace = bestaande race bekijken (detail → bewerken); detailFeedback =
+  // direct in beoordeel-modus openen; addRaceOpen = nieuwe race; addOpen =
+  // generieke "+ activiteit" uit de header.
+  const [detailRace,     setDetailRace]     = useState<Activity | null>(null)
+  const [detailFeedback, setDetailFeedback] = useState(false)
+  const [addRaceOpen,    setAddRaceOpen]    = useState(false)
+  const [addOpen,        setAddOpen]        = useState(false)
+
+  function openDetail(race: Activity, feedback = false) {
+    setDetailFeedback(feedback)
+    setDetailRace(race)
+  }
 
   const today = new Date().toISOString().split('T')[0]
-  const races = activities
-    .filter(a => a.type === 'race' && a.datum >= today)
+  // Alle races (verleden + toekomst), oplopend op datum.
+  const allRaces = activities
+    .filter(a => a.type === 'race')
     .sort((a, b) => a.datum.localeCompare(b.datum))
 
-  const next   = races[0] ?? null
-  const upNext = races.slice(1)
+  const upcoming = allRaces.filter(r => r.datum >= today)
+  const past     = allRaces.filter(r => r.datum < today)
 
-  // "dit jaar" = aankomende races in het lopende kalenderjaar; "te gaan" = alle
-  // toekomstige races (incl. de eerstvolgende).
+  const next     = upcoming[0] ?? null
+  const upNext   = upcoming.slice(1)
+  const lastPast = past.length ? past[past.length - 1] : null  // meest recente gelopen race
+
+  // "dit jaar" = alle races in dit kalenderjaar (verleden + toekomst); "te gaan" =
+  // alleen de toekomstige races.
   const yearNow   = new Date().getFullYear()
-  const thisYear  = races.filter(r => fromDateString(r.datum).getFullYear() === yearNow).length
+  const thisYear  = allRaces.filter(r => fromDateString(r.datum).getFullYear() === yearNow).length
 
   const heroProgress = (() => {
     if (!next) return 0
@@ -57,7 +70,7 @@ export function RacesScreen() {
         <View style={styles.titleBlock}>
           <Text style={[styles.title, { color: theme.text }]}>Races</Text>
           <Text style={[styles.subtitle, { color: theme.muted }]}>
-            {thisYear} {thisYear === 1 ? 'race' : 'races'} dit jaar · {races.length} te gaan
+            {thisYear} {thisYear === 1 ? 'race' : 'races'} dit jaar · {upcoming.length} te gaan
           </Text>
         </View>
 
@@ -66,14 +79,24 @@ export function RacesScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {next ? (
+          {allRaces.length > 0 ? (
             <>
-              <SeasonRibbon races={races} />
+              <SeasonRibbon races={allRaces} nextId={next?.id ?? null} />
               <View style={{ height: 14 }} />
-              <RaceHero race={next} progress={heroProgress} onPress={() => setDetailRace(next)} />
-              {upNext.length > 0 && (
-                <RaceUpNextList races={upNext} onPress={setDetailRace} />
-              )}
+              {next ? (
+                <>
+                  <RaceHero race={next} progress={heroProgress} onPress={() => openDetail(next)} />
+                  {upNext.length > 0 && (
+                    <RaceUpNextList races={upNext} onPress={race => openDetail(race)} />
+                  )}
+                </>
+              ) : lastPast ? (
+                <RaceResultCard
+                  race={lastPast}
+                  onPress={() => openDetail(lastPast)}
+                  onRate={() => openDetail(lastPast, true)}
+                />
+              ) : null}
             </>
           ) : (
             <View style={styles.empty}>
@@ -97,7 +120,12 @@ export function RacesScreen() {
         </ScrollView>
       </PageContainer>
 
-      <RaceDetailModal activity={detailRace} visible={!!detailRace} onClose={() => setDetailRace(null)} />
+      <RaceDetailModal
+        activity={detailRace}
+        visible={!!detailRace}
+        startInFeedback={detailFeedback}
+        onClose={() => setDetailRace(null)}
+      />
       <RaceModal activity={null} prefillDate={today} visible={addRaceOpen} onClose={() => setAddRaceOpen(false)} />
       <AddActivityModal visible={addOpen} prefillDate={today} onClose={() => setAddOpen(false)} />
     </View>

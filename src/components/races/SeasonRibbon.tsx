@@ -10,10 +10,12 @@ type Marker = {
   x: number         // pixel-positie langs de track
   tier: 'A' | 'B'
   isNext: boolean
+  isPast: boolean
 }
 
 type Props = {
-  races: Activity[]
+  races: Activity[]      // alle races (verleden + toekomst), oplopend op datum
+  nextId: string | null  // id van de eerstvolgende toekomstige race (of null)
 }
 
 // Hoeveel maanden ongeveer tegelijk in beeld passen; bepaalt de maandbreedte.
@@ -27,13 +29,17 @@ function daysInMonth(year: number, month: number): number {
 // van de eerstvolgende race. ~4,5 maanden in beeld; opent gecentreerd op vandaag.
 // Race-vlaggen + "nu"-stip staan op tijd-evenredige pixelposities; je sleept door
 // het jaar door horizontaal te scrollen.
-export function SeasonRibbon({ races }: Props) {
+export function SeasonRibbon({ races, nextId }: Props) {
   const theme = useTheme()
   const [width, setWidth] = useState(0)
   const scrollRef  = useRef<ScrollView>(null)
   const centeredRef = useRef(false)
 
-  const year = fromDateString(races[0].datum).getFullYear()
+  const todayStr = new Date().toISOString().split('T')[0]
+  // Anker-jaar = jaar van de eerstvolgende race; zonder toekomstige race het jaar
+  // van de meest recente (laatste) race, zodat de tijdlijn op de juiste plek staat.
+  const anchor = races.find(r => r.id === nextId) ?? races[races.length - 1]
+  const year = fromDateString(anchor.datum).getFullYear()
 
   // Pixelpositie van een datum: (maand-index + fractie binnen de maand) * maandbreedte.
   // Zo vallen vlaggen exact uitgelijnd met de maandkolommen, ook al verschillen de
@@ -57,7 +63,8 @@ export function SeasonRibbon({ races }: Props) {
     id: r.id,
     x: xOfDate(fromDateString(r.datum)),
     tier: r.isMainGoal ? 'A' : 'B',
-    isNext: r.id === races[0].id,
+    isNext: r.id === nextId,
+    isPast: r.datum < todayStr,
   }))
 
   return (
@@ -116,6 +123,24 @@ export function SeasonRibbon({ races }: Props) {
 function Flag({ marker, theme }: { marker: Marker; theme: Theme }) {
   const size = marker.isNext ? 26 : 22
   const isA  = marker.tier === 'A'
+
+  // Verleden race = gedempt/voltooid: grijze vlag met vinkje, halftransparant.
+  if (marker.isPast) {
+    return (
+      <View style={[styles.flagWrap, { left: marker.x, opacity: 0.55 }]}>
+        <View
+          style={[
+            styles.flag,
+            { width: 22, height: 22, borderRadius: 11, backgroundColor: theme.surface2, borderWidth: 1.5, borderColor: theme.faint },
+          ]}
+        >
+          <Text style={{ fontFamily: Fonts.displayBold, fontSize: 11, color: theme.muted }}>✓</Text>
+        </View>
+        <View style={[styles.stem, { backgroundColor: theme.border }]} />
+      </View>
+    )
+  }
+
   return (
     <View style={[styles.flagWrap, { left: marker.x }]}>
       <View
