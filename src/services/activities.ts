@@ -1,5 +1,5 @@
 import { BACKEND, getAccessToken } from './auth'
-import type { Activity, ActivityType } from '@/types/activity'
+import type { Activity, ActivityType, IntervalBlock } from '@/types/activity'
 
 // runyo v4 — /api/schemas/:schemaId/activities frontend client (ticket 2.1d).
 
@@ -16,6 +16,9 @@ export type BackendActivity = {
   isMainGoal: boolean
   feedback: string | null
   rating: number | null
+  targetPace: string | null
+  targetHr: number | null
+  intervals: IntervalBlock[] | null
 }
 
 export type ActivityCreateInput = {
@@ -29,6 +32,9 @@ export type ActivityCreateInput = {
   isMainGoal?: boolean
   feedback?: string | null
   rating?: number | null
+  targetPace?: string | null
+  targetHr?: number | null
+  intervals?: IntervalBlock[] | null
 }
 
 export type ActivityPatchInput = {
@@ -42,6 +48,9 @@ export type ActivityPatchInput = {
   isMainGoal?: boolean
   feedback?: string | null
   rating?: number | null
+  targetPace?: string | null
+  targetHr?: number | null
+  intervals?: IntervalBlock[] | null
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -89,6 +98,9 @@ export function toActivity(row: BackendActivity): Activity {
     goalTime: row.goalTime,
     isMainGoal: row.isMainGoal,
     rowIndex: null,
+    targetPace: row.targetPace ?? null,
+    targetHr: row.targetHr ?? null,
+    intervals: row.intervals ?? null,
   }
 }
 

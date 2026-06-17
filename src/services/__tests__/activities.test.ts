@@ -37,6 +37,9 @@ function backendRow(over: Partial<BackendActivity> = {}): BackendActivity {
     isMainGoal: false,
     feedback: null,
     rating: null,
+    targetPace: null,
+    targetHr: null,
+    intervals: null,
     ...over,
   }
 }
@@ -61,6 +64,16 @@ describe('toActivity', () => {
     const activity = toActivity(backendRow({ feedback: '4/5 💪 – goed', rating: 4 }))
     expect(activity.feedback).toBe('4/5 💪 – goed')
     expect(activity.rating).toBe(4)
+  })
+
+  it('maps session fields (targetPace / targetHr / intervals) through', () => {
+    const blocks = [
+      { id: 'b1', label: null, repeat: 6, distanceKm: 1, durationMin: null, pace: '3:45', recovery: '90s' },
+    ]
+    const activity = toActivity(backendRow({ targetPace: '4:30', targetHr: 165, intervals: blocks }))
+    expect(activity.targetPace).toBe('4:30')
+    expect(activity.targetHr).toBe(165)
+    expect(activity.intervals).toEqual(blocks)
   })
 })
 

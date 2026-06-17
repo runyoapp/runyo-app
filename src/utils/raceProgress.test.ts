@@ -7,7 +7,8 @@ function act(p: Partial<Activity>): Activity {
   return {
     id: 'a', schemaId: 's1', datum: '2026-01-05', type: 'run', titel: '', detail: '',
     km: null, feedback: null, fase: null, rating: null, updatedAt: '', createdAt: '',
-    raceType: null, goalTime: null, isMainGoal: false, rowIndex: null, ...p,
+    raceType: null, goalTime: null, isMainGoal: false, rowIndex: null,
+    targetPace: null, targetHr: null, intervals: null, ...p,
   }
 }
 function schema(p: Partial<SchemaMeta> = {}): SchemaMeta {

@@ -17,6 +17,9 @@ vi.mock('../activities', () => ({
     goalTime: null,
     isMainGoal: false,
     rowIndex: null,
+    targetPace: null,
+    targetHr: null,
+    intervals: null,
   })),
   deleteActivity: vi.fn(async () => {}),
 }))
@@ -48,6 +51,9 @@ function makeActivity(over: Partial<Activity> = {}): Activity {
     goalTime: null,
     isMainGoal: false,
     rowIndex: null,
+    targetPace: null,
+    targetHr: null,
+    intervals: null,
     ...over,
   }
 }

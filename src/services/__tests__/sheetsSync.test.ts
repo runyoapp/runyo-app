@@ -25,6 +25,9 @@ function makeActivity(overrides: Partial<Activity> = {}): Activity {
     goalTime:  null,
     isMainGoal: false,
     rowIndex:  null,
+    targetPace: null,
+    targetHr:  null,
+    intervals: null,
     ...overrides,
   }
 }
