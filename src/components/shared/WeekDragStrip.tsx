@@ -35,7 +35,7 @@ type Rect = { x: number; y: number; width: number; height: number }
 const ROW_GAP = 4
 // Korte houd-druk: lang genoeg om bewust slepen van scrollen te scheiden, kort
 // genoeg om vlot aan te voelen.
-const LONG_PRESS_MS = 180
+const LONG_PRESS_MS = 100
 
 // Bouwt de 7 dag-cellen voor een willekeurige week (maandag-eerst dagdatums).
 export function buildWeekCells(
@@ -241,7 +241,10 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
                     const gesture = Gesture.Simultaneous(longPress, pan)
 
                     return (
-                      <GestureDetector key={session.id} gesture={gesture}>
+                      // touchAction="pan-y": op web mag de browser verticaal blijven
+                      // scrollen over de pill; pas als de long-press de pan activeert
+                      // neemt gesture-handler de aanraking over (en blokkeert scroll).
+                      <GestureDetector key={session.id} gesture={gesture} touchAction="pan-y">
                         <Pressable
                           style={{ opacity: isSrc ? 0.25 : 1 }}
                           onPress={() => onOpenActivity(session)}
