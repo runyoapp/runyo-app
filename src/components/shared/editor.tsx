@@ -24,12 +24,16 @@ export function activityDot(type: string): string | null {
 // Veldlabel
 // ─────────────────────────────────────────────────────────
 
-export function FieldLabel({ children, hint }: { children: string; hint?: string }) {
+export function FieldLabel({ children, hint, required, error }: { children: string; hint?: string; required?: boolean; error?: boolean }) {
   const t = useTheme()
   return (
     <View style={s.labelRow}>
-      <Text style={[s.label, { color: t.text2 }]}>{children}</Text>
+      <Text style={[s.label, { color: t.text2 }]}>
+        {children}
+        {required && <Text style={[s.labelStar, { color: error ? t.danger : t.faint }]}> *</Text>}
+      </Text>
       {hint && <Text style={[s.labelHint, { color: t.muted }]}>{hint}</Text>}
+      {error && <Text style={[s.labelError, { color: t.danger }]}>verplicht</Text>}
     </View>
   )
 }
@@ -314,7 +318,9 @@ export function RestCard({ note }: { note: string }) {
 const s = StyleSheet.create({
   labelRow:    { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm, marginBottom: Spacing.sm, paddingHorizontal: 2 },
   label:       { fontFamily: Fonts.displaySemiBold, fontSize: 12, letterSpacing: -0.1 },
+  labelStar:   { fontFamily: Fonts.displaySemiBold, fontSize: 12 },
   labelHint:   { fontFamily: Fonts.displayMedium, fontSize: 11.5 },
+  labelError:  { fontFamily: Fonts.displayMedium, fontSize: 11, marginLeft: 'auto' },
 
   field:       { width: '100%', borderWidth: 1, borderRadius: Radius.md, paddingHorizontal: 14, letterSpacing: -0.15 },
   textarea:    { minHeight: 80, paddingVertical: 13, fontFamily: Fonts.display, fontSize: 14.5, lineHeight: 21 },

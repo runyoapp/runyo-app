@@ -7,7 +7,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { patchActivity } from '@/services/activities'
 import { ActivityColors, Fonts, Spacing, Radius, type Theme } from '@/constants/theme'
-import { DAYS_NL, getWeekDates } from '@/utils/date'
+import { DAYS_NL, getWeekDates, toDateString } from '@/utils/date'
 import { TYPE_DISPLAY, type ActivityType } from '@/constants/activities'
 import type { Activity } from '@/types/activity'
 
@@ -28,6 +28,7 @@ type DayCell = {
   label: string
   dayNum: number
   isSelected: boolean
+  isPast: boolean
   // Eerste echte training van die dag (rust/werk tellen niet als verplaatsbare sessie).
   session: Activity | null
 }
@@ -39,6 +40,7 @@ const LONG_PRESS_MS = 250
 
 function buildWeek(activities: Activity[], selectedDate: string): DayCell[] {
   const dates = getWeekDates(0)
+  const todayStr = toDateString(new Date())
   return dates.map((datum, i) => {
     const session = activities.find(
       a => a.datum === datum && a.type !== 'rest' && a.type !== 'work',
@@ -48,6 +50,7 @@ function buildWeek(activities: Activity[], selectedDate: string): DayCell[] {
       label: DAYS_NL[i],
       dayNum: Number(datum.slice(8, 10)),
       isSelected: datum === selectedDate,
+      isPast: datum < todayStr,
       session,
     }
   })
@@ -215,7 +218,12 @@ export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Pro
                   key={d.datum}
                   ref={r => { rowRefs.current.set(i, r) }}
                   collapsable={false}
-                  style={[styles.row, isTgt && { backgroundColor: theme.accentGlow }]}
+                  style={[
+                    styles.row,
+                    isTgt && { backgroundColor: theme.accentGlow },
+                    // Verleden-dagen iets lichter (tenzij ze nu drop-doel zijn).
+                    d.isPast && !isTgt && styles.rowPast,
+                  ]}
                 >
                   <View style={styles.dayCol}>
                     <Text style={[styles.dayName, { color: d.isSelected ? theme.accent : theme.muted }]}>
@@ -307,6 +315,7 @@ const styles = StyleSheet.create({
   hint:        { fontFamily: Fonts.display, fontSize: 11.5, marginBottom: 8 },
   strip:       { gap: ROW_GAP, position: 'relative' },
   row:         { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, paddingHorizontal: 6, borderRadius: Radius.md },
+  rowPast:     { opacity: 0.5 },
   dayCol:      { width: 38, alignItems: 'center' },
   dayName:     { fontFamily: Fonts.mono, fontSize: 10, letterSpacing: 0.4 },
   dayNum:      { fontSize: 17, letterSpacing: -0.3, marginTop: 1 },

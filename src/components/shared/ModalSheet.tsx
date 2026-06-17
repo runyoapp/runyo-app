@@ -14,9 +14,11 @@ type Props = {
   accentDot?: string
   /** Vaste balk onderaan, buiten de scroll (bv. een opslaan-balk). */
   footer?: React.ReactNode
+  /** Ref naar de interne ScrollView (bv. om naar een ontbrekend veld te scrollen). */
+  scrollRef?: React.RefObject<ScrollView | null>
 }
 
-export function ModalSheet({ visible, title, onClose, children, subtitle, accentDot, footer }: Props) {
+export function ModalSheet({ visible, title, onClose, children, subtitle, accentDot, footer, scrollRef }: Props) {
   const insets = useSafeAreaInsets()
   const theme  = useTheme()
 
@@ -49,6 +51,7 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
           keyboardShouldPersistTaps="handled"

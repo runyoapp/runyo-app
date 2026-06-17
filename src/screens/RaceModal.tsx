@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { View, Text, TextInput, StyleSheet } from 'react-native'
+import { useState, useEffect, useRef } from 'react'
+import { View, Text, TextInput, ScrollView, StyleSheet, type LayoutChangeEvent } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
@@ -84,6 +84,11 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const [mainGoal,   setMainGoal]   = useState(false)
   const [notes,      setNotes]      = useState('')
   const [saving,     setSaving]     = useState(false)
+  // Welk verplicht veld ontbreekt (na een opslaan-poging) → markeren + ernaartoe scrollen.
+  const [missing,    setMissing]    = useState<'name' | 'date' | null>(null)
+
+  const scrollRef = useRef<ScrollView>(null)
+  const dateY     = useRef(0)
 
   // Reset telkens wanneer de modal opent (ook bij een nieuwe race ná een net
   // toegevoegde race — anders blijven naam/datum/… van de vorige race staan).
@@ -101,6 +106,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
     setH(g.h); setM(g.m); setS(g.s)
     setMainGoal(activity?.isMainGoal ?? false)
     setNotes(activity?.detail ?? '')
+    setMissing(null)
   }, [visible, activity?.id, prefillDate])
 
   const distOpts: ChipOption[] = RACE_DIST.map(d => ({ key: d.key, label: d.label }))
@@ -113,7 +119,18 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const hasGoal  = totalSec > 0
 
   async function handleSave() {
-    if (!name || !date) { showToast('Naam en datum zijn verplicht'); return }
+    if (!name.trim()) {
+      setMissing('name')
+      scrollRef.current?.scrollTo({ y: 0, animated: true })
+      showToast('Vul de racenaam in')
+      return
+    }
+    if (!date) {
+      setMissing('date')
+      scrollRef.current?.scrollTo({ y: Math.max(0, dateY.current - 16), animated: true })
+      showToast('Vul een datum in')
+      return
+    }
     if (!schemaId) { showToast('Geen schema gekoppeld'); return }
 
     setSaving(true)
@@ -149,13 +166,17 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
       subtitle="Je eerstvolgende doel — bovenaan elk scherm."
       accentDot={raceHex}
       onClose={onClose}
+      scrollRef={scrollRef}
       footer={<SaveBar label="Opslaan" onSave={handleSave} onCancel={onClose} saving={saving} />}
     >
       <View style={{ gap: Spacing.lg }}>
         {/* Race-first hero */}
         <View style={[styles.hero, { backgroundColor: t.surface, borderColor: t.border }]}>
           <View style={styles.heroTop}>
-            <Text style={[styles.heroLabel, { color: t.muted }]}>RACE NAAM</Text>
+            <Text style={[styles.heroLabel, { color: missing === 'name' ? t.danger : t.muted }]}>
+              RACE NAAM<Text style={{ color: missing === 'name' ? t.danger : t.faint }}> *</Text>
+              {missing === 'name' && <Text style={[styles.heroLabel, { color: t.danger }]}>  — verplicht</Text>}
+            </Text>
             <View style={styles.heroCount}>
               <Text style={[styles.heroCountNum, { color: raceHex }]}>{dleft > 0 ? dleft : 0}</Text>
               <Text style={[styles.heroCountUnit, { color: raceHex }]}>{Math.abs(dleft) === 1 ? 'dag' : 'dagen'}</Text>
@@ -163,9 +184,9 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
           </View>
           <TextInput
             value={name}
-            onChangeText={setName}
+            onChangeText={v => { setName(v); if (missing === 'name') setMissing(null) }}
             placeholder="Naam"
-            placeholderTextColor={t.faint}
+            placeholderTextColor={missing === 'name' ? `${t.danger}99` : t.faint}
             style={[styles.heroName, { color: t.text }]}
           />
           <View style={[styles.heroDivider, { backgroundColor: t.border }]} />
@@ -178,9 +199,9 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
           </View>
         </View>
 
-        <View>
-          <FieldLabel>Datum</FieldLabel>
-          <DayPicker value={date} onChange={setDate} />
+        <View onLayout={(e: LayoutChangeEvent) => { dateY.current = e.nativeEvent.layout.y }}>
+          <FieldLabel required error={missing === 'date'}>Datum</FieldLabel>
+          <DayPicker value={date} onChange={v => { setDate(v); if (missing === 'date') setMissing(null) }} />
         </View>
 
         <View>

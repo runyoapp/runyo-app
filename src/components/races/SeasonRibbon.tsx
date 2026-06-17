@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { useTheme } from '@/hooks/useTheme'
 import { Fonts, Radius, type Theme } from '@/constants/theme'
@@ -30,6 +30,8 @@ function daysInMonth(year: number, month: number): number {
 export function SeasonRibbon({ races }: Props) {
   const theme = useTheme()
   const [width, setWidth] = useState(0)
+  const scrollRef  = useRef<ScrollView>(null)
+  const centeredRef = useRef(false)
 
   const year = fromDateString(races[0].datum).getFullYear()
 
@@ -61,27 +63,31 @@ export function SeasonRibbon({ races }: Props) {
   return (
     <View
       style={[styles.wrap, { backgroundColor: theme.surface, borderColor: theme.border }]}
-      onLayout={e => setWidth(e.nativeEvent.layout.width)}
+      onLayout={e => {
+        const w = e.nativeEvent.layout.width
+        if (w !== width) { centeredRef.current = false; setWidth(w) }
+      }}
     >
       {width > 0 && (
         <ScrollView
+          ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentOffset={{ x: initX, y: 0 }}
           contentContainerStyle={{ width: trackW }}
+          // contentOffset wordt op web genegeerd → centreer expliciet op vandaag
+          // zodra de content gemeten is (één keer, daarna mag de gebruiker vrij sliden).
+          onContentSizeChange={() => {
+            if (!centeredRef.current) {
+              scrollRef.current?.scrollTo({ x: initX, animated: false })
+              centeredRef.current = true
+            }
+          }}
         >
           <View style={{ width: trackW, flex: 1 }}>
-            {/* Maandkolommen met scheidingslijntjes + label */}
+            {/* Maandkolommen met label (geen scheidingslijntjes) */}
             <View style={styles.monthRow}>
               {MONTHS_NL.map((m, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.monthCell,
-                    { width: monthW },
-                    i > 0 && { borderLeftWidth: 1, borderLeftColor: theme.border },
-                  ]}
-                >
+                <View key={i} style={[styles.monthCell, { width: monthW }]}>
                   <Text style={[styles.month, { color: theme.muted }]} numberOfLines={1}>{m}</Text>
                 </View>
               ))}
