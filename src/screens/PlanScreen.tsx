@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
-import { DayDetailModal } from '@/screens/DayDetailModal'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
@@ -9,12 +8,53 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
 import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
-import { PlanRow } from '@/components/plan/PlanRow'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
+import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
-import { toDateString } from '@/utils/date'
-import type { Activity } from '@/types/activity'
+import { toDateString, fromDateString, weekStart, addDays, MONTHS_NL } from '@/utils/date'
+
+// Groepeer activiteiten in maandag-zondag weken over de hele schema-looptijd.
+// Werk-items tellen niet mee in plan (dat is privé-agenda, geen training).
+function buildWeeks(activities: PlanWeekData['days'], today: string): PlanWeekData[] {
+  const real = activities.filter(a => a.datum && a.type !== 'work')
+  if (!real.length) return []
+  const sorted   = [...real].sort((a, b) => a.datum.localeCompare(b.datum))
+  const firstMon = weekStart(fromDateString(sorted[0].datum))
+  const lastMon  = weekStart(fromDateString(sorted[sorted.length - 1].datum))
+
+  const weeks: PlanWeekData[] = []
+  let cursor = firstMon
+  let num    = 1
+  while (cursor.getTime() <= lastMon.getTime()) {
+    const mon = toDateString(cursor)
+    const sun = toDateString(addDays(cursor, 6))
+    const d0  = cursor
+    const d6  = addDays(cursor, 6)
+    const m0  = MONTHS_NL[d0.getMonth()]
+    const m6  = MONTHS_NL[d6.getMonth()]
+    const range = m0 === m6
+      ? `${d0.getDate()} - ${d6.getDate()} ${m6}`
+      : `${d0.getDate()} ${m0} - ${d6.getDate()} ${m6}`
+
+    const days   = sorted.filter(a => a.datum >= mon && a.datum <= sun)
+    const goalKm = Math.round(days.reduce((s, a) => s + (a.km ?? 0), 0))
+    const doneKm = Math.round(
+      days.filter(a => a.datum <= today).reduce((s, a) => s + (a.km ?? 0), 0),
+    )
+    const status: PlanWeekData['status'] =
+      sun < today ? 'done' : (mon <= today ? 'current' : 'next')
+
+    weeks.push({
+      num, range, goalKm, doneKm, status,
+      hasRace: days.some(a => a.type === 'race'),
+      days,
+    })
+    cursor = addDays(cursor, 7)
+    num++
+  }
+  return weeks
+}
 
 export function PlanScreen() {
   const insets     = useSafeAreaInsets()
@@ -23,52 +63,48 @@ export function PlanScreen() {
   const theme      = useTheme()
   useActivities()
 
-  // Gebruik lokale datum (zelfde als de rest van de app) i.p.v. toISOString (UTC).
   const today = useMemo(() => toDateString(new Date()), [])
 
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
-  const [startInFeedback,  setStartInFeedback]  = useState(false)
-  const [addModalOpen,     setAddModalOpen]     = useState(false)
-  const [importOpen,       setImportOpen]       = useState(false)
-  const [showRest,         setShowRest]         = useState(false)
-  const scrollRef      = useRef<ScrollView>(null)
-  const hasScrolled    = useRef(false)
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [importOpen,   setImportOpen]   = useState(false)
 
-  // State (niet refs) zodat useEffect opnieuw vuurt zodra een waarde binnenkomt.
+  const weeks = useMemo(() => buildWeeks(activities, today), [activities, today])
+  const maxGoalKm = useMemo(() => weeks.reduce((m, w) => Math.max(m, w.goalKm), 0), [weeks])
+
+  // Huidige week staat default open.
+  const currentNum = useMemo(
+    () => weeks.find(w => w.status === 'current')?.num ?? null,
+    [weeks],
+  )
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set())
+  // Open de huidige week zodra die bekend is (alleen initieel, niet bij elke render).
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current || currentNum === null) return
+    seededRef.current = true
+    setOpenSet(new Set([currentNum]))
+  }, [currentNum])
+
+  const toggle = (num: number) =>
+    setOpenSet(prev => {
+      const next = new Set(prev)
+      next.has(num) ? next.delete(num) : next.add(num)
+      return next
+    })
+
+  // Auto-scroll naar de huidige week.
+  const scrollRef   = useRef<ScrollView>(null)
+  const hasScrolled = useRef(false)
   const [targetY, setTargetY]           = useState<number | null>(null)
   const [contentReady, setContentReady] = useState(false)
-
   useEffect(() => {
     if (hasScrolled.current || targetY === null || !contentReady) return
     hasScrolled.current = true
-    scrollRef.current?.scrollTo({ y: Math.max(0, targetY - 80), animated: false })
+    scrollRef.current?.scrollTo({ y: Math.max(0, targetY - 12), animated: false })
   }, [targetY, contentReady])
 
-  // C66: rustdagen standaard verborgen
-  const visibleActivities = useMemo(
-    () => showRest ? activities : activities.filter(a => a.type !== 'rest'),
-    [activities, showRest],
-  )
-
-  const byDate = useMemo(() => {
-    const sorted = [...visibleActivities].sort((a, b) => a.datum.localeCompare(b.datum))
-    const result: { datum: string; rows: Activity[] }[] = []
-    sorted.forEach(a => {
-      const last = result[result.length - 1]
-      if (last && last.datum === a.datum) last.rows.push(a)
-      else result.push({ datum: a.datum, rows: [a] })
-    })
-    return result
-  }, [visibleActivities])
-
-  // Eerste zichtbare datum >= vandaag. Pakt morgen als vandaag een (verborgen) rustdag is.
-  const scrollTarget = useMemo(
-    () => byDate.find(({ datum }) => datum >= today)?.datum ?? null,
-    [byDate, today],
-  )
-
   const noSchema = !schemaId
-  const noData   = !noSchema && !activities.length
+  const noData   = !noSchema && !weeks.length
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -93,55 +129,35 @@ export function PlanScreen() {
         )}
 
         {!noSchema && !noData && (
-          <>
-            {/* C66: rustdagen-toggle chip */}
-            <View style={styles.filterRow}>
-              <TouchableOpacity
-                style={[styles.filterChip, showRest && styles.filterChipActive]}
-                onPress={() => setShowRest(v => !v)}
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => setContentReady(true)}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <SchemaHeader activities={activities} />
+            {weeks.map(w => (
+              <View
+                key={w.num}
+                style={styles.weekWrap}
+                onLayout={w.num === currentNum
+                  ? e => setTargetY(e.nativeEvent.layout.y)
+                  : undefined}
               >
-                <Text style={[styles.filterChipText, showRest && styles.filterChipTextActive]}>
-                  Rustdagen
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              ref={scrollRef}
-              showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => setContentReady(true)}
-            >
-              <SchemaHeader activities={activities} />
-              {byDate.map(({ datum, rows }) => (
-                <View
-                  key={datum}
-                  style={styles.dayRow}
-                  onLayout={datum === scrollTarget
-                    ? e => setTargetY(e.nativeEvent.layout.y)
-                    : undefined}
-                >
-                  <PlanRow
-                    datum={datum}
-                    rows={rows}
-                    isToday={datum === today}
-                    isPast={datum < today}
-                    onEdit={a => { setStartInFeedback(false); setSelectedActivity(a) }}
-                    onFeedback={a => { setStartInFeedback(true); setSelectedActivity(a) }}
-                  />
-                </View>
-              ))}
-              <View style={{ height: Spacing.xl }} />
-            </ScrollView>
-          </>
+                <PlanWeek
+                  week={w}
+                  maxGoalKm={maxGoalKm}
+                  expanded={openSet.has(w.num)}
+                  onToggle={() => toggle(w.num)}
+                  onEditWeek={() => {/* weekbouwer — stap 3 */}}
+                />
+              </View>
+            ))}
+            <View style={{ height: Spacing.xxl }} />
+          </ScrollView>
         )}
       </PageContainer>
 
-      <DayDetailModal
-        activity={selectedActivity}
-        visible={!!selectedActivity}
-        startInFeedback={startInFeedback}
-        onClose={() => setSelectedActivity(null)}
-      />
       <AddActivityModal
         visible={addModalOpen}
         onClose={() => setAddModalOpen(false)}
@@ -155,17 +171,11 @@ export function PlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:                 { flex: 1, backgroundColor: LightTheme.bg },
-  dayRow:               { paddingHorizontal: Spacing.lg },
-  empty:                { alignItems: 'center', justifyContent: 'center' },
-  emptyNoSchema:        { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: Spacing.xs },
-  emptyTitle:           { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
-  emptySub:             { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
-  emptyBtn:             { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, backgroundColor: LightTheme.accent },
-  emptyBtnText:         { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
-  filterRow:            { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm, gap: Spacing.sm },
-  filterChip:           { paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderRadius: Radius.pill, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border },
-  filterChipActive:     { backgroundColor: LightTheme.accent, borderColor: LightTheme.accent },
-  filterChipText:       { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.muted },
-  filterChipTextActive: { color: '#fff' },
+  root:          { flex: 1, backgroundColor: LightTheme.bg },
+  scrollContent: { paddingTop: Spacing.xs },
+  weekWrap:      { paddingHorizontal: Spacing.lg },
+  empty:         { alignItems: 'center', justifyContent: 'center' },
+  emptyNoSchema: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: Spacing.xs },
+  emptyTitle:    { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
+  emptySub:      { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
 })
