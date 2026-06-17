@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+import { useState } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -6,9 +7,10 @@ import { AccountSection } from '@/components/settings/AccountSection'
 import { ConnectSection } from '@/components/settings/ConnectSection'
 import { NotifSection } from '@/components/settings/NotifSection'
 import { PushSection } from '@/components/settings/PushSection'
-import { PrefsSection } from '@/components/settings/PrefsSection'
 import { SchemaTracerSection } from '@/components/settings/SchemaTracerSection'
-import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { PreferencesRow } from '@/components/settings/PreferencesRow'
+import { SectionLabel, Card } from '@/components/settings/ui'
+import { Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import type { RootStackParamList } from '@/navigation/RootNavigator'
@@ -21,95 +23,103 @@ export function SettingsScreen() {
   const insets     = useSafeAreaInsets()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const theme      = useTheme()
-  const email      = useAuthStore(s => s.tokenSet?.email)
+  const tokenSet   = useAuthStore(s => s.tokenSet)
+  const email      = tokenSet?.email
+  const loggedIn   = !!tokenSet
+  const isAdmin    = email != null && ADMIN_EMAILS.includes(email)
+
+  const [scrolled, setScrolled] = useState(false)
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrolled(e.nativeEvent.contentOffset.y > 4)
+  }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
+    <View style={[styles.root, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
+      {/* Sticky header */}
+      <View style={[styles.header, { backgroundColor: theme.bg, borderBottomColor: scrolled ? theme.border : 'transparent' }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Profiel</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.closeText, { color: theme.text2 }]}>✕</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xxl }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
-        {/* Title row — inside scroll so it scrolls away */}
-        <View style={styles.titleRow}>
-          <Text style={styles.pageTitle}>Profiel</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
-            <Text style={styles.closeBtnText}>✕</Text>
-          </TouchableOpacity>
-        </View>
+        <PreferencesRow />
 
-        <Section title="Account">
-          <AccountSection />
-        </Section>
+        <AccountSection />
 
         {__DEV__ && (
-          <Section title="Schema (tracer)">
-            <SchemaTracerSection />
-          </Section>
+          <>
+            <View style={styles.gap} />
+            <SectionLabel>Schema (tracer)</SectionLabel>
+            <Card style={styles.tracerCard}>
+              <SchemaTracerSection />
+            </Card>
+          </>
         )}
 
-        <Section title="Schema">
-          <ConnectSection />
-        </Section>
+        <View style={styles.gap} />
+        <ConnectSection />
 
-        <Section title="Push notificaties">
-          <PushSection />
-        </Section>
+        {loggedIn && (
+          <>
+            <View style={styles.gap} />
+            <NotifSection />
 
-        <Section title="Telegram notificaties">
-          <NotifSection />
-        </Section>
+            {Platform.OS !== 'web' && (
+              <>
+                <View style={styles.gap} />
+                <PushSection />
+              </>
+            )}
 
-        <Section title="Voorkeuren">
-          <PrefsSection />
-        </Section>
-
-        {email != null && ADMIN_EMAILS.includes(email) && (
-          <Section title="Admin">
-            <TouchableOpacity
-              style={adminStyles.row}
-              onPress={() => navigation.navigate('ImportLog')}
-              activeOpacity={0.7}
-            >
-              <Text style={[adminStyles.label, { color: theme.text }]}>importeerlog</Text>
-              <Text style={[adminStyles.arrow, { color: theme.muted }]}>›</Text>
-            </TouchableOpacity>
-          </Section>
+            {isAdmin && (
+              <>
+                <View style={styles.gap} />
+                <SectionLabel>Admin</SectionLabel>
+                <Card>
+                  <TouchableOpacity
+                    style={styles.adminRow}
+                    onPress={() => navigation.navigate('ImportLog')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.adminLabel, { color: theme.text }]}>Importeerlog</Text>
+                    <Text style={[styles.adminArrow, { color: theme.muted }]}>›</Text>
+                  </TouchableOpacity>
+                </Card>
+              </>
+            )}
+          </>
         )}
       </ScrollView>
     </View>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  const theme = useTheme()
-  return (
-    <View style={sectionStyles.container}>
-      <Text style={sectionStyles.title}>{title}</Text>
-      <View style={[sectionStyles.body, { backgroundColor: theme.surface }]}>{children}</View>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: LightTheme.bg },
+  root:          { flex: 1 },
+  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, borderBottomWidth: 1, zIndex: 5 },
+  title:         { fontFamily: Fonts.displayBold, fontSize: 27, letterSpacing: -1 },
+  closeBtn:      { width: 34, height: 34, borderRadius: 999, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  closeText:     { fontFamily: Fonts.display, fontSize: 17 },
+
   scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: Spacing.lg },
-  titleRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.lg },
-  pageTitle:     { fontFamily: Fonts.displayBold, fontSize: 28, color: LightTheme.text, letterSpacing: -0.5 },
-  closeBtn:      { padding: Spacing.sm },
-  closeBtnText:  { fontFamily: Fonts.display, fontSize: 20, color: LightTheme.muted },
-})
+  scrollContent: { paddingHorizontal: 20, paddingTop: 4 },
+  gap:           { height: 22 },
+  tracerCard:    { padding: 4 },
 
-const sectionStyles = StyleSheet.create({
-  container: { marginBottom: Spacing.xl },
-  title:     { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: Spacing.sm },
-  body:      { backgroundColor: LightTheme.surface, borderRadius: 12, padding: Spacing.lg },
-})
-
-const adminStyles = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: Fonts.displayMedium, fontSize: 15 },
-  arrow: { fontFamily: Fonts.display, fontSize: 20 },
+  adminRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 15 },
+  adminLabel:    { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
+  adminArrow:    { fontFamily: Fonts.display, fontSize: 18 },
 })

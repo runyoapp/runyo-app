@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { View, Text, TextInput, Switch, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUiStore } from '@/stores/uiStore'
 import { saveUserSettings } from '@/services/settings'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { SectionLabel, Card, Divider, Toggle, TimeChip, AddTimeButton } from './ui'
+
+type NotifType = 'schema' | 'feedback'
 
 export function NotifSection() {
   const theme          = useTheme()
@@ -16,8 +19,9 @@ export function NotifSection() {
   const setNotif       = useSettingsStore(s => s.setNotifications)
   const showToast      = useUiStore(s => s.showToast)
 
-  const [tg,      setTg]      = useState(telegramUser)
-  const [saving,  setSaving]  = useState(false)
+  const [tg,     setTg]     = useState(telegramUser)
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(false)
 
   async function save() {
     const token = await getToken()
@@ -27,7 +31,8 @@ export function NotifSection() {
     try {
       await setTelegram(tg)
       await saveUserSettings(token, tg, notifications)
-      showToast('✓ Instellingen opgeslagen')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1600)
     } catch {
       showToast('Opslaan mislukt')
     } finally {
@@ -35,140 +40,149 @@ export function NotifSection() {
     }
   }
 
-  function toggleSchema(val: boolean) {
-    setNotif({ ...notifications, schema: { ...notifications.schema, enabled: val } })
+  function toggle(type: NotifType) {
+    setNotif({ ...notifications, [type]: { ...notifications[type], enabled: !notifications[type].enabled } })
   }
 
-  function toggleFeedback(val: boolean) {
-    setNotif({ ...notifications, feedback: { ...notifications.feedback, enabled: val } })
-  }
-
-  function updateTime(type: 'schema' | 'feedback', idx: number, val: string) {
+  function updateTime(type: NotifType, idx: number, val: string) {
     const times = [...notifications[type].times]
     times[idx] = val
     setNotif({ ...notifications, [type]: { ...notifications[type], times } })
   }
 
-  function addTime(type: 'schema' | 'feedback') {
-    const times = [...notifications[type].times, '07:00']
-    setNotif({ ...notifications, [type]: { ...notifications[type], times } })
+  function addTime(type: NotifType) {
+    setNotif({ ...notifications, [type]: { ...notifications[type], times: [...notifications[type].times, '09:00'] } })
   }
 
-  function removeTime(type: 'schema' | 'feedback', idx: number) {
+  function removeTime(type: NotifType, idx: number) {
     const times = notifications[type].times.filter((_, i) => i !== idx)
     setNotif({ ...notifications, [type]: { ...notifications[type], times } })
   }
 
   return (
-    <View style={styles.container}>
-      {/* Telegram */}
-      <Text style={styles.label}>Telegram gebruikersnaam</Text>
-      <TextInput
-        style={styles.input}
-        value={tg}
-        onChangeText={setTg}
-        placeholder="@gebruikersnaam"
-        placeholderTextColor={LightTheme.faint}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <Text style={styles.hint}>Start @runyo_appbot in Telegram om notificaties te activeren.</Text>
+    <View>
+      <SectionLabel>Meldingen via Telegram</SectionLabel>
+      <Card>
+        {/* Telegram koppeling */}
+        <View style={styles.block}>
+          <Text style={[styles.tgLabel, { color: theme.text }]}>Telegram gebruikersnaam</Text>
+          <TextInput
+            value={tg}
+            onChangeText={setTg}
+            placeholder="@gebruikersnaam"
+            placeholderTextColor={theme.faint}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[styles.tgInput, { backgroundColor: theme.surface2, borderColor: theme.border, color: theme.text }]}
+          />
+          <Text style={[styles.tgHint, { color: theme.muted }]}>
+            Start <Text style={[styles.tgBot, { color: theme.text2 }]}>@runyo_appbot</Text> in Telegram om meldingen te activeren.
+          </Text>
+        </View>
 
-      {/* Schema notifications */}
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Trainingsschema notificaties</Text>
-        <Switch
-          value={notifications.schema.enabled}
-          onValueChange={toggleSchema}
-          trackColor={{ true: LightTheme.accent }}
-          thumbColor="#fff"
-        />
-      </View>
-      {notifications.schema.enabled && (
-        <TimePickers
+        <Divider />
+        <NotifBlock
+          title="Trainingsschema"
+          sub="Wat staat er vandaag op het programma"
+          on={notifications.schema.enabled}
+          onToggle={() => toggle('schema')}
           times={notifications.schema.times}
           onUpdate={(i, v) => updateTime('schema', i, v)}
           onAdd={() => addTime('schema')}
           onRemove={i => removeTime('schema', i)}
         />
-      )}
 
-      {/* Feedback notifications */}
-      <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>Feedback notificaties</Text>
-        <Switch
-          value={notifications.feedback.enabled}
-          onValueChange={toggleFeedback}
-          trackColor={{ true: LightTheme.accent }}
-          thumbColor="#fff"
-        />
-      </View>
-      {notifications.feedback.enabled && (
-        <TimePickers
+        <Divider />
+        <NotifBlock
+          title="Feedback"
+          sub="Hoe ging de training vandaag"
+          on={notifications.feedback.enabled}
+          onToggle={() => toggle('feedback')}
           times={notifications.feedback.times}
           onUpdate={(i, v) => updateTime('feedback', i, v)}
           onAdd={() => addTime('feedback')}
           onRemove={i => removeTime('feedback', i)}
         />
-      )}
 
-      <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={save} disabled={saving}>
-        <Text style={styles.saveBtnText}>{saving ? 'Opslaan…' : 'Opslaan'}</Text>
-      </TouchableOpacity>
+        <View style={styles.saveWrap}>
+          <TouchableOpacity
+            onPress={save}
+            disabled={saving}
+            activeOpacity={0.85}
+            style={[styles.saveBtn, { backgroundColor: saved ? theme.text : theme.accent }]}
+          >
+            <Text style={[styles.saveText, { color: saved ? theme.bg : theme.accentInk }]}>
+              {saved ? 'Opgeslagen ✓' : saving ? 'Opslaan…' : 'Opslaan'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Card>
+
+      {Platform.OS === 'web' && (
+        <Text style={[styles.footNote, { color: theme.muted }]}>
+          Push naar je telefoon werkt alleen in de runyo-app op iOS of Android.
+        </Text>
+      )}
     </View>
   )
 }
 
-function TimePickers({ times, onUpdate, onAdd, onRemove }: {
+function NotifBlock({ title, sub, on, onToggle, times, onUpdate, onAdd, onRemove }: {
+  title: string
+  sub: string
+  on: boolean
+  onToggle: () => void
   times: string[]
   onUpdate: (i: number, v: string) => void
   onAdd: () => void
   onRemove: (i: number) => void
 }) {
+  const theme = useTheme()
   return (
-    <View style={tpStyles.container}>
-      {times.map((t, i) => (
-        <View key={i} style={tpStyles.row}>
-          <TextInput
-            style={tpStyles.input}
-            value={t}
-            onChangeText={v => onUpdate(i, v)}
-            placeholder="07:00"
-            placeholderTextColor={LightTheme.faint}
-            keyboardType="numbers-and-punctuation"
-          />
-          {times.length > 1 && (
-            <TouchableOpacity onPress={() => onRemove(i)} style={tpStyles.removeBtn}>
-              <Text style={tpStyles.removeBtnText}>×</Text>
-            </TouchableOpacity>
-          )}
+    <View style={styles.block}>
+      <View style={styles.blockHead}>
+        <View style={styles.blockLabels}>
+          <Text style={[styles.blockTitle, { color: theme.text }]}>{title}</Text>
+          <Text style={[styles.blockSub, { color: theme.muted }]}>{sub}</Text>
         </View>
-      ))}
-      <TouchableOpacity onPress={onAdd} style={tpStyles.addBtn}>
-        <Text style={tpStyles.addBtnText}>+ Tijd toevoegen</Text>
-      </TouchableOpacity>
+        <Toggle on={on} onToggle={onToggle} />
+      </View>
+      {on && (
+        <View style={styles.timesWrap}>
+          <View style={styles.chips}>
+            {times.map((t, i) => (
+              <TimeChip
+                key={i}
+                time={t}
+                onChange={v => onUpdate(i, v)}
+                onRemove={() => onRemove(i)}
+              />
+            ))}
+          </View>
+          <AddTimeButton onPress={onAdd} />
+        </View>
+      )}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container:   { gap: Spacing.sm },
-  label:       { fontFamily: Fonts.displaySemiBold, fontSize: 13, color: LightTheme.text },
-  input:       { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: LightTheme.border },
-  hint:        { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, lineHeight: 16 },
-  toggleRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
-  toggleLabel: { fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text, flex: 1 },
-  saveBtn:     { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', marginTop: Spacing.sm },
-  saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
-})
+  block:       { padding: 14 },
+  tgLabel:     { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1, marginBottom: 9 },
+  tgInput:     { borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontFamily: Fonts.mono, fontSize: 14 },
+  tgHint:      { fontFamily: Fonts.display, fontSize: 12, marginTop: 8, lineHeight: 17 },
+  tgBot:       { fontFamily: Fonts.mono, fontSize: 11.5 },
 
-const tpStyles = StyleSheet.create({
-  container:    { gap: 6, paddingLeft: Spacing.md },
-  row:          { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  input:        { fontFamily: Fonts.mono, fontSize: 14, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: LightTheme.border, width: 80 },
-  removeBtn:    { padding: 4 },
-  removeBtnText:{ fontFamily: Fonts.display, fontSize: 18, color: LightTheme.muted },
-  addBtn:       { alignSelf: 'flex-start', paddingVertical: 4 },
-  addBtnText:   { fontFamily: Fonts.displayMedium, fontSize: 12, color: LightTheme.accent },
+  blockHead:   { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  blockLabels: { flex: 1, minWidth: 0 },
+  blockTitle:  { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
+  blockSub:    { fontFamily: Fonts.display, fontSize: 12, marginTop: 2 },
+  timesWrap:   { marginTop: 12 },
+  chips:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
+  saveWrap:    { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4 },
+  saveBtn:     { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  saveText:    { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.1 },
+
+  footNote:    { fontFamily: Fonts.display, fontSize: 12, paddingHorizontal: 6, paddingTop: 9, lineHeight: 17 },
 })

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Linking } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import Svg, { Rect, Line, Path } from 'react-native-svg'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -9,131 +10,92 @@ import { createExportSheet } from '@/services/drive'
 import { createSchema, renameSchema } from '@/services/schemas'
 import type { SchemaMeta } from '@/stores/dataStore'
 import { ImportWizard } from '@/screens/import/ImportWizard'
-import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { SectionLabel, Card, Divider, ActionRow } from './ui'
 
-// ── Connect tile ───────────────────────────────────────────────────────────
-
-type TileProps = {
-  primary?: boolean
-  icon: string
-  title: string
-  badge?: string
-  sub: string
-  onPress: () => void
-}
-
-function ConnectTile({ primary, icon, title, badge, sub, onPress }: TileProps) {
+// ── kleine glyphs ──────────────────────────────────────────
+function DocGlyph({ color }: { color: string }) {
   return (
-    <TouchableOpacity
-      style={[styles.tile, primary && styles.tilePrimary]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.tileIcon, primary && styles.tileIconPrimary]}>
-        <Text style={styles.tileIconText}>{icon}</Text>
-      </View>
-      <View style={styles.tileBody}>
-        <View style={styles.tileTitleRow}>
-          <Text style={[styles.tileTitle, primary && styles.tileTitlePrimary]}>{title}</Text>
-          {badge && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{badge}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.tileSub, primary && styles.tileSubPrimary]}>{sub}</Text>
-      </View>
-      <Text style={[styles.tileChevron, primary && styles.tileChevronPrimary]}>›</Text>
-    </TouchableOpacity>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={4} y={3} width={16} height={18} rx={2.5} />
+      <Line x1={8} y1={8} x2={16} y2={8} />
+      <Line x1={8} y1={12} x2={16} y2={12} />
+      <Line x1={8} y1={16} x2={13} y2={16} />
+    </Svg>
   )
 }
 
-// ── Mijn schema's panel ────────────────────────────────────────────────────
-
-type MySchemasListProps = {
-  schemas: SchemaMeta[]
-  renamingId: string | null
-  renameValue: string
-  onRenameChange: (value: string) => void
-  onRenameCommit: (schema: SchemaMeta) => void
-  onRenameCancel: () => void
-  onOpenMenu: (schema: SchemaMeta) => void
+function Chevron({ open, color }: { open: boolean; color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>
+      <Path d="M6 9l6 6 6-6" />
+    </Svg>
+  )
 }
 
-function MySchemasList({
-  schemas,
-  renamingId,
-  renameValue,
-  onRenameChange,
-  onRenameCommit,
-  onRenameCancel,
-  onOpenMenu,
-}: MySchemasListProps) {
-  if (!schemas.length) {
-    return <Text style={styles.emptyText}>Geen schema's gevonden.</Text>
-  }
-
+// ── Mijn schema's rij ──────────────────────────────────────
+function SchemaRow({ s, last, renaming, renameValue, onRenameChange, onRenameCommit, onRenameCancel, onOpenMenu }: {
+  s: SchemaMeta
+  last: boolean
+  renaming: boolean
+  renameValue: string
+  onRenameChange: (v: string) => void
+  onRenameCommit: () => void
+  onRenameCancel: () => void
+  onOpenMenu: () => void
+}) {
+  const theme = useTheme()
   return (
-    <View style={styles.schemaList}>
-      {schemas.map(schema => {
-        const isRenaming = renamingId === schema.id
+    <View style={[styles.schemaRow, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+      {/* Stip = weergegeven (kan meerdere); outline = niet weergegeven */}
+      <View style={[styles.dot, { borderColor: s.isVisible ? theme.accent : theme.faint }]}>
+        {s.isVisible && <View style={[styles.dotFill, { backgroundColor: theme.accent }]} />}
+      </View>
 
-        return (
-          <View key={schema.id} style={styles.schemaRow}>
-            <View style={styles.schemaRowMain}>
-              {/* Groene stip = weergegeven (kan meerdere); gedimd = niet weergegeven */}
-              <View style={[styles.schemaDot, schema.isVisible && styles.schemaDotActive]} />
-              {isRenaming ? (
-                <TextInput
-                  style={styles.renameInput}
-                  value={renameValue}
-                  onChangeText={onRenameChange}
-                  onSubmitEditing={() => onRenameCommit(schema)}
-                  placeholder="Schemanaam"
-                  placeholderTextColor={LightTheme.faint}
-                  autoFocus
-                />
-              ) : (
-                <Text
-                  style={[styles.schemaName, schema.isArchived && styles.schemaNameArchived]}
-                  numberOfLines={1}
-                >
-                  {schema.name}{schema.isArchived ? ' · gearchiveerd' : ''}
-                </Text>
-              )}
-            </View>
+      <View style={styles.schemaBody}>
+        {renaming ? (
+          <TextInput
+            style={[styles.renameInput, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.bg }]}
+            value={renameValue}
+            onChangeText={onRenameChange}
+            onSubmitEditing={onRenameCommit}
+            placeholder="Schemanaam"
+            placeholderTextColor={theme.faint}
+            autoFocus
+          />
+        ) : (
+          <>
+            <Text style={[styles.schemaName, { color: theme.text }, s.isArchived && { color: theme.muted }]} numberOfLines={1}>
+              {s.name}{s.isArchived ? ' · gearchiveerd' : ''}
+            </Text>
+          </>
+        )}
+      </View>
 
-            {isRenaming ? (
-              <View style={styles.renameActions}>
-                <TouchableOpacity onPress={onRenameCancel} hitSlop={8}>
-                  <Text style={styles.renameBtn}>✕</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onRenameCommit(schema)} hitSlop={8}>
-                  <Text style={[styles.renameBtn, styles.renameBtnOk]}>✓</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={() => onOpenMenu(schema)} hitSlop={8} style={styles.menuBtn}>
-                <Text style={styles.schemaActionIcon}>⋯</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )
-      })}
+      {renaming ? (
+        <View style={styles.renameActions}>
+          <TouchableOpacity onPress={onRenameCancel} hitSlop={8}>
+            <Text style={[styles.renameBtn, { color: theme.muted }]}>✕</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onRenameCommit} hitSlop={8}>
+            <Text style={[styles.renameBtn, { color: theme.accent }]}>✓</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity onPress={onOpenMenu} hitSlop={8} style={styles.menuBtn}>
+          <Text style={[styles.menuDots, { color: theme.muted }]}>···</Text>
+        </TouchableOpacity>
+      )}
     </View>
   )
 }
 
-// ── Main ConnectSection ────────────────────────────────────────────────────
-
-type Panel = 'schemas' | null
-
+// ── Main ───────────────────────────────────────────────────
 export function ConnectSection() {
-  const theme            = useTheme()
-  const navigation       = useNavigation<any>()
+  const theme             = useTheme()
+  const navigation        = useNavigation<any>()
   const getToken          = useAuthStore(s => s.getToken)
   const tokenSet          = useAuthStore(s => s.tokenSet)
   const schemaName        = useDataStore(s => s.schemaName)
@@ -146,16 +108,14 @@ export function ConnectSection() {
   const activateImport    = useDataStore(s => s.activateImport)
   const showToast         = useUiStore(s => s.showToast)
 
-  const [panel,           setPanel]          = useState<Panel>(null)
-  const [importOpen,      setImportOpen]      = useState(false)
-  const [creating,        setCreating]        = useState(false)
-  const [exporting,       setExporting]       = useState(false)
-
-  // Mijn schema's state
-  const [schemasLoading,  setSchemasLoading]  = useState(false)
-  const [renamingId,      setRenamingId]      = useState<string | null>(null)
-  const [renameValue,     setRenameValue]     = useState('')
-  const [menuSchemaId,    setMenuSchemaId]    = useState<string | null>(null)
+  const [open,           setOpen]           = useState(false)
+  const [importOpen,     setImportOpen]     = useState(false)
+  const [creating,       setCreating]       = useState(false)
+  const [exporting,      setExporting]      = useState(false)
+  const [schemasLoading, setSchemasLoading] = useState(false)
+  const [renamingId,     setRenamingId]     = useState<string | null>(null)
+  const [renameValue,    setRenameValue]    = useState('')
+  const [menuSchemaId,   setMenuSchemaId]   = useState<string | null>(null)
 
   const menuSchema = schemaList.find(s => s.id === menuSchemaId) ?? null
 
@@ -169,7 +129,6 @@ export function ConnectSection() {
       const token = await getToken()
       if (!token) { showToast('Niet ingelogd'); return }
       const { id, url } = await createExportSheet(token, schema.name)
-      // Exporteer alléén de activiteiten van dít schema (niet de samengevoegde lijst).
       const schemaActivities = activities.filter(a => a.schemaId === schema.id)
       const { synced } = await syncActivitiesToSheet(id, 'Schema', token, schemaActivities)
       showToast(`✓ ${synced} activiteiten geëxporteerd`)
@@ -181,17 +140,12 @@ export function ConnectSection() {
     }
   }
 
-  function togglePanel(p: Panel) {
-    setPanel(prev => prev === p ? null : p)
-  }
-
-  async function loadSchemas() {
-    if (schemasLoading) return
-    setSchemasLoading(true)
-    try {
-      await loadMySchemas()
-    } finally {
-      setSchemasLoading(false)
+  async function toggleDropdown() {
+    const next = !open
+    setOpen(next)
+    if (next && !schemasLoading) {
+      setSchemasLoading(true)
+      try { await loadMySchemas() } finally { setSchemasLoading(false) }
     }
   }
 
@@ -218,21 +172,13 @@ export function ConnectSection() {
   }
 
   async function handleArchive(schema: SchemaMeta) {
-    try {
-      await archiveSchemaById(schema.id, true)
-      showToast(`${schema.name} gearchiveerd`)
-    } catch {
-      showToast('Archiveren mislukt')
-    }
+    try { await archiveSchemaById(schema.id, true); showToast(`${schema.name} gearchiveerd`) }
+    catch { showToast('Archiveren mislukt') }
   }
 
   async function handleUnarchive(schema: SchemaMeta) {
-    try {
-      await archiveSchemaById(schema.id, false)
-      showToast(`${schema.name} teruggezet`)
-    } catch {
-      showToast('Terugzetten mislukt')
-    }
+    try { await archiveSchemaById(schema.id, false); showToast(`${schema.name} teruggezet`) }
+    catch { showToast('Terugzetten mislukt') }
   }
 
   function handleRenameStart(schema: SchemaMeta) {
@@ -241,10 +187,7 @@ export function ConnectSection() {
   }
 
   async function handleRenameCommit(schema: SchemaMeta) {
-    if (!renameValue.trim() || renameValue.trim() === schema.name) {
-      setRenamingId(null)
-      return
-    }
+    if (!renameValue.trim() || renameValue.trim() === schema.name) { setRenamingId(null); return }
     const newName = renameValue.trim()
     setRenamingId(null)
     try {
@@ -255,7 +198,6 @@ export function ConnectSection() {
     }
   }
 
-  // Bouwt de menu-items voor één schema (verschilt voor gearchiveerd).
   function menuItemsFor(schema: SchemaMeta): ActionMenuItem[] {
     if (schema.isArchived) {
       return [
@@ -272,135 +214,136 @@ export function ConnectSection() {
     ]
   }
 
-  const isSignedIn         = !!tokenSet
-  const isConnectedBackend = isSignedIn && visibleSchemaIds.length > 0
-
-  if (isSignedIn) {
+  if (!tokenSet) {
     return (
-      <View style={styles.container}>
-        {/* Connected schema display — backend */}
-        {isConnectedBackend && (
-          <View style={styles.connectedRow}>
-            <View style={styles.greenDot} />
-            <View style={styles.connectedInfo}>
-              <Text style={styles.fileName}>
-                {schemaName ?? 'Schema'}
-                {visibleSchemaIds.length > 1 ? ` +${visibleSchemaIds.length - 1}` : ''}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Mijn schema's chip-knop */}
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={[styles.btnSave, panel === 'schemas' && styles.btnSaveActive]}
-            onPress={() => { togglePanel('schemas'); if (panel !== 'schemas') loadSchemas() }}
-          >
-            <Text style={styles.btnSaveText}>Mijn schema's</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Mijn schema's panel */}
-        {panel === 'schemas' && (
-          schemasLoading
-            ? <ActivityIndicator color={LightTheme.accent} />
-            : (
-              <MySchemasList
-                schemas={schemaList}
-                renamingId={renamingId}
-                renameValue={renameValue}
-                onRenameChange={setRenameValue}
-                onRenameCommit={handleRenameCommit}
-                onRenameCancel={() => setRenamingId(null)}
-                onOpenMenu={(schema) => setMenuSchemaId(schema.id)}
-              />
-            )
-        )}
-
-        {/* Actie-menu per schema */}
-        <ActionMenu
-          visible={menuSchema !== null}
-          title={menuSchema?.name}
-          items={menuSchema ? menuItemsFor(menuSchema) : []}
-          onClose={() => setMenuSchemaId(null)}
-        />
-
-        {/* Tiles — altijd zichtbaar */}
-        <ImportSchemaTile recommended onPress={() => setImportOpen(true)} />
-        <ConnectTile
-          icon="＋"
-          title="Leeg schema aanmaken"
-          sub="Start met een leeg schema"
-          onPress={creating ? () => {} : handleCreateNew}
-        />
-        {creating && <ActivityIndicator color={LightTheme.accent} />}
-
-        <ImportWizard
-          visible={importOpen}
-          onClose={() => setImportOpen(false)}
-          onSuccess={() => {
-            setImportOpen(false)
-            navigation.navigate('Main')
-          }}
-        />
+      <View>
+        <SectionLabel>Schema</SectionLabel>
+        <Card style={{ padding: 14 }}>
+          <Text style={[styles.notSignedIn, { color: theme.muted }]}>Log eerst in om een schema te koppelen.</Text>
+        </Card>
       </View>
     )
   }
 
+  const extra = visibleSchemaIds.length > 1 ? ` +${visibleSchemaIds.length - 1}` : ''
+  const summary = visibleSchemaIds.length > 0 ? `Weergegeven: ${schemaName ?? 'Schema'}${extra}` : 'Niets weergegeven'
+
   return (
-    <Text style={styles.notSignedIn}>Log eerst in om een schema te koppelen.</Text>
+    <View>
+      <SectionLabel>Schema</SectionLabel>
+
+      {/* Mijn schema's dropdown */}
+      <Card>
+        <TouchableOpacity style={styles.trigger} onPress={toggleDropdown} activeOpacity={0.7}>
+          <View style={[styles.triggerIcon, { backgroundColor: theme.surface2 }]}>
+            <DocGlyph color={theme.text} />
+          </View>
+          <View style={styles.triggerBody}>
+            <View style={styles.triggerTitleRow}>
+              <Text style={[styles.triggerTitle, { color: theme.text }]}>Mijn schema's</Text>
+              <View style={[styles.countBadge, { backgroundColor: theme.accent }]}>
+                <Text style={[styles.countText, { color: theme.accentInk }]}>{schemaList.length}</Text>
+              </View>
+            </View>
+            <Text style={[styles.triggerSub, { color: theme.muted }]} numberOfLines={1}>{summary}</Text>
+          </View>
+          <Chevron open={open} color={theme.muted} />
+        </TouchableOpacity>
+
+        {open && (
+          <>
+            <Divider />
+            {schemasLoading ? (
+              <View style={{ padding: 16 }}><ActivityIndicator color={theme.accent} /></View>
+            ) : schemaList.length === 0 ? (
+              <Text style={[styles.emptyText, { color: theme.muted }]}>Geen schema's gevonden.</Text>
+            ) : (
+              schemaList.map((sc, i) => (
+                <SchemaRow
+                  key={sc.id}
+                  s={sc}
+                  last={i === schemaList.length - 1}
+                  renaming={renamingId === sc.id}
+                  renameValue={renameValue}
+                  onRenameChange={setRenameValue}
+                  onRenameCommit={() => handleRenameCommit(sc)}
+                  onRenameCancel={() => setRenamingId(null)}
+                  onOpenMenu={() => setMenuSchemaId(sc.id)}
+                />
+              ))
+            )}
+          </>
+        )}
+      </Card>
+
+      <View style={{ height: 10 }} />
+
+      {/* Import + leeg schema */}
+      <Card>
+        <ActionRow
+          icon="✦"
+          iconBg={theme.text}
+          iconColor={theme.accent}
+          title="Importeer eigen schema"
+          badge="Aanbevolen"
+          sub="PDF, Excel, foto of link"
+          chevron={false}
+          onPress={() => setImportOpen(true)}
+        />
+        <Divider />
+        <ActionRow
+          icon="+"
+          title="Leeg schema aanmaken"
+          sub="Start met een leeg schema"
+          chevron={false}
+          onPress={creating ? undefined : handleCreateNew}
+        />
+      </Card>
+      {creating && <ActivityIndicator color={theme.accent} style={{ marginTop: 8 }} />}
+
+      {/* Actie-menu per schema */}
+      <ActionMenu
+        visible={menuSchema !== null}
+        title={menuSchema?.name}
+        items={menuSchema ? menuItemsFor(menuSchema) : []}
+        onClose={() => setMenuSchemaId(null)}
+      />
+
+      <ImportWizard
+        visible={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => {
+          setImportOpen(false)
+          navigation.navigate('Main')
+        }}
+      />
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container:          { gap: Spacing.md },
+  // dropdown trigger
+  trigger:        { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 14 },
+  triggerIcon:    { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  triggerBody:    { flex: 1, minWidth: 0 },
+  triggerTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
+  triggerTitle:   { fontFamily: Fonts.displayBold, fontSize: 14.5, letterSpacing: -0.1 },
+  triggerSub:     { fontFamily: Fonts.display, fontSize: 12.5, marginTop: 2 },
+  countBadge:     { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
+  countText:      { fontFamily: Fonts.monoMedium, fontSize: 10 },
 
-  // Connect tile
-  tile:               { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: LightTheme.surface, borderWidth: 1, borderColor: LightTheme.border, borderRadius: Radius.lg, padding: 16 },
-  tilePrimary:        { backgroundColor: LightTheme.text, borderColor: LightTheme.text },
-  tileIcon:           { width: 44, height: 44, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: LightTheme.bg },
-  tileIconPrimary:    { backgroundColor: LightTheme.accent },
-  tileIconText:       { fontSize: 20 },
-  tileBody:           { flex: 1, minWidth: 0 },
-  tileTitleRow:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
-  tileTitle:          { fontFamily: Fonts.displaySemiBold, fontSize: 15, color: LightTheme.text, letterSpacing: -0.1 },
-  tileTitlePrimary:   { color: '#fff' },
-  badge:              { backgroundColor: LightTheme.accent, borderRadius: Radius.pill, paddingHorizontal: 6, paddingVertical: 1 },
-  badgeText:          { fontFamily: Fonts.displayBold, fontSize: 9, color: LightTheme.accentInk, letterSpacing: -0.1 },
-  tileSub:            { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted, marginTop: 2 },
-  tileSubPrimary:     { color: 'rgba(255,255,255,0.65)' },
-  tileChevron:        { fontFamily: Fonts.display, fontSize: 20, color: LightTheme.faint },
-  tileChevronPrimary: { color: 'rgba(255,255,255,0.5)' },
+  // schema rij
+  schemaRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  dot:            { width: 16, height: 16, borderRadius: 999, borderWidth: 2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  dotFill:        { width: 8, height: 8, borderRadius: 999 },
+  schemaBody:     { flex: 1, minWidth: 0 },
+  schemaName:     { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
+  renameInput:    { fontFamily: Fonts.displaySemiBold, fontSize: 14, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderRadius: 8 },
+  menuBtn:        { paddingHorizontal: 4, paddingVertical: 2 },
+  menuDots:       { fontFamily: Fonts.display, fontSize: 18 },
+  renameActions:  { flexDirection: 'row', gap: 12, marginLeft: 8 },
+  renameBtn:      { fontFamily: Fonts.displaySemiBold, fontSize: 16 },
 
-  // Connected state
-  connectedRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  greenDot:       { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.accent, flexShrink: 0 },
-  connectedInfo:  { flex: 1 },
-  fileName:       { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text },
-
-  // Buttons
-  btnRow:         { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-  btnSave:        { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: Radius.sm, backgroundColor: LightTheme.bgAlt, borderWidth: 1, borderColor: LightTheme.border },
-  btnSaveActive:  { borderColor: LightTheme.accent },
-  btnSaveText:    { fontFamily: Fonts.displayMedium, fontSize: 13, color: LightTheme.text },
-
-  // Schema list
-  schemaList:         { borderRadius: Radius.md, overflow: 'hidden', borderWidth: 1, borderColor: LightTheme.border },
-  schemaRow:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: LightTheme.border, backgroundColor: LightTheme.surface },
-  schemaRowMain:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minWidth: 0 },
-  schemaDot:          { width: 8, height: 8, borderRadius: 4, backgroundColor: LightTheme.border, flexShrink: 0 },
-  schemaDotActive:    { backgroundColor: LightTheme.accent },
-  schemaName:         { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  schemaNameArchived: { color: LightTheme.muted },
-  renameInput:        { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text, paddingHorizontal: Spacing.sm, paddingVertical: 6, borderWidth: 1, borderColor: LightTheme.accent, borderRadius: Radius.sm, backgroundColor: LightTheme.bg },
-  menuBtn:            { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, marginLeft: Spacing.sm },
-  schemaActionIcon:   { fontSize: 18, color: LightTheme.muted },
-  renameActions:      { flexDirection: 'row', gap: Spacing.sm, marginLeft: Spacing.sm },
-  renameBtn:          { fontFamily: Fonts.displaySemiBold, fontSize: 16, color: LightTheme.muted },
-  renameBtnOk:        { color: LightTheme.accent },
-
-  // Misc
-  emptyText:      { fontFamily: Fonts.mono, fontSize: 12, color: LightTheme.muted },
-  notSignedIn:    { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
+  emptyText:      { fontFamily: Fonts.mono, fontSize: 12, padding: 14 },
+  notSignedIn:    { fontFamily: Fonts.display, fontSize: 13 },
 })

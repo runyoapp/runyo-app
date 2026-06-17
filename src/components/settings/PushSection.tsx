@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { View, Text, Switch, TouchableOpacity, TextInput, StyleSheet, Platform } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Platform } from 'react-native'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { registerForPushNotifications, loadPushPrefs, savePushPrefs, openNotificationSettings } from '@/services/pushNotifications'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
+import { SectionLabel, Card, Divider, Toggle } from './ui'
 
 type Prefs = {
   vandaagEnabled: boolean
@@ -20,33 +22,25 @@ const DEFAULTS: Prefs = {
 }
 
 export function PushSection() {
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.deniedText}>
-          Push notificaties zijn alleen beschikbaar in de runyo-app op iOS of Android.
-        </Text>
-      </View>
-    )
-  }
+  // Op web tonen we geen push-UI; de note staat in de Telegram-sectie.
+  if (Platform.OS === 'web') return null
   return <PushSectionNative />
 }
 
 function PushSectionNative() {
+  const theme     = useTheme()
   const getToken  = useAuthStore(s => s.getToken)
   const showToast = useUiStore(s => s.showToast)
 
-  const [status,  setStatus]  = useState<'idle' | 'granted' | 'denied'>('idle')
-  const [prefs,   setPrefs]   = useState<Prefs>(DEFAULTS)
-  const [saving,  setSaving]  = useState(false)
+  const [status, setStatus] = useState<'idle' | 'granted' | 'denied'>('idle')
+  const [prefs,  setPrefs]  = useState<Prefs>(DEFAULTS)
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(false)
 
   useEffect(() => {
     async function init() {
       const result = await registerForPushNotifications(getToken)
-      if (!result.granted) {
-        setStatus('denied')
-        return
-      }
+      if (!result.granted) { setStatus('denied'); return }
       setStatus('granted')
       const loaded = await loadPushPrefs(getToken)
       if (loaded) setPrefs(loaded)
@@ -58,7 +52,8 @@ function PushSectionNative() {
     setSaving(true)
     try {
       await savePushPrefs(getToken, prefs)
-      showToast('✓ Push-instellingen opgeslagen')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1600)
     } catch {
       showToast('Opslaan mislukt')
     } finally {
@@ -70,91 +65,107 @@ function PushSectionNative() {
 
   if (status === 'denied') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Push notificaties</Text>
-        <Text style={styles.deniedText}>
-          runyo heeft geen toestemming voor push notificaties. Geef toestemming via je apparaatinstellingen.
-        </Text>
-        <TouchableOpacity style={styles.openSettingsBtn} onPress={openNotificationSettings}>
-          <Text style={styles.openSettingsBtnText}>Open instellingen</Text>
-        </TouchableOpacity>
+      <View>
+        <SectionLabel>Push notificaties</SectionLabel>
+        <Card style={styles.pad}>
+          <Text style={[styles.denied, { color: theme.muted }]}>
+            runyo heeft geen toestemming voor push notificaties. Geef toestemming via je apparaatinstellingen.
+          </Text>
+          <TouchableOpacity style={[styles.openBtn, { borderColor: theme.accent }]} onPress={openNotificationSettings} activeOpacity={0.7}>
+            <Text style={[styles.openBtnText, { color: theme.accent }]}>Open instellingen</Text>
+          </TouchableOpacity>
+        </Card>
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Push notificaties</Text>
-
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleLabelGroup}>
-          <Text style={styles.toggleLabel}>Training vandaag</Text>
-          <Text style={styles.toggleSub}>Ochtendreminder met je dagschema</Text>
+    <View>
+      <SectionLabel>Push notificaties</SectionLabel>
+      <Card>
+        <PushBlock
+          title="Training vandaag"
+          sub="Ochtendreminder met je dagschema"
+          on={prefs.vandaagEnabled}
+          onToggle={() => setPrefs(p => ({ ...p, vandaagEnabled: !p.vandaagEnabled }))}
+          time={prefs.vandaagTime}
+          onTime={v => setPrefs(p => ({ ...p, vandaagTime: v }))}
+        />
+        <Divider />
+        <PushBlock
+          title="Training morgen"
+          sub="Avondpreview van je training van morgen"
+          on={prefs.morgenEnabled}
+          onToggle={() => setPrefs(p => ({ ...p, morgenEnabled: !p.morgenEnabled }))}
+          time={prefs.morgenTime}
+          onTime={v => setPrefs(p => ({ ...p, morgenTime: v }))}
+        />
+        <View style={styles.saveWrap}>
+          <TouchableOpacity
+            onPress={save}
+            disabled={saving}
+            activeOpacity={0.85}
+            style={[styles.saveBtn, { backgroundColor: saved ? theme.text : theme.accent }]}
+          >
+            <Text style={[styles.saveText, { color: saved ? theme.bg : theme.accentInk }]}>
+              {saved ? 'Opgeslagen ✓' : saving ? 'Opslaan…' : 'Opslaan'}
+            </Text>
+          </TouchableOpacity>
         </View>
-        <Switch
-          value={prefs.vandaagEnabled}
-          onValueChange={v => setPrefs(p => ({ ...p, vandaagEnabled: v }))}
-          trackColor={{ true: LightTheme.accent }}
-          thumbColor="#fff"
-        />
-      </View>
-      {prefs.vandaagEnabled && (
-        <TextInput
-          style={styles.timeInput}
-          value={prefs.vandaagTime}
-          onChangeText={v => setPrefs(p => ({ ...p, vandaagTime: v }))}
-          placeholder="07:00"
-          placeholderTextColor={LightTheme.faint}
-          keyboardType="numbers-and-punctuation"
-        />
-      )}
+      </Card>
+    </View>
+  )
+}
 
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleLabelGroup}>
-          <Text style={styles.toggleLabel}>Training morgen</Text>
-          <Text style={styles.toggleSub}>Avondpreview van je training van morgen</Text>
+function PushBlock({ title, sub, on, onToggle, time, onTime }: {
+  title: string
+  sub: string
+  on: boolean
+  onToggle: () => void
+  time: string
+  onTime: (v: string) => void
+}) {
+  const theme = useTheme()
+  return (
+    <View style={styles.block}>
+      <View style={styles.blockHead}>
+        <View style={styles.blockLabels}>
+          <Text style={[styles.blockTitle, { color: theme.text }]}>{title}</Text>
+          <Text style={[styles.blockSub, { color: theme.muted }]}>{sub}</Text>
         </View>
-        <Switch
-          value={prefs.morgenEnabled}
-          onValueChange={v => setPrefs(p => ({ ...p, morgenEnabled: v }))}
-          trackColor={{ true: LightTheme.accent }}
-          thumbColor="#fff"
-        />
+        <Toggle on={on} onToggle={onToggle} />
       </View>
-      {prefs.morgenEnabled && (
-        <TextInput
-          style={styles.timeInput}
-          value={prefs.morgenTime}
-          onChangeText={v => setPrefs(p => ({ ...p, morgenTime: v }))}
-          placeholder="20:00"
-          placeholderTextColor={LightTheme.faint}
-          keyboardType="numbers-and-punctuation"
-        />
+      {on && (
+        <View style={[styles.chip, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+          <TextInput
+            value={time}
+            onChangeText={onTime}
+            placeholder="07:00"
+            placeholderTextColor={theme.faint}
+            keyboardType="numbers-and-punctuation"
+            style={[styles.chipInput, { color: theme.text }]}
+          />
+        </View>
       )}
-
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        onPress={save}
-        disabled={saving}
-      >
-        <Text style={styles.saveBtnText}>{saving ? 'Opslaan…' : 'Opslaan'}</Text>
-      </TouchableOpacity>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container:        { gap: Spacing.sm },
-  sectionTitle:     { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: LightTheme.text, marginBottom: 2 },
-  deniedText:       { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted, lineHeight: 20 },
-  openSettingsBtn:  { alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: Radius.sm, borderWidth: 1, borderColor: LightTheme.accent, marginTop: 4 },
-  openSettingsBtnText: { fontFamily: Fonts.displaySemiBold, fontSize: 13, color: LightTheme.accent },
-  toggleRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm },
-  toggleLabelGroup: { flex: 1, marginRight: Spacing.sm },
-  toggleLabel:      { fontFamily: Fonts.displayMedium, fontSize: 14, color: LightTheme.text },
-  toggleSub:        { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, marginTop: 2 },
-  timeInput:        { fontFamily: Fonts.mono, fontSize: 14, color: LightTheme.text, backgroundColor: LightTheme.surface, borderRadius: Radius.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: LightTheme.border, width: 80, marginLeft: Spacing.md },
-  saveBtn:          { backgroundColor: LightTheme.accent, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', marginTop: Spacing.sm },
-  saveBtnDisabled:  { opacity: 0.5 },
-  saveBtnText:      { fontFamily: Fonts.displaySemiBold, fontSize: 14, color: '#fff' },
+  pad:        { padding: 14 },
+  denied:     { fontFamily: Fonts.display, fontSize: 13, lineHeight: 20 },
+  openBtn:    { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, marginTop: 10 },
+  openBtnText:{ fontFamily: Fonts.displaySemiBold, fontSize: 13 },
+
+  block:      { padding: 14 },
+  blockHead:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  blockLabels:{ flex: 1, minWidth: 0 },
+  blockTitle: { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
+  blockSub:   { fontFamily: Fonts.display, fontSize: 12, marginTop: 2 },
+  chip:       { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, height: 40, justifyContent: 'center', marginTop: 12 },
+  chipInput:  { fontFamily: Fonts.mono, fontSize: 15, letterSpacing: 0.3, padding: 0, minWidth: 56 },
+
+  saveWrap:   { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 4 },
+  saveBtn:    { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  saveText:   { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.1 },
 })
