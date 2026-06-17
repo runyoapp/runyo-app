@@ -31,10 +31,20 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
   const hrMatch   = detail.match(/<?\s*(\d+)\s*bpm/i) ?? detail.match(/HR\s*<?(\d+)/i)
   const duurMatch = detail.match(/(\d+)\s*(?:min|')/i)
 
-  // U44: HR en pace alleen renderen als er een waarde in het schema staat
+  // U44: HR en pace alleen renderen als er een waarde is. De gestructureerde
+  // weekbouwer-velden (targetPace/targetHr) hebben voorrang; ontbreken ze, dan
+  // valt het terug op de slimme detail-parsing zodat geïmporteerde schema's die
+  // pace/HR alleen in de tekst hebben het nog steeds tonen.
+  const paceVal = activity.targetPace
+    ? (/km/i.test(activity.targetPace) ? activity.targetPace : `${activity.targetPace}/km`)
+    : (paceMatch ? paceMatch[0].replace('/km','').trim() + '/km' : null)
+  const hrVal = activity.targetHr != null
+    ? `${activity.targetHr} bpm`
+    : (hrMatch ? `${hrMatch[1]} bpm` : null)
+
   const metrics = [
-    { key: 'pace',  val: paceMatch ? paceMatch[0].replace('/km','').trim() + '/km' : null },
-    { key: 'hr',    val: hrMatch   ? `${hrMatch[1]} bpm` : null },
+    { key: 'pace',  val: paceVal },
+    { key: 'hr',    val: hrVal },
     { key: 'duur',  val: duurMatch ? `${duurMatch[1]}′`  : null },
   ].filter(m => m.val)
 
