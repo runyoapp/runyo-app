@@ -12,9 +12,9 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { commitDelete, saveActivity, validateDeleteContext, type SaveInput } from '@/services/activityEdit'
-import { patchActivity } from '@/services/activities'
+import { patchActivity, moveActivity } from '@/services/activities'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
-import { ActivityColors, Fonts, Spacing, Radius } from '@/constants/theme'
+import { ActivityColors, Fonts, Spacing, Radius, schemaColor } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, DAYS_NL, MONTHS_FULL_NL, MONTHS_NL, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
@@ -49,7 +49,8 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const theme          = useTheme()
   const queryClient    = useQueryClient()
   const getToken       = useAuthStore(s => s.getToken)
-  const schemaId       = useDataStore(s => s.schemaId)
+  const schemaList       = useDataStore(s => s.schemaList)
+  const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const removeActivity = useDataStore(s => s.removeActivity)
   // Live versie uit de store — zo blijft de weergave (o.a. beoordeling) actueel
@@ -99,17 +100,25 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const hasDist = DIST_TYPES.has(type)
   const headDot = (editing ? activityDot(type) : colors.text) ?? undefined
 
+  // Schema-label + verplaatsen alleen tonen als er meerdere schema's zichtbaar zijn.
+  const multiSchema  = visibleSchemaIds.length >= 2
+  const ownSchema    = schemaList.find(s => s.id === act.schemaId) ?? null
+  const schemaChips: ChipOption[] = schemaList
+    .filter(s => !s.isArchived)
+    .map(s => ({ key: s.id, label: s.name, dot: schemaColor(s, schemaList) }))
+
+  // Altijd het eigen schema van de activiteit gebruiken (niet het primaire) — anders
+  // patcht/verwijdert een activiteit uit een niet-primair schema op het verkeerde pad.
   function makeCtx() {
-    return { schemaId: schemaId!, getToken }
+    return { schemaId: act.schemaId, getToken }
   }
 
   async function handleFeedback(rating: number, text: string) {
-    if (!schemaId) return
     const feedback = buildFeedbackString(rating, text)
     try {
       upsertActivity({ ...act, feedback, rating })
-      await patchActivity(schemaId, act.id, { feedback, rating })
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      await patchActivity(act.schemaId, act.id, { feedback, rating })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', act.schemaId] })
       setEditingFeedback(false)
       showToast('Beoordeling opgeslagen!')
     } catch {
@@ -117,8 +126,26 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
     }
   }
 
+  // Verplaats de activiteit naar een ander schema (directe actie, los van Opslaan).
+  async function handleMove(targetId: string) {
+    if (targetId === act.schemaId) return
+    setSaving(true)
+    try {
+      const moved = await moveActivity(act.schemaId, act.id, targetId)
+      upsertActivity(moved)
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', act.schemaId] })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', targetId] })
+      const name = schemaList.find(s => s.id === targetId)?.name ?? 'schema'
+      showToast(`✓ Verplaatst naar ${name}`)
+    } catch {
+      showToast('Verplaatsen mislukt')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleSave() {
-    const err = validateDeleteContext(schemaId)
+    const err = validateDeleteContext(act.schemaId)
     if (err) { showToast(err); return }
     const input: SaveInput = {
       datum, type,
@@ -130,7 +157,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
     try {
       const updated = await saveActivity(act, input, makeCtx())
       upsertActivity(updated)
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', act.schemaId] })
       showToast('✓ Opgeslagen')
       setEditing(false)
       onClose()
@@ -142,7 +169,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   }
 
   function handleDelete() {
-    const err = validateDeleteContext(schemaId)
+    const err = validateDeleteContext(act.schemaId)
     if (err) { showToast(err); return }
     if (deleteTimer.current) clearTimeout(deleteTimer.current)
     pendingDelete.current = act
@@ -163,7 +190,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
       pendingDelete.current = null
       try {
         await commitDelete(snap, makeCtx())
-        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', snap.schemaId] })
       } catch {
         upsertActivity(snap)
         showToast('Verwijderen mislukt')
@@ -187,6 +214,13 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
           <View style={styles.badgeRow}>
             <View style={[styles.typeDot, { backgroundColor: colors.text }]} />
             <Text style={[styles.typeLabel, { color: theme.muted }]}>{typeLabel}</Text>
+            {multiSchema && ownSchema && (
+              <>
+                <Text style={[styles.typeLabel, { color: theme.faint }]}>·</Text>
+                <View style={[styles.typeDot, { backgroundColor: schemaColor(ownSchema, schemaList) }]} />
+                <Text style={[styles.typeLabel, { color: theme.muted }]} numberOfLines={1}>{ownSchema.name}</Text>
+              </>
+            )}
           </View>
           {!!act.titel    && <Text style={[styles.displayTitle, { color: theme.text }]}>{act.titel}</Text>}
           {act.km != null && <Text style={[styles.displayKm, { color: theme.text }]}>{act.km}<Text style={[styles.displayKmUnit, { color: theme.muted }]}> km</Text></Text>}
@@ -228,6 +262,13 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
             <FieldLabel>Type</FieldLabel>
             <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
           </View>
+
+          {multiSchema && (
+            <View>
+              <FieldLabel hint="· verplaatsen">Schema</FieldLabel>
+              <ChipSelect options={schemaChips} value={act.schemaId} onChange={handleMove} />
+            </View>
+          )}
 
           {isRest ? (
             <RestCard note="Geen training gepland. Herstel telt ook als werk." />

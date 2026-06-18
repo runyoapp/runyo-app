@@ -166,6 +166,24 @@ export async function patchActivity(
   return toActivity(row)
 }
 
+// Verplaats een activiteit naar een ander schema. Behoudt id/createdAt/feedback;
+// geeft de bijgewerkte activiteit (met nieuwe schemaId) terug.
+export async function moveActivity(
+  sourceSchemaId: string,
+  activityId: string,
+  targetSchemaId: string,
+): Promise<Activity> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${sourceSchemaId}/activities/${activityId}/schema`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ schemaId: targetSchemaId }),
+  })
+  ensureOk(res.status, 'move activity')
+  const row = (await res.json()) as BackendActivity
+  return toActivity(row)
+}
+
 export async function deleteActivity(
   schemaId: string,
   activityId: string,

@@ -13,6 +13,7 @@ export type Schema = {
   isArchived: boolean
   startDate: string | null
   weekCount: number | null
+  color: string | null
   createdAt: string
 }
 
@@ -48,6 +49,17 @@ export async function setSchemaSpan(id: string, span: SchemaSpan): Promise<void>
     body: JSON.stringify(span),
   })
   ensureOk(res.status, 'set schema span')
+}
+
+// Schema-kleur instellen (hex of null om te wissen → terug naar paletkleur).
+export async function setSchemaColor(id: string, color: string | null): Promise<void> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${id}/color`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ color }),
+  })
+  ensureOk(res.status, 'set schema color')
 }
 
 export async function getMySchemas(): Promise<Schema[]> {

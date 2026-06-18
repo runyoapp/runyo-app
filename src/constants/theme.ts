@@ -51,6 +51,30 @@ export const ActivityColors = {
   gym:      { text: '#8E5BD6', bg: 'rgba(142,91,214,0.12)' },
 } as const
 
+// Kleurenpalet voor schema-stippen. Een schema krijgt een vaste kleur (opgeslagen),
+// of valt terug op een paletkleur op volgorde van de schemalijst.
+export const SchemaPalette = [
+  '#00B98E', // mint
+  '#1E8FD6', // blauw
+  '#8E5BD6', // paars
+  '#D2632B', // oranje
+  '#C8336B', // magenta
+  '#B5912B', // goud
+  '#2A9D6E', // groen
+  '#D6491E', // rood-oranje
+] as const
+
+// De kleur voor de stip van een schema: opgeslagen kleur, anders een deterministische
+// paletkleur op basis van de positie in de (gesorteerde) schemalijst.
+export function schemaColor(
+  schema: { id: string; color: string | null },
+  schemaList: { id: string }[],
+): string {
+  if (schema.color) return schema.color
+  const idx = schemaList.findIndex(s => s.id === schema.id)
+  return SchemaPalette[(idx < 0 ? 0 : idx) % SchemaPalette.length]
+}
+
 export const Fonts = {
   display:        'Sora',
   displayMedium:  'Sora-Medium',

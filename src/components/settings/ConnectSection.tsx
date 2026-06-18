@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Linking } from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Linking } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Svg, { Rect, Line, Path } from 'react-native-svg'
 import { useAuthStore } from '@/stores/authStore'
@@ -7,14 +7,14 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { syncActivitiesToSheet } from '@/services/sheets'
 import { createExportSheet } from '@/services/drive'
-import { createSchema, renameSchema } from '@/services/schemas'
+import { createSchema } from '@/services/schemas'
 import type { SchemaMeta } from '@/stores/dataStore'
 import { effectiveSpan } from '@/utils/schemaRouting'
 import { fromDateString, MONTHS_NL } from '@/utils/date'
 import type { Activity } from '@/types/activity'
 import { ImportWizard } from '@/screens/import/ImportWizard'
-import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
-import { Fonts } from '@/constants/theme'
+import { SchemaEditModal } from './SchemaEditModal'
+import { Fonts, schemaColor } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { SectionLabel, Card, Divider, ActionRow } from './ui'
 
@@ -45,85 +45,35 @@ function Chevron({ open, color }: { open: boolean; color: string }) {
   )
 }
 
-// ── Mijn schema's rij ──────────────────────────────────────
-function SchemaRow({ s, last, spanText, renaming, renameValue, onRenameChange, onRenameCommit, onRenameCancel,
-  editingSpan, spanValue, onSpanChange, onSpanCommit, onSpanCancel, onOpenMenu }: {
+// ── Mijn schema's rij — puur weergave; tik opent de bewerkmodal ────────────
+function SchemaRow({ s, last, spanText, dotColor, onPress }: {
   s: SchemaMeta
   last: boolean
   spanText: string
-  renaming: boolean
-  renameValue: string
-  onRenameChange: (v: string) => void
-  onRenameCommit: () => void
-  onRenameCancel: () => void
-  editingSpan: boolean
-  spanValue: string
-  onSpanChange: (v: string) => void
-  onSpanCommit: () => void
-  onSpanCancel: () => void
-  onOpenMenu: () => void
+  dotColor: string
+  onPress: () => void
 }) {
   const theme = useTheme()
   return (
-    <View style={[styles.schemaRow, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
-      {/* Stip = weergegeven (kan meerdere); outline = niet weergegeven */}
-      <View style={[styles.dot, { borderColor: s.isVisible ? theme.accent : theme.faint }]}>
-        {s.isVisible && <View style={[styles.dotFill, { backgroundColor: theme.accent }]} />}
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress}
+      style={[styles.schemaRow, !last && { borderBottomWidth: 1, borderBottomColor: theme.border }]}
+    >
+      {/* Gevulde stip in de schemakleur = weergegeven; outline = niet weergegeven */}
+      <View style={[styles.dot, { borderColor: s.isVisible ? dotColor : theme.faint }]}>
+        {s.isVisible && <View style={[styles.dotFill, { backgroundColor: dotColor }]} />}
       </View>
 
       <View style={styles.schemaBody}>
-        {renaming ? (
-          <TextInput
-            style={[styles.renameInput, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.bg }]}
-            value={renameValue}
-            onChangeText={onRenameChange}
-            onSubmitEditing={onRenameCommit}
-            placeholder="Schemanaam"
-            placeholderTextColor={theme.faint}
-            autoFocus
-          />
-        ) : (
-          <>
-            <Text style={[styles.schemaName, { color: theme.text }, s.isArchived && { color: theme.muted }]} numberOfLines={1}>
-              {s.name}{s.isArchived ? ' · gearchiveerd' : ''}
-            </Text>
-            {editingSpan ? (
-              <View style={styles.spanEditRow}>
-                <TextInput
-                  style={[styles.spanInput, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.bg }]}
-                  value={spanValue}
-                  onChangeText={v => onSpanChange(v.replace(/\D/g, '').slice(0, 2))}
-                  onSubmitEditing={onSpanCommit}
-                  keyboardType="number-pad"
-                  inputMode="numeric"
-                  placeholder="weken"
-                  placeholderTextColor={theme.faint}
-                  autoFocus
-                />
-                <Text style={[styles.spanUnit, { color: theme.muted }]}>weken</Text>
-              </View>
-            ) : (
-              <Text style={[styles.schemaSpan, { color: theme.muted }]} numberOfLines={1}>{spanText}</Text>
-            )}
-          </>
-        )}
+        <Text style={[styles.schemaName, { color: theme.text }, s.isArchived && { color: theme.muted }]} numberOfLines={1}>
+          {s.name}{s.isArchived ? ' · gearchiveerd' : ''}
+        </Text>
+        <Text style={[styles.schemaSpan, { color: theme.muted }]} numberOfLines={1}>{spanText}</Text>
       </View>
 
-      {renaming || editingSpan ? (
-        <View style={styles.renameActions}>
-          <TouchableOpacity onPress={editingSpan ? onSpanCancel : onRenameCancel} hitSlop={8}>
-            <Text style={[styles.renameBtn, { color: theme.muted }]}>✕</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={editingSpan ? onSpanCommit : onRenameCommit} hitSlop={8}>
-            <Text style={[styles.renameBtn, { color: theme.accent }]}>✓</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity onPress={onOpenMenu} hitSlop={8} style={styles.menuBtn}>
-          <Text style={[styles.menuDots, { color: theme.muted }]}>···</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+      <Text style={[styles.rowChevron, { color: theme.muted }]}>›</Text>
+    </TouchableOpacity>
   )
 }
 
@@ -138,9 +88,6 @@ export function ConnectSection() {
   const schemaList        = useDataStore(s => s.schemaList)
   const activities        = useDataStore(s => s.activities)
   const loadMySchemas     = useDataStore(s => s.loadMySchemas)
-  const setSchemaVisible  = useDataStore(s => s.setSchemaVisible)
-  const archiveSchemaById = useDataStore(s => s.archiveSchemaById)
-  const setSchemaSpanById = useDataStore(s => s.setSchemaSpanById)
   const activateImport    = useDataStore(s => s.activateImport)
   const showToast         = useUiStore(s => s.showToast)
 
@@ -149,13 +96,9 @@ export function ConnectSection() {
   const [creating,       setCreating]       = useState(false)
   const [exporting,      setExporting]      = useState(false)
   const [schemasLoading, setSchemasLoading] = useState(false)
-  const [renamingId,     setRenamingId]     = useState<string | null>(null)
-  const [renameValue,    setRenameValue]    = useState('')
-  const [spanEditId,     setSpanEditId]     = useState<string | null>(null)
-  const [spanValue,      setSpanValue]      = useState('')
-  const [menuSchemaId,   setMenuSchemaId]   = useState<string | null>(null)
+  const [editSchemaId,   setEditSchemaId]   = useState<string | null>(null)
 
-  const menuSchema = schemaList.find(s => s.id === menuSchemaId) ?? null
+  const editSchema = schemaList.find(s => s.id === editSchemaId) ?? null
 
   async function handleExportToSheets(schema: SchemaMeta) {
     if (tokenSet?.authMethod !== 'google') {
@@ -198,78 +141,6 @@ export function ConnectSection() {
     } finally {
       setCreating(false)
     }
-  }
-
-  async function handleToggleVisible(schema: SchemaMeta) {
-    try {
-      await setSchemaVisible(schema.id, !schema.isVisible)
-      showToast(schema.isVisible ? `${schema.name} verborgen` : `✓ ${schema.name} weergegeven`)
-    } catch {
-      showToast('Wijzigen mislukt')
-    }
-  }
-
-  async function handleArchive(schema: SchemaMeta) {
-    try { await archiveSchemaById(schema.id, true); showToast(`${schema.name} gearchiveerd`) }
-    catch { showToast('Archiveren mislukt') }
-  }
-
-  async function handleUnarchive(schema: SchemaMeta) {
-    try { await archiveSchemaById(schema.id, false); showToast(`${schema.name} teruggezet`) }
-    catch { showToast('Terugzetten mislukt') }
-  }
-
-  function handleRenameStart(schema: SchemaMeta) {
-    setRenamingId(schema.id)
-    setRenameValue(schema.name)
-  }
-
-  async function handleRenameCommit(schema: SchemaMeta) {
-    if (!renameValue.trim() || renameValue.trim() === schema.name) { setRenamingId(null); return }
-    const newName = renameValue.trim()
-    setRenamingId(null)
-    try {
-      await renameSchema(schema.id, newName)
-      await loadMySchemas()
-    } catch {
-      showToast('Hernoemen mislukt')
-    }
-  }
-
-  function handleSpanStart(schema: SchemaMeta) {
-    setSpanValue(String(schema.weekCount ?? effectiveSpan(activities, schema).weeks))
-    setSpanEditId(schema.id)
-  }
-
-  async function handleSpanCommit(schema: SchemaMeta) {
-    const weeks = parseInt(spanValue, 10)
-    setSpanEditId(null)
-    if (!Number.isInteger(weeks) || weeks < 1 || weeks === schema.weekCount) return
-    // Een legacy-schema heeft nog geen opgeslagen start → leid 'm af (maandag van week 1).
-    const startDate = schema.startDate ?? effectiveSpan(activities, schema).start
-    try {
-      await setSchemaSpanById(schema.id, { startDate, weekCount: weeks })
-      showToast(`✓ Weekduur op ${weeks} weken gezet`)
-    } catch {
-      showToast('Bijwerken mislukt')
-    }
-  }
-
-  function menuItemsFor(schema: SchemaMeta): ActionMenuItem[] {
-    if (schema.isArchived) {
-      return [
-        { label: 'Terugzetten', icon: '↩', onPress: () => handleUnarchive(schema) },
-        { label: 'Hernoemen', icon: '✏', onPress: () => handleRenameStart(schema) },
-        { label: 'Exporteren', icon: '↗', onPress: () => handleExportToSheets(schema), disabled: exporting },
-      ]
-    }
-    return [
-      { label: 'Weergeven', checked: schema.isVisible, onPress: () => handleToggleVisible(schema) },
-      { label: 'Hernoemen', icon: '✏', onPress: () => handleRenameStart(schema) },
-      { label: 'Weekduur aanpassen', icon: '📆', onPress: () => handleSpanStart(schema) },
-      { label: 'Exporteren', icon: '↗', onPress: () => handleExportToSheets(schema), disabled: exporting },
-      { label: 'Archiveren', icon: '📦', onPress: () => handleArchive(schema), destructive: true },
-    ]
   }
 
   if (!tokenSet) {
@@ -322,17 +193,8 @@ export function ConnectSection() {
                   s={sc}
                   last={i === schemaList.length - 1}
                   spanText={spanTextFor(sc, activities)}
-                  renaming={renamingId === sc.id}
-                  renameValue={renameValue}
-                  onRenameChange={setRenameValue}
-                  onRenameCommit={() => handleRenameCommit(sc)}
-                  onRenameCancel={() => setRenamingId(null)}
-                  editingSpan={spanEditId === sc.id}
-                  spanValue={spanValue}
-                  onSpanChange={setSpanValue}
-                  onSpanCommit={() => handleSpanCommit(sc)}
-                  onSpanCancel={() => setSpanEditId(null)}
-                  onOpenMenu={() => setMenuSchemaId(sc.id)}
+                  dotColor={schemaColor(sc, schemaList)}
+                  onPress={() => setEditSchemaId(sc.id)}
                 />
               ))
             )}
@@ -365,12 +227,12 @@ export function ConnectSection() {
       </Card>
       {creating && <ActivityIndicator color={theme.accent} style={{ marginTop: 8 }} />}
 
-      {/* Actie-menu per schema */}
-      <ActionMenu
-        visible={menuSchema !== null}
-        title={menuSchema?.name}
-        items={menuSchema ? menuItemsFor(menuSchema) : []}
-        onClose={() => setMenuSchemaId(null)}
+      <SchemaEditModal
+        schema={editSchema}
+        visible={editSchema !== null}
+        onClose={() => setEditSchemaId(null)}
+        onExport={handleExportToSheets}
+        exporting={exporting}
       />
 
       <ImportWizard
@@ -403,14 +265,7 @@ const styles = StyleSheet.create({
   schemaBody:     { flex: 1, minWidth: 0 },
   schemaName:     { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
   schemaSpan:     { fontFamily: Fonts.mono, fontSize: 11, marginTop: 2 },
-  spanEditRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  spanInput:      { width: 56, fontFamily: Fonts.displaySemiBold, fontSize: 14, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderRadius: 8, textAlign: 'center' },
-  spanUnit:       { fontFamily: Fonts.mono, fontSize: 11 },
-  renameInput:    { fontFamily: Fonts.displaySemiBold, fontSize: 14, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderRadius: 8 },
-  menuBtn:        { paddingHorizontal: 4, paddingVertical: 2 },
-  menuDots:       { fontFamily: Fonts.display, fontSize: 18 },
-  renameActions:  { flexDirection: 'row', gap: 12, marginLeft: 8 },
-  renameBtn:      { fontFamily: Fonts.displaySemiBold, fontSize: 16 },
+  rowChevron:     { fontFamily: Fonts.display, fontSize: 18 },
 
   emptyText:      { fontFamily: Fonts.mono, fontSize: 12, padding: 14 },
   notSignedIn:    { fontFamily: Fonts.display, fontSize: 13 },

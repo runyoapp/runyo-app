@@ -14,7 +14,7 @@ function act(p: Partial<Activity>): Activity {
 function schema(p: Partial<SchemaMeta> = {}): SchemaMeta {
   return {
     id: 's1', name: '', isVisible: true, isArchived: false,
-    startDate: null, weekCount: null, createdAt: '2026-01-05T00:00:00Z', ...p,
+    startDate: null, weekCount: null, color: null, createdAt: '2026-01-05T00:00:00Z', ...p,
   }
 }
 

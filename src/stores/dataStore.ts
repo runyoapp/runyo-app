@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Activity, Race, PersonalRecord } from '@/types/activity'
-import { getMySchemas, setSchemaVisibility, archiveSchema, setSchemaSpan, type SchemaSpan } from '@/services/schemas'
+import { getMySchemas, setSchemaVisibility, archiveSchema, setSchemaSpan, setSchemaColor, type SchemaSpan } from '@/services/schemas'
 import { effectiveSpan } from '@/utils/schemaRouting'
 
 // Multi-schema: meerdere schema's kunnen tegelijk zichtbaar zijn. De backend
@@ -25,6 +25,8 @@ export type SchemaMeta = {
   // Vaste plan-span (maandag-start + aantal weken). null = legacy → afgeleid.
   startDate: string | null
   weekCount: number | null
+  // Schema-kleur (hex). null → paletkleur op volgorde (zie schemaColor()).
+  color: string | null
   createdAt: string
 }
 
@@ -92,6 +94,7 @@ type DataStore = {
   setSchemaVisible: (id: string, visible: boolean) => Promise<void>
   archiveSchemaById: (id: string, archived?: boolean) => Promise<void>
   setSchemaSpanById: (id: string, span: SchemaSpan) => Promise<void>
+  setSchemaColorById: (id: string, color: string | null) => Promise<void>
   backfillSpans: () => Promise<void>
   // Compat-aliassen (worden in fase 4 vervangen door bovenstaande):
   activateSchemaById: (id: string, name: string) => Promise<void>
@@ -180,6 +183,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       isArchived: s.isArchived,
       startDate: s.startDate,
       weekCount: s.weekCount,
+      color: s.color,
       createdAt: s.createdAt,
     }))
     const d = derive(schemaList)
@@ -191,6 +195,14 @@ export const useDataStore = create<DataStore>((set, get) => ({
     await setSchemaSpan(id, span)
     const schemaList = get().schemaList.map(s =>
       s.id === id ? { ...s, startDate: span.startDate, weekCount: span.weekCount } : s,
+    )
+    set({ schemaList })
+  },
+
+  setSchemaColorById: async (id, color) => {
+    await setSchemaColor(id, color)
+    const schemaList = get().schemaList.map(s =>
+      s.id === id ? { ...s, color } : s,
     )
     set({ schemaList })
   },
@@ -279,6 +291,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
             isArchived: false,
             startDate: span?.startDate ?? null,
             weekCount: span?.weekCount ?? null,
+            color: null,
             createdAt: new Date().toISOString(),
           },
         ]
