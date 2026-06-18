@@ -29,6 +29,7 @@ type Props = {
 // Eén dagrij in het uitgeklapte weekdetail. Tikbaar → opent de activiteit-details.
 // Dagen in het verleden worden gedempt getoond.
 function DayRow({ activity, today, onPress }: { activity: Activity; today: string; onPress: () => void }) {
+  const theme   = useTheme()
   const d       = fromDateString(activity.datum)
   const dayName = DAYS_NL[mondayIndex(d)].toLowerCase()
   const isRace  = activity.type === 'race'
@@ -43,15 +44,15 @@ function DayRow({ activity, today, onPress }: { activity: Activity; today: strin
       activeOpacity={0.6}
     >
       <View style={[styles.dayBar, { backgroundColor: colors.text }]} />
-      <Text style={styles.dayDate}>{dayName} {d.getDate()}</Text>
+      <Text style={[styles.dayDate, { color: theme.muted }]}>{dayName} {d.getDate()}</Text>
       <Text
-        style={[styles.dayTitle, isRace && { color: ActivityColors.race.text }]}
+        style={[styles.dayTitle, { color: theme.text }, isRace && { color: ActivityColors.race.text }]}
         numberOfLines={1}
       >
         {label}
       </Text>
       {activity.km != null && (
-        <Text style={styles.dayKm}>{activity.km} km</Text>
+        <Text style={[styles.dayKm, { color: theme.text2 }]}>{activity.km} km</Text>
       )}
     </TouchableOpacity>
   )
@@ -73,17 +74,17 @@ export function PlanWeek({ week, today, maxGoalKm, expanded, onToggle, onActivit
         onPress={onToggle}
         activeOpacity={0.7}
       >
-        <Text style={[styles.weekNum, cur && { color: theme.accent }]}>Week {week.num}</Text>
-        <Text style={styles.weekRange}>{week.range}</Text>
+        <Text style={[styles.weekNum, { color: theme.text }, cur && { color: theme.accent }]}>Week {week.num}</Text>
+        <Text style={[styles.weekRange, { color: theme.muted }]}>{week.range}</Text>
         <View style={{ flex: 1 }} />
-        <Text style={[styles.weekMeta, week.hasRace && { color: ActivityColors.race.text }]}>
+        <Text style={[styles.weekMeta, { color: theme.muted }, week.hasRace && { color: ActivityColors.race.text }]}>
           {count} · {week.goalKm} km
         </Text>
-        <Text style={[styles.chevron, expanded && styles.chevronOpen]}>›</Text>
+        <Text style={[styles.chevron, { color: theme.faint }, expanded && styles.chevronOpen]}>›</Text>
       </TouchableOpacity>
 
       {/* Volume-balk */}
-      <View style={styles.volTrack}>
+      <View style={[styles.volTrack, { backgroundColor: theme.border }]}>
         <View style={[
           styles.volFill,
           { width: `${vol * 100}%`, backgroundColor: barColor, opacity: cur ? 1 : 0.55 },
@@ -99,11 +100,15 @@ export function PlanWeek({ week, today, maxGoalKm, expanded, onToggle, onActivit
           {week.days.map(a => (
             <DayRow key={a.id} activity={a} today={today} onPress={() => onActivityPress(a)} />
           ))}
-          <TouchableOpacity style={styles.editLink} onPress={onEditWeek} activeOpacity={0.7}>
-            <Text style={styles.editLinkText}>
-              Bewerk in <Text style={styles.editLinkStrong}>weekbouwer</Text>
+          <TouchableOpacity
+            style={[styles.editLink, { borderTopColor: theme.border, backgroundColor: theme.surface2 }]}
+            onPress={onEditWeek}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.editLinkText, { color: theme.muted }]}>
+              Bewerk in <Text style={[styles.editLinkStrong, { color: theme.text }]}>weekbouwer</Text>
             </Text>
-            <Text style={styles.editLinkChevron}>›</Text>
+            <Text style={[styles.editLinkChevron, { color: theme.muted }]}>›</Text>
           </TouchableOpacity>
         </View>
       )}

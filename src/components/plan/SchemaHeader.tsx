@@ -37,20 +37,20 @@ export function SchemaHeader({ weeks, activities }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* "Schema · X km" — spec: runyo-pwa.jsx ScreenTraining */}
-      <Text style={styles.kicker}>
+      <Text style={[styles.kicker, { color: theme.muted }]}>
         Schema{totalKm > 0 ? ` · ${Math.round(totalKm)} km` : ''}
       </Text>
-      <Text style={styles.title}>{schemaName}</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{schemaName}</Text>
       {totalWeeks > 1 && (
-        <Text style={styles.sub}>Week {weekNum} van {totalWeeks}</Text>
+        <Text style={[styles.sub, { color: theme.muted }]}>Week {weekNum} van {totalWeeks}</Text>
       )}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${pct}%` }]} />
+      <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
+        <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: theme.accent }]} />
       </View>
       {startDate && endDate && (
         <View style={styles.dates}>
-          <Text style={styles.dateLabel}>Start · {fmt(startDate)}</Text>
-          <Text style={styles.dateLabel}>{endLabel} · {fmt(endDate)}</Text>
+          <Text style={[styles.dateLabel, { color: theme.faint }]}>Start · {fmt(startDate)}</Text>
+          <Text style={[styles.dateLabel, { color: theme.faint }]}>{endLabel} · {fmt(endDate)}</Text>
         </View>
       )}
     </View>

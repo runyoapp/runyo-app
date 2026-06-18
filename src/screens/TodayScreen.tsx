@@ -89,7 +89,7 @@ export function TodayScreen() {
         {...panHandlers}
       >
         <View style={styles.kickerRow}>
-          <Text style={styles.kicker}>{dayLabel}</Text>
+          <Text style={[styles.kicker, { color: theme.text }]}>{dayLabel}</Text>
         </View>
 
         {dayOffset === 0 && <WeatherWidget />}
@@ -102,7 +102,7 @@ export function TodayScreen() {
           />
         ) : isLoading ? (
           <View style={styles.loadingRow}>
-            <Text style={styles.loadingText}>Laden…</Text>
+            <Text style={[styles.loadingText, { color: theme.muted }]}>Laden…</Text>
           </View>
         ) : isWork ? (
           <WorkCard />

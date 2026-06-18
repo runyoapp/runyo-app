@@ -172,8 +172,8 @@ export function PlanScreen() {
 
         {noSchema && (
           <View style={styles.emptyNoSchema}>
-            <Text style={styles.emptyTitle}>Geen schema gekoppeld</Text>
-            <Text style={styles.emptySub}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Geen schema gekoppeld</Text>
+            <Text style={[styles.emptySub, { color: theme.muted }]}>
               Koppel jouw trainingsschema en zie hier je volledige planning, week voor week.
             </Text>
             <ImportSchemaTile onPress={() => setImportOpen(true)} />
@@ -182,8 +182,8 @@ export function PlanScreen() {
 
         {noData && (
           <View style={[styles.empty, { flex: 1 }]}>
-            <Text style={styles.emptyTitle}>Geen data</Text>
-            <Text style={styles.emptySub}>Je schema is leeg of wordt geladen.</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Geen data</Text>
+            <Text style={[styles.emptySub, { color: theme.muted }]}>Je schema is leeg of wordt geladen.</Text>
           </View>
         )}
 
