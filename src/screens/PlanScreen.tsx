@@ -10,6 +10,7 @@ import { useDataStore, type SchemaMeta } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
+import { SchemaSwitcher } from '@/components/plan/SchemaSwitcher'
 import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
 import { WeekbouwerScreen } from '@/components/weekbouwer/WeekbouwerScreen'
 import { EditorScreen } from '@/components/weekbouwer/EditorScreen'
@@ -78,12 +79,27 @@ export function PlanScreen() {
   const activities = useDataStore(s => s.activities)
   const schemaId   = useDataStore(s => s.schemaId)
   const schemaList = useDataStore(s => s.schemaList)
+  const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
   const theme      = useTheme()
   useActivities()
 
+  // Welk zichtbaar schema toont de tijdlijn. null = volg de globale primary;
+  // de switcher zet 'm expliciet. Valt terug op primary als de keuze niet meer
+  // zichtbaar is (bv. schema verborgen via instellingen).
+  const [viewSchemaId, setViewSchemaId] = useState<string | null>(null)
+  const activeSchemaId =
+    viewSchemaId && visibleSchemaIds.includes(viewSchemaId) ? viewSchemaId : schemaId
+
+  const visibleSchemas = useMemo(
+    () => visibleSchemaIds
+      .map(id => schemaList.find(s => s.id === id))
+      .filter((s): s is SchemaMeta => !!s),
+    [visibleSchemaIds, schemaList],
+  )
+
   const schema = useMemo(
-    () => schemaList.find(s => s.id === schemaId) ?? null,
-    [schemaList, schemaId],
+    () => schemaList.find(s => s.id === activeSchemaId) ?? null,
+    [schemaList, activeSchemaId],
   )
 
   const today = useMemo(() => toDateString(new Date()), [])
@@ -108,8 +124,8 @@ export function PlanScreen() {
   // SchemaHeader (titel via volgende race, start/eind) volgt dezelfde primaire-schema
   // tijdlijn als de week-lijst eronder.
   const schemaActivities = useMemo(
-    () => activities.filter(a => a.schemaId === schemaId),
-    [activities, schemaId],
+    () => activities.filter(a => a.schemaId === activeSchemaId),
+    [activities, activeSchemaId],
   )
   const maxGoalKm = useMemo(() => weeks.reduce((m, w) => Math.max(m, w.goalKm), 0), [weeks])
 
@@ -145,6 +161,16 @@ export function PlanScreen() {
     scrollRef.current?.scrollTo({ y: Math.max(0, targetY - 12), animated: false })
   }, [targetY, contentReady])
 
+  // Bij schemawisseling: opnieuw de huidige week openen + naar boven scrollen
+  // (de week-lijst en huidige week verschillen per schema).
+  useEffect(() => {
+    seededRef.current   = false
+    hasScrolled.current = false
+    setOpenSet(new Set())
+    setTargetY(null)
+    setContentReady(false)
+  }, [activeSchemaId])
+
   const noSchema = !schemaId
   const noData   = !noSchema && !weeks.length
 
@@ -175,6 +201,14 @@ export function PlanScreen() {
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
       <PageContainer>
         <AppHeader onAddPress={() => setAddModalOpen(true)} />
+
+        {!noSchema && visibleSchemas.length >= 2 && (
+          <SchemaSwitcher
+            schemas={visibleSchemas}
+            activeId={activeSchemaId}
+            onSelect={setViewSchemaId}
+          />
+        )}
 
         {noSchema && (
           <View style={styles.emptyNoSchema}>
