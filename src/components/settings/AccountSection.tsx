@@ -1,9 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { useAuthStore } from '@/stores/authStore'
-import { useDataStore } from '@/stores/dataStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { signInWithGoogle } from '@/services/auth'
+import { logout } from '@/services/logout'
 import { useUiStore } from '@/stores/uiStore'
 import { Fonts } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
@@ -25,9 +24,6 @@ export function AccountSection() {
   const theme       = useTheme()
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
-  const signOut     = useAuthStore(s => s.signOut)
-  const clearAll    = useDataStore(s => s.clearAll)
-  const resetPrefs  = useSettingsStore(s => s.setTelegramUser)
   const showToast   = useUiStore(s => s.showToast)
   const [loading, setLoading] = useState(false)
 
@@ -44,9 +40,7 @@ export function AccountSection() {
   }
 
   async function handleSignOut() {
-    await signOut()
-    await clearAll()
-    await resetPrefs('')
+    await logout()
     showToast('Uitgelogd')
   }
 

@@ -3,7 +3,6 @@ import { View, TouchableOpacity, Text, StyleSheet, Modal, Pressable, ActivityInd
 import { useNavigation } from '@react-navigation/native'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useTheme } from '@/hooks/useTheme'
 import { Logo } from '@/components/shared/Logo'
@@ -12,6 +11,7 @@ import { StatsModal } from '@/screens/StatsModal'
 import { RaceModal } from '@/screens/RaceModal'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { signInWithGoogle } from '@/services/auth'
+import { logout } from '@/services/logout'
 import { Fonts, Spacing, Radius, LightTheme } from '@/constants/theme'
 import type { Activity } from '@/types/activity'
 
@@ -26,9 +26,6 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   const theme       = useTheme()
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
-  const signOut     = useAuthStore(s => s.signOut)
-  const clearAll    = useDataStore(s => s.clearAll)
-  const setTelegram = useSettingsStore(s => s.setTelegramUser)
   const activities  = useDataStore(s => s.activities)
 
   const loginSheetOpen  = useUiStore(s => s.loginSheetOpen)
@@ -58,11 +55,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
 
   async function handleSignOut() {
     setDropdownOpen(false)
-    await signOut()
-    // clearAll nult schemaId zodat de React Query-cachekey wijzigt en de
-    // activiteiten na uitloggen echt weg blijven (niet terugkomen bij tab-wissel).
-    await clearAll()
-    await setTelegram('')
+    await logout()
   }
 
   return (

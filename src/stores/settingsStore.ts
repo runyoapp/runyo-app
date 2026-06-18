@@ -15,6 +15,7 @@ type SettingsStore = {
   setTelegramUser: (user: string) => Promise<void>
   setNotifications: (notifications: Notifications) => Promise<void>
   setOnboardingDone: () => Promise<void>
+  resetSettings: () => Promise<void>
 }
 
 type PersistedState = {
@@ -73,5 +74,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setOnboardingDone: async () => {
     set({ onboardingDone: true })
     await persist({ prefs: get().prefs, telegramUser: get().telegramUser, notifications: get().notifications, onboardingDone: true })
+  },
+
+  // Bij uitloggen: alle instellingen terug naar defaults + de persist-key wissen,
+  // zodat op een gedeeld device niets lekt en onboarding weer getoond wordt.
+  resetSettings: async () => {
+    set({
+      prefs: DEFAULT_PREFS,
+      telegramUser: '',
+      notifications: DEFAULT_NOTIFICATIONS,
+      onboardingDone: false,
+    })
+    await AsyncStorage.removeItem(STORAGE_KEY)
   },
 }))
