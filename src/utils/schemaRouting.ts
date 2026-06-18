@@ -9,15 +9,19 @@ import type { SchemaMeta } from '@/stores/dataStore'
 export type Period = { start: string; end: string }
 
 export function schemaPeriod(activities: Activity[], schema: SchemaMeta): Period {
-  const dates = activities
-    .filter(a => a.schemaId === schema.id)
-    .map(a => a.datum)
-    .sort()
+  const own = activities.filter(a => a.schemaId === schema.id)
+  const dates = own.map(a => a.datum).sort()
   if (dates.length === 0) {
     const d = schema.createdAt.slice(0, 10)
     return { start: d, end: d }
   }
-  return { start: dates[0], end: dates[dates.length - 1] }
+  // Een race telt alleen als eindpunt van een schema, nooit als beginpunt: een
+  // race ver in het verleden mag de schema-start niet naar achteren trekken.
+  // start = eerste écht trainings-moment (val terug op alle data als een schema
+  // niets dan races bevat); end = laatste datum, races meegerekend.
+  const trainingDates = own.filter(a => a.type !== 'race').map(a => a.datum).sort()
+  const start = trainingDates.length ? trainingDates[0] : dates[0]
+  return { start, end: dates[dates.length - 1] }
 }
 
 export type PickResult =
