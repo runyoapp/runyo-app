@@ -43,6 +43,7 @@ export type Activity = {
 export type PersonalRecord = {
   distance: string     // e.g. "5k", "10k", "HM", "M"
   time: string         // e.g. "22:30"
+  date?: string | null // YYYY-MM-DD waarop het PR gelopen is (optioneel)
 }
 
 export type Race = {

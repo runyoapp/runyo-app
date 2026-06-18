@@ -6,12 +6,42 @@ import { Fonts, Spacing, Radius, ActivityColors, type Theme } from '@/constants/
 import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY, type ActivityType } from '@/constants/activities'
 import { effectiveSpan } from '@/utils/schemaRouting'
-import { addDays, fromDateString, toDateString } from '@/utils/date'
+import { addDays, fromDateString, toDateString, MONTHS_NL } from '@/utils/date'
 import type { Activity } from '@/types/activity'
 import type { SchemaMeta } from '@/stores/dataStore'
 
 // Afstanden waarvoor we een PR bijhouden (app-set; PR-data is hierop gekeyd).
 const PR_DISTANCES = ['1 km', '5 km', '10 km', '10 mile', 'Halve marathon', 'Marathon']
+
+// Een PR telt als "nieuw" zolang het binnen dit aantal dagen gelopen is.
+const PR_FRESH_DAYS = 60
+
+// Datum-invoer: accepteert "12-04-2026" / "12/4/2026" of "2026-04-12" → YYYY-MM-DD.
+function parsePrDate(input: string): string | null {
+  const s = input.trim()
+  if (!s) return null
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) return s
+  const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/)
+  if (dmy) {
+    const [, d, m, y] = dmy
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  return null
+}
+// YYYY-MM-DD → "12 apr 2026"; ongeldige/lege invoer → null.
+function formatPrDate(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const [, y, mo, d] = m
+  return `${parseInt(d)} ${MONTHS_NL[parseInt(mo) - 1]} ${y}`
+}
+// YYYY-MM-DD → "12-04-2026" voor het bewerk-veld.
+function toDmy(iso: string | null | undefined): string {
+  const m = iso?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : ''
+}
 
 // Vaste kleuren voor fases (vrij-tekstveld). Toegekend op volgorde van eerste
 // voorkomen in het blok; werken in light én dark. Accent eerst.
@@ -61,8 +91,10 @@ export function StatsModal({ visible, onClose }: Props) {
 
   const [editingPrs, setEditingPrs] = useState(false)
   const [prDraft, setPrDraft] = useState<Record<string, string>>({})
+  const [prDateDraft, setPrDateDraft] = useState<Record<string, string>>({})
 
   const today  = useMemo(() => toDateString(new Date()), [])
+  const freshCutoff = useMemo(() => toDateString(addDays(new Date(), -PR_FRESH_DAYS)), [])
   const schema = useMemo(
     () => schemaList.find(s => s.id === schemaId) ?? null,
     [schemaList, schemaId],
@@ -105,14 +137,20 @@ export function StatsModal({ visible, onClose }: Props) {
 
   function startEditPrs() {
     const draft: Record<string, string> = {}
-    prs.forEach(pr => { draft[pr.distance] = pr.time })
+    const dateDraft: Record<string, string> = {}
+    prs.forEach(pr => { draft[pr.distance] = pr.time; dateDraft[pr.distance] = toDmy(pr.date) })
     setPrDraft(draft)
+    setPrDateDraft(dateDraft)
     setEditingPrs(true)
   }
   function savePrs() {
     setPrs(Object.entries(prDraft)
       .filter(([, v]) => v.trim())
-      .map(([distance, time]) => ({ distance, time: time.trim() })))
+      .map(([distance, time]) => ({
+        distance,
+        time: time.trim(),
+        date: parsePrDate(prDateDraft[distance] ?? ''),
+      })))
     setEditingPrs(false)
   }
 
@@ -260,13 +298,36 @@ export function StatsModal({ visible, onClose }: Props) {
         {PR_DISTANCES.map((dist, i) => {
           const pr = prs.find(p => p.distance === dist)
           const empty = !pr?.time
+          const dateLabel = formatPrDate(pr?.date)
+          const fresh = !!pr?.date && pr.date >= freshCutoff && pr.date <= today
           return (
             <View key={dist} style={[
               styles.prRow,
               i < PR_DISTANCES.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
             ]}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.prDist, { color: empty ? theme.muted : theme.text }]}>{dist}</Text>
+                <View style={styles.prDistRow}>
+                  <Text style={[styles.prDist, { color: empty ? theme.muted : theme.text }]}>{dist}</Text>
+                  {fresh && (
+                    <Text style={[styles.prBadge, { color: theme.accentInk, backgroundColor: theme.accent }]}>
+                      NIEUW PR
+                    </Text>
+                  )}
+                </View>
+                {editingPrs ? (
+                  <TextInput
+                    style={[styles.prDateInput, { color: theme.muted, borderColor: theme.border }]}
+                    value={prDateDraft[dist] ?? ''}
+                    onChangeText={v => setPrDateDraft(d => ({ ...d, [dist]: v }))}
+                    placeholder="datum · 12-04-2026"
+                    placeholderTextColor={theme.faint}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                ) : (
+                  <Text style={[styles.prDate, { color: theme.muted }]}>
+                    {dateLabel ?? (empty ? 'nog geen tijd gelopen' : 'datum onbekend')}
+                  </Text>
+                )}
               </View>
               {editingPrs ? (
                 <TextInput
@@ -356,7 +417,11 @@ const styles = StyleSheet.create({
   prHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   editLink:     { fontFamily: Fonts.displayMedium, fontSize: 13 },
   prRow:        { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13, paddingHorizontal: 14 },
+  prDistRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
   prDist:       { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.15 },
+  prBadge:      { fontFamily: Fonts.monoMedium, fontSize: 9, letterSpacing: 0.3, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' },
+  prDate:       { fontFamily: Fonts.display, fontSize: 11.5, marginTop: 2 },
+  prDateInput:  { fontFamily: Fonts.mono, fontSize: 11.5, borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 3, marginTop: 4, alignSelf: 'flex-start' },
   prTime:       { fontFamily: Fonts.monoMedium, fontSize: 18, letterSpacing: 0.2 },
   prInput:      { fontFamily: Fonts.mono, fontSize: 14, borderWidth: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4, minWidth: 80, textAlign: 'right' },
 })

@@ -8,6 +8,9 @@ import { effectiveSpan } from '@/utils/schemaRouting'
 // (is_visible) is de bron van waarheid; deze key is alleen een optimistische
 // cache zodat de app bij opstarten al weet welke schema's zichtbaar waren.
 const VISIBLE_IDS_KEY = 'runyo_visible_schema_ids'
+// Persoonlijke records leven lokaal (geen backend) — bewaren zodat ze niet
+// verdwijnen bij herstart.
+const PRS_KEY = 'runyo_prs'
 // Legacy keys (single-schema) — bij opstarten/uitloggen opruimen.
 const LEGACY_KEYS = ['runyo_schema_id', 'runyo_schema_name']
 
@@ -146,7 +149,10 @@ export const useDataStore = create<DataStore>((set, get) => ({
   removeRace: (id) =>
     set((s) => ({ races: s.races.filter(r => r.id !== id) })),
 
-  setPrs: (prs) => set({ prs }),
+  setPrs: (prs) => {
+    set({ prs })
+    AsyncStorage.setItem(PRS_KEY, JSON.stringify(prs)).catch(() => {})
+  },
   // BUG9: bij uitloggen alle schema-/activiteit-state wissen,
   // anders blijft een schema zichtbaar na logout.
   clearAll: async () => {
@@ -155,9 +161,20 @@ export const useDataStore = create<DataStore>((set, get) => ({
       schemaList: [], visibleSchemaIds: [], schemasReconciled: false,
       schemaId: null, schemaName: null,
     })
-    await AsyncStorage.multiRemove([VISIBLE_IDS_KEY, ...LEGACY_KEYS])
+    await AsyncStorage.multiRemove([VISIBLE_IDS_KEY, PRS_KEY, ...LEGACY_KEYS])
   },
   hydrateSchema: async () => {
+    // PR's lokaal terughalen (onafhankelijk van de schema-cache hieronder).
+    if (!get().prs.length) {
+      const storedPrs = await AsyncStorage.getItem(PRS_KEY)
+      if (storedPrs) {
+        try {
+          const parsed = JSON.parse(storedPrs) as PersonalRecord[]
+          if (Array.isArray(parsed) && parsed.length) set({ prs: parsed })
+        } catch { /* corrupte cache negeren */ }
+      }
+    }
+
     // Optimistische cache: alleen toepassen zolang de server nog niet heeft
     // gereconcilieerd (anders zou een late hydrate de server-waarheid overschrijven).
     if (get().schemasReconciled || get().visibleSchemaIds.length) return
