@@ -420,7 +420,7 @@ export async function analyseSchema(
 
   try {
     const token = await getToken()
-    const res = await fetch(`${IMPORT_BACKEND}/ai/import`, {
+    const res = await fetch(`${IMPORT_BACKEND}/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({
@@ -459,7 +459,7 @@ export async function analyseSchemaFromUrl(
 
   try {
     const token = await getToken()
-    const res = await fetch(`${IMPORT_BACKEND}/ai/import`, {
+    const res = await fetch(`${IMPORT_BACKEND}/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({

@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import { getImportLog, downloadImportFile, type ImportLogEntry } from '@/services/ai'
+import { getImportLog, downloadImportFile, type ImportLogEntry } from '@/services/importLog'
 
 function formatTs(ts: string): string {
   const d = new Date(ts)

@@ -103,7 +103,7 @@ describe('excelToText', () => {
 // ── 2. analyseSchemaFromUrl ───────────────────────────────────────────────────
 
 describe('analyseSchemaFromUrl', () => {
-  it('sends { url } in the request body to /ai/import', async () => {
+  it('sends { url } in the request body to /import', async () => {
     const rawResponse = 'TITEL: Test\nWEKEN: 4\nPIEK: 40 km\nRAPPORT: Prima schema.\n[{"datum":"2026-06-01","type":"run","titel":"Easy","detail":"","km":8,"fase":""}]'
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -120,7 +120,7 @@ describe('analyseSchemaFromUrl', () => {
     )
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe(`${IMPORT_BACKEND}/ai/import`)
+    expect(url).toBe(`${IMPORT_BACKEND}/import`)
     const body = JSON.parse(init.body)
     expect(body.url).toBe('https://docs.google.com/spreadsheets/d/abc/export?format=csv')
     expect(body.system).toBe(SYSTEM_PROMPT)
