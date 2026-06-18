@@ -2,26 +2,30 @@ import { useMemo, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { useDataStore } from '@/stores/dataStore'
-import { Fonts, Spacing, Radius, type Theme } from '@/constants/theme'
+import { Fonts, Spacing, Radius, ActivityColors, type Theme } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { TYPE_DISPLAY, type ActivityType } from '@/constants/activities'
 import { effectiveSpan } from '@/utils/schemaRouting'
 import { addDays, fromDateString, toDateString } from '@/utils/date'
+import type { Activity } from '@/types/activity'
+import type { SchemaMeta } from '@/stores/dataStore'
 
 // Afstanden waarvoor we een PR bijhouden (app-set; PR-data is hierop gekeyd).
 const PR_DISTANCES = ['1 km', '5 km', '10 km', '10 mile', 'Halve marathon', 'Marathon']
 
+// Vaste kleuren voor fases (vrij-tekstveld). Toegekend op volgorde van eerste
+// voorkomen in het blok; werken in light én dark. Accent eerst.
+const FASE_PALETTE = ['#00B98E', '#5B8BF5', '#E0913C', '#E54B3C', '#8E5BD6', '#1E8FD6', '#2E7D5E']
+
 type Props = { visible: boolean; onClose: () => void }
 
-type BlockWeek = { num: number; planKm: number; doneKm: number; isCurrent: boolean }
+type WeekStatus = 'past' | 'current' | 'future'
+type BlockWeek = { num: number; planKm: number; status: WeekStatus; fase: string | null }
 
-// Per-week plan/gelopen km voor het huidige blok, langs de vaste plan-span.
-// Spiegelt PlanScreen.buildWeeks (span = bron van waarheid), maar dan platgeslagen
-// tot enkel de km-cijfers die de grafiek nodig heeft.
-function buildBlockWeeks(
-  activities: ReturnType<typeof useDataStore.getState>['activities'],
-  schema: ReturnType<typeof useDataStore.getState>['schemaList'][number] | null,
-  today: string,
-): BlockWeek[] {
+// Per-week plan-km + status + dominante fase voor het huidige blok, langs de
+// vaste plan-span (effectiveSpan = bron van waarheid, zoals PlanScreen). Puur
+// plan-gebaseerd: we tonen wat gepland staat, niet of het echt gelopen is.
+function buildBlockWeeks(activities: Activity[], schema: SchemaMeta | null, today: string): BlockWeek[] {
   if (!schema) return []
   const span = effectiveSpan(activities, schema)
   const own = activities.filter(
@@ -34,10 +38,14 @@ function buildBlockWeeks(
     const sun = toDateString(addDays(cursor, 6))
     const days = own.filter(a => a.datum >= mon && a.datum <= sun)
     const planKm = Math.round(days.reduce((s, a) => s + (a.km ?? 0), 0))
-    const doneKm = Math.round(
-      days.filter(a => a.datum <= today).reduce((s, a) => s + (a.km ?? 0), 0),
-    )
-    weeks.push({ num, planKm, doneKm, isCurrent: mon <= today && today <= sun })
+
+    // Dominante fase = meest voorkomende niet-lege fase die week.
+    const tally: Record<string, number> = {}
+    days.forEach(a => { if (a.fase?.trim()) tally[a.fase.trim()] = (tally[a.fase.trim()] ?? 0) + 1 })
+    const fase = Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+
+    const status: WeekStatus = sun < today ? 'past' : (mon <= today ? 'current' : 'future')
+    weeks.push({ num, planKm, status, fase })
     cursor = addDays(cursor, 7)
   }
   return weeks
@@ -61,10 +69,33 @@ export function StatsModal({ visible, onClose }: Props) {
   )
 
   const weeks   = useMemo(() => buildBlockWeeks(activities, schema, today), [activities, schema, today])
-  const totDone = weeks.reduce((s, w) => s + w.doneKm, 0)
-  const totPlan = weeks.reduce((s, w) => s + w.planKm, 0)
-  const maxPlan = Math.max(...weeks.map(w => w.planKm), 1)
-  const pct     = totPlan > 0 ? Math.round((totDone / totPlan) * 100) : 0
+  const totalKm   = weeks.reduce((s, w) => s + w.planKm, 0)
+  const elapsedKm = weeks.filter(w => w.status !== 'future').reduce((s, w) => s + w.planKm, 0)
+  const maxPlan   = Math.max(...weeks.map(w => w.planKm), 1)
+  const pct       = totalKm > 0 ? Math.round((elapsedKm / totalKm) * 100) : 0
+
+  // Fase-kleurmap: elke aanwezige fase een vaste paletkleur (volgorde van voorkomen).
+  const faseColors = useMemo(() => {
+    const order: string[] = []
+    weeks.forEach(w => { if (w.fase && !order.includes(w.fase)) order.push(w.fase) })
+    return Object.fromEntries(order.map((f, i) => [f, FASE_PALETTE[i % FASE_PALETTE.length]]))
+  }, [weeks])
+  const fases = Object.keys(faseColors)
+
+  // Verdeling per type (km + sessies) over het blok.
+  const typeDist = useMemo(() => {
+    if (!schema) return []
+    const own = activities.filter(a => a.schemaId === schema.id && a.type !== 'work' && a.type !== 'rest')
+    const agg: Record<string, { km: number; count: number }> = {}
+    own.forEach(a => {
+      const e = agg[a.type] ?? (agg[a.type] = { km: 0, count: 0 })
+      e.km += a.km ?? 0; e.count += 1
+    })
+    return Object.entries(agg)
+      .map(([type, v]) => ({ type: type as ActivityType, km: Math.round(v.km), count: v.count }))
+      .sort((a, b) => b.km - a.km || b.count - a.count)
+  }, [activities, schema])
+  const maxTypeKm = Math.max(...typeDist.map(t => t.km), 1)
 
   // Races: gepland binnen dit blok (nog te lopen) vs totaal ooit gelopen.
   const blockRacesPlanned = schema
@@ -90,28 +121,28 @@ export function StatsModal({ visible, onClose }: Props) {
       {/* ── Kilometers ───────────────────────────────────── */}
       <SectionLabel theme={theme}>Kilometers</SectionLabel>
       <Card theme={theme} style={{ padding: Spacing.lg }}>
-        {/* hero */}
+        {/* hero — plan-voortgang */}
         <View style={styles.heroRow}>
           <View>
             <Text style={[styles.heroNum, { color: theme.text }]}>
-              {totDone}
+              {elapsedKm}
               <Text style={[styles.heroUnit, { color: theme.muted }]}> km</Text>
             </Text>
-            <Text style={[styles.heroSub, { color: theme.muted }]}>gelopen dit blok</Text>
+            <Text style={[styles.heroSub, { color: theme.muted }]}>gepland tot nu toe</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={[styles.heroPlan, { color: theme.text }]}>{totPlan} km</Text>
-            <Text style={[styles.heroPlanSub, { color: theme.muted }]}>gepland</Text>
+            <Text style={[styles.heroPlan, { color: theme.text }]}>{totalKm} km</Text>
+            <Text style={[styles.heroPlanSub, { color: theme.muted }]}>totaal dit blok</Text>
           </View>
         </View>
 
-        {/* progress */}
+        {/* voortgang door het blok */}
         <View style={{ marginTop: 14 }}>
           <View style={[styles.progTrack, { backgroundColor: theme.surface2 }]}>
             <View style={[styles.progFill, { width: `${pct}%`, backgroundColor: theme.accent }]} />
           </View>
           <Text style={[styles.progLabel, { color: theme.muted }]}>
-            {pct}% van de geplande km voltooid
+            {pct}% van het blok
           </Text>
         </View>
 
@@ -125,42 +156,87 @@ export function StatsModal({ visible, onClose }: Props) {
           <>
             <View style={styles.chart}>
               {weeks.map(w => {
-                const h  = (w.planKm / maxPlan) * 78
-                const dh = (w.doneKm / maxPlan) * 78
+                const h = (w.planKm / maxPlan) * 78
+                const col = w.fase ? faseColors[w.fase] : theme.accent
+                const future = w.status === 'future'
+                const current = w.status === 'current'
                 return (
                   <View key={w.num} style={styles.barCol}>
                     <View style={[
-                      styles.barGhost,
+                      styles.barTrack,
                       { height: h, backgroundColor: theme.border },
-                      w.isCurrent && { borderWidth: 2, borderColor: theme.text },
                     ]}>
-                      <View style={[styles.barFill, { height: dh, backgroundColor: theme.accent, opacity: w.isCurrent ? 1 : 0.92 }]} />
+                      <View style={[
+                        styles.barFill,
+                        { height: h, backgroundColor: col, opacity: future ? 0.32 : 1 },
+                        current && { borderWidth: 2, borderColor: theme.text },
+                      ]} />
                     </View>
                     <Text style={[
                       styles.barLabel,
-                      { color: w.isCurrent ? theme.text : theme.muted },
-                      w.isCurrent && { fontFamily: Fonts.monoMedium },
+                      { color: current ? theme.text : theme.muted },
+                      current && { fontFamily: Fonts.monoMedium },
                     ]}>{w.num}</Text>
                   </View>
                 )
               })}
             </View>
             {/* legenda */}
-            <View style={styles.legend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: theme.accent }]} />
-                <Text style={[styles.legendLabel, { color: theme.muted }]}>gelopen</Text>
+            {fases.length > 0 ? (
+              <View style={styles.legend}>
+                {fases.map(f => (
+                  <View key={f} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: faseColors[f] }]} />
+                    <Text style={[styles.legendLabel, { color: theme.muted }]}>{f}</Text>
+                  </View>
+                ))}
               </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: theme.border }]} />
-                <Text style={[styles.legendLabel, { color: theme.muted }]}>gepland</Text>
+            ) : (
+              <View style={styles.legend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: theme.accent }]} />
+                  <Text style={[styles.legendLabel, { color: theme.muted }]}>verstreken</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: theme.accent, opacity: 0.32 }]} />
+                  <Text style={[styles.legendLabel, { color: theme.muted }]}>komend</Text>
+                </View>
               </View>
-            </View>
+            )}
           </>
         )}
       </Card>
 
       <View style={{ height: 22 }} />
+
+      {/* ── Verdeling per type ───────────────────────────── */}
+      {typeDist.length > 0 && (
+        <>
+          <SectionLabel theme={theme}>Verdeling per type</SectionLabel>
+          <Card theme={theme} style={{ padding: Spacing.lg, gap: 12 }}>
+            {typeDist.map(t => {
+              const col = ActivityColors[t.type]?.text ?? theme.accent
+              return (
+                <View key={t.type} style={styles.typeRow}>
+                  <View style={styles.typeHead}>
+                    <View style={[styles.legendDot, { backgroundColor: col }]} />
+                    <Text style={[styles.typeName, { color: theme.text }]}>
+                      {TYPE_DISPLAY[t.type]?.nl ?? t.type}
+                    </Text>
+                    <Text style={[styles.typeMeta, { color: theme.muted }]}>
+                      {t.km > 0 ? `${t.km} km · ` : ''}{t.count}×
+                    </Text>
+                  </View>
+                  <View style={[styles.typeTrack, { backgroundColor: theme.surface2 }]}>
+                    <View style={[styles.typeFill, { width: `${Math.round((t.km / maxTypeKm) * 100)}%`, backgroundColor: col }]} />
+                  </View>
+                </View>
+              )
+            })}
+          </Card>
+          <View style={{ height: 22 }} />
+        </>
+      )}
 
       {/* ── Races ────────────────────────────────────────── */}
       <SectionLabel theme={theme}>Races</SectionLabel>
@@ -255,15 +331,22 @@ const styles = StyleSheet.create({
   chartTitle:   { fontFamily: Fonts.displaySemiBold, fontSize: 13.5, marginTop: 16, marginBottom: 12 },
   chart:        { flexDirection: 'row', alignItems: 'flex-end', gap: 5, height: 92 },
   barCol:       { flex: 1, alignItems: 'center', gap: 4 },
-  barGhost:     { width: '100%', borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' },
+  barTrack:     { width: '100%', borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' },
   barFill:      { width: '100%', borderRadius: 4 },
   barLabel:     { fontFamily: Fonts.mono, fontSize: 8 },
   empty:        { fontFamily: Fonts.display, fontSize: 13, marginTop: 4, paddingVertical: 8 },
 
-  legend:       { flexDirection: 'row', gap: 16, marginTop: 12 },
+  legend:       { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12 },
   legendItem:   { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot:    { width: 9, height: 9, borderRadius: 3 },
-  legendLabel:  { fontFamily: Fonts.display, fontSize: 11.5 },
+  legendLabel:  { fontFamily: Fonts.display, fontSize: 11.5, textTransform: 'capitalize' },
+
+  typeRow:      { gap: 7 },
+  typeHead:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  typeName:     { flex: 1, fontFamily: Fonts.displayMedium, fontSize: 14 },
+  typeMeta:     { fontFamily: Fonts.mono, fontSize: 11.5 },
+  typeTrack:    { height: 6, borderRadius: 999, overflow: 'hidden' },
+  typeFill:     { height: '100%', borderRadius: 999 },
 
   tileRow:      { flexDirection: 'row', gap: 10 },
   tile:         { flex: 1, paddingVertical: 15, paddingHorizontal: 16 },
