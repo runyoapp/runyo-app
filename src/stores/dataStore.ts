@@ -59,6 +59,10 @@ async function persistVisible(ids: string[]): Promise<void> {
 
 type DataStore = {
   activities: Activity[]
+  // A3: laadstatus van de activiteiten-fetch, centraal in de store zodat de
+  // useActivities-hook maar één keer hoeft te draaien (in MainNavigator) en
+  // schermen de status lezen i.p.v. de hook elk apart aan te roepen.
+  activitiesLoading: boolean
   races: Race[]
   prs: PersonalRecord[]
 
@@ -76,6 +80,7 @@ type DataStore = {
 
   // Actions
   setActivities: (activities: Activity[]) => void
+  setActivitiesLoading: (loading: boolean) => void
   upsertActivity: (activity: Activity) => void
   removeActivity: (id: string) => void
   setRaces: (races: Race[]) => void
@@ -99,6 +104,7 @@ type DataStore = {
 
 export const useDataStore = create<DataStore>((set, get) => ({
   activities: [],
+  activitiesLoading: false,
   races: [],
   prs: [],
 
@@ -111,6 +117,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   dayOffset: 0,
 
   setActivities: (activities) => set({ activities }),
+  setActivitiesLoading: (activitiesLoading) => set({ activitiesLoading }),
   upsertActivity: (activity) =>
     set((s) => ({
       activities: s.activities.some(a => a.id === activity.id)
@@ -138,7 +145,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   // anders blijft een schema zichtbaar na logout.
   clearAll: async () => {
     set({
-      activities: [], races: [], prs: [],
+      activities: [], activitiesLoading: false, races: [], prs: [],
       schemaList: [], visibleSchemaIds: [], schemasReconciled: false,
       schemaId: null, schemaName: null,
     })

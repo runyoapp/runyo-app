@@ -10,6 +10,7 @@ import { RacesScreen } from '@/screens/RacesScreen'
 import { Fonts, GlassBg, LightTheme, DarkTheme, Spacing } from '@/constants/theme'
 import { useIsDesktop } from '@/hooks/useBreakpoint'
 import { useTheme } from '@/hooks/useTheme'
+import { useActivities } from '@/hooks/useActivities'
 import { Toast } from '@/components/shared/Toast'
 
 export type MainTabParamList = {
@@ -107,6 +108,10 @@ function DesktopSidebar({ state, navigation }: any) {
 export function MainNavigator() {
   const isDesktop    = useIsDesktop()
   const tabBarHidden = useUiStore(s => s.tabBarHidden)
+  // A3: één centrale activiteiten-fetch+merge voor alle tabs. Today/Plan/Races
+  // lezen de data + laadstatus uit de store i.p.v. de hook elk apart te draaien
+  // (voorheen 3× merge + 3× setActivities per update).
+  useActivities()
 
   return (
     <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>

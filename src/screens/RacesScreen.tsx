@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore } from '@/stores/dataStore'
-import { useActivities } from '@/hooks/useActivities'
 import { useTheme } from '@/hooks/useTheme'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { PageContainer } from '@/components/shared/PageContainer'
@@ -24,7 +23,6 @@ export function RacesScreen() {
   const theme      = useTheme()
   const activities = useDataStore(s => s.activities)
   const schemaList = useDataStore(s => s.schemaList)
-  useActivities()
 
   // detailRace = bestaande race bekijken (detail → bewerken); detailFeedback =
   // direct in beoordeel-modus openen; addRaceOpen = nieuwe race; addOpen =

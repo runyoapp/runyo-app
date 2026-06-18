@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { View, Text, Pressable, Animated, Easing, PanResponder, StyleSheet } from 'react-native'
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg'
 import { useTheme } from '@/hooks/useTheme'
@@ -9,7 +9,6 @@ import { derivePace, weekProgress, type WeekProgress } from '@/utils/raceProgres
 import type { Activity } from '@/types/activity'
 
 type Props = {
-  activities: Activity[]
   onRacePress: (activity: Activity) => void
 }
 
@@ -32,8 +31,13 @@ function fmtKm(km: number): string {
   return km % 1 === 0 ? String(km) : km.toFixed(1).replace('.', ',')
 }
 
-export function RacesBar({ activities, onRacePress }: Props) {
+// A2: RacesBar abonneert zelf op activities i.p.v. ze als prop te ontvangen,
+// zodat een activiteit-update de header-component (AppHeader) op elk scherm niet
+// meer laat herrenderen — alleen deze (SVG-)component reageert nog. memo voorkomt
+// daarnaast een rerender wanneer AppHeader om een andere reden hertekent.
+function RacesBarInner({ onRacePress }: Props) {
   const theme      = useTheme()
+  const activities = useDataStore(s => s.activities)
   const schemaList = useDataStore(s => s.schemaList)
 
   const [open,   setOpen]   = useState(false)
@@ -220,6 +224,8 @@ export function RacesBar({ activities, onRacePress }: Props) {
     </View>
   )
 }
+
+export const RacesBar = memo(RacesBarInner)
 
 function WeekBar({ prog, theme }: { prog: WeekProgress; theme: Theme }) {
   const raceHex = ActivityColors.race.text

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore'
 export function useActivities() {
   const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
   const setActivities    = useDataStore(s => s.setActivities)
+  const setActivitiesLoading = useDataStore(s => s.setActivitiesLoading)
   const backfillSpans    = useDataStore(s => s.backfillSpans)
   // Op tokenSet abonneren zodat een login een refetch triggert.
   const tokenSet         = useAuthStore(s => s.tokenSet)
@@ -43,5 +44,12 @@ export function useActivities() {
 
   const isLoading = results.length > 0 && results.some(r => r.isLoading)
   const isError = results.some(r => r.isError)
+
+  // Spiegel de laadstatus naar de store zodat schermen 'm kunnen lezen zonder
+  // deze hook zelf aan te roepen (A3 — hook draait enkel in MainNavigator).
+  useEffect(() => {
+    setActivitiesLoading(isLoading)
+  }, [isLoading, setActivitiesLoading])
+
   return { isLoading, isError, results }
 }

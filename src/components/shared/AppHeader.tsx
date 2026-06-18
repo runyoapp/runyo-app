@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { View, TouchableOpacity, Text, StyleSheet, Modal, Pressable, ActivityIndicator } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useAuthStore } from '@/stores/authStore'
-import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useTheme } from '@/hooks/useTheme'
 import { Logo } from '@/components/shared/Logo'
@@ -26,7 +25,6 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   const theme       = useTheme()
   const tokenSet    = useAuthStore(s => s.tokenSet)
   const setTokenSet = useAuthStore(s => s.setTokenSet)
-  const activities  = useDataStore(s => s.activities)
 
   const loginSheetOpen  = useUiStore(s => s.loginSheetOpen)
   const openLoginSheet  = useUiStore(s => s.openLoginSheet)
@@ -57,6 +55,15 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
     setDropdownOpen(false)
     await logout()
   }
+
+  // Stabiele callback zodat de gememoïseerde RacesBar niet hertekent puur omdat
+  // AppHeader om een andere reden rendert. Parent owns de RaceModal als hij
+  // onRacePress meegeeft; anders valt het terug op onze interne modal — twee
+  // gestapelde <Modal>'s zouden touches op Today blokkeren.
+  const handleRacePress = useCallback((activity: Activity) => {
+    if (onRacePress) onRacePress(activity.datum)
+    else setRaceActivity(activity)
+  }, [onRacePress])
 
   return (
     <View>
@@ -95,18 +102,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       </View>
 
       {/* Race header */}
-      {showRacesBar && (
-        <RacesBar
-          activities={activities}
-          onRacePress={activity => {
-            // Parent owns the RaceModal when it provides onRacePress;
-            // otherwise fall back to our internal modal. Two stacked
-            // <Modal> instances would block touches on Today.
-            if (onRacePress) onRacePress(activity.datum)
-            else setRaceActivity(activity)
-          }}
-        />
-      )}
+      {showRacesBar && <RacesBar onRacePress={handleRacePress} />}
 
       {/* Avatar dropdown */}
       <Modal visible={dropdownOpen} transparent animationType="fade" onRequestClose={() => setDropdownOpen(false)}>

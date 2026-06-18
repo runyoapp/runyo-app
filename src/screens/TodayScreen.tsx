@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiStore } from '@/stores/uiStore'
-import { useActivities } from '@/hooks/useActivities'
+import { useDataStore } from '@/stores/dataStore'
 import { useTodayData } from '@/hooks/useTodayData'
 import { useDaySwipe } from '@/hooks/useDaySwipe'
 import { HeroCard, RestCard, WorkCard, NoSchemaCard } from '@/components/today/HeroCard'
@@ -43,7 +43,7 @@ export function TodayScreen() {
     activeRows, isRest, isWork, fbRow, tmrRow,
   } = useTodayData()
 
-  const { isLoading }  = useActivities()
+  const isLoading      = useDataStore(s => s.activitiesLoading)
   const swipeAnim      = useSwipeAnimation(dayOffset)
   const panHandlers    = useDaySwipe(dayOffset, setDayOffset)
 

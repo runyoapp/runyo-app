@@ -8,7 +8,6 @@ import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore, type SchemaMeta } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { SchemaSwitcher } from '@/components/plan/SchemaSwitcher'
 import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
@@ -81,7 +80,6 @@ export function PlanScreen() {
   const schemaList = useDataStore(s => s.schemaList)
   const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
   const theme      = useTheme()
-  useActivities()
 
   // Welk zichtbaar schema toont de tijdlijn. null = volg de globale primary;
   // de switcher zet 'm expliciet. Valt terug op primary als de keuze niet meer
