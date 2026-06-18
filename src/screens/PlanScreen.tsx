@@ -28,9 +28,15 @@ type PlanMode = 'plan' | 'week' | 'editor'
 // De start ligt vast: een race in het verleden verschuift week 1 niet; een latere
 // activiteit rekt het raster wél op (cover-weken in effectiveSpan).
 function buildWeeks(activities: PlanWeekData['days'], today: string, schema: SchemaMeta | null): PlanWeekData[] {
-  const real = activities.filter(a => a.datum && a.type !== 'work' && a.type !== 'rest')
-  if (!real.length || !schema) return []
-  const span      = effectiveSpan(activities, schema)
+  if (!schema) return []
+  // Plan toont één doorlopende tijdlijn voor het primaire schema. Bij meerdere
+  // zichtbare schema's mogen de activiteiten van andere schema's niet in dít
+  // week-raster belanden (anders kloppen span, "week X van Y", km en voortgang
+  // niet) — dus eerst op het eigen schema filteren.
+  const own = activities.filter(a => a.schemaId === schema.id)
+  const real = own.filter(a => a.datum && a.type !== 'work' && a.type !== 'rest')
+  if (!real.length) return []
+  const span      = effectiveSpan(own, schema)
   const sorted    = [...real].sort((a, b) => a.datum.localeCompare(b.datum))
   const firstMon  = fromDateString(span.start)
 
@@ -99,6 +105,12 @@ export function PlanScreen() {
   }, [mode, setTabBarHidden])
 
   const weeks = useMemo(() => buildWeeks(activities, today, schema), [activities, today, schema])
+  // SchemaHeader (titel via volgende race, start/eind) volgt dezelfde primaire-schema
+  // tijdlijn als de week-lijst eronder.
+  const schemaActivities = useMemo(
+    () => activities.filter(a => a.schemaId === schemaId),
+    [activities, schemaId],
+  )
   const maxGoalKm = useMemo(() => weeks.reduce((m, w) => Math.max(m, w.goalKm), 0), [weeks])
 
   // Huidige week staat default open.
@@ -188,7 +200,7 @@ export function PlanScreen() {
             onContentSizeChange={() => setContentReady(true)}
             contentContainerStyle={styles.scrollContent}
           >
-            <SchemaHeader weeks={weeks} activities={activities} />
+            <SchemaHeader weeks={weeks} activities={schemaActivities} />
             {weeks.map(w => (
               <View
                 key={w.num}
