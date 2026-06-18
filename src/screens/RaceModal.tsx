@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { View, Text, TextInput, ScrollView, StyleSheet, type LayoutChangeEvent } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
@@ -47,8 +47,7 @@ const RACE_DIST: { key: string; label: string; km: number | null }[] = [
 ]
 const RACE_TYPES = ['Weg', 'Baan', 'Trail', 'Ultra', 'Virtueel']
 
-const today = new Date().toISOString().split('T')[0]
-function daysUntil(iso: string): number {
+function daysUntil(iso: string, today: string): number {
   const d = fromDateString(iso)
   const now = fromDateString(today)
   if (isNaN(d.getTime())) return 0
@@ -88,6 +87,9 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
 
   const isEdit   = !!activity
   const raceHex  = ActivityColors.race.text
+  // Bij elke keer openen opnieuw bepalen — blijft de modal over middernacht heen
+  // gemount, dan klopt "vandaag" anders niet meer (stale dag-grens).
+  const today    = useMemo(() => new Date().toISOString().split('T')[0], [visible])
 
   // Bij een nieuwe race waarvan de datum in 2+ zichtbare schema's valt: keuzelijst.
   const [ambiguous, setAmbiguous] = useState<{ ids: string[]; payload: RacePayload } | null>(null)
@@ -127,7 +129,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
     setMainGoal(activity?.isMainGoal ?? false)
     setNotes(activity?.detail ?? '')
     setMissing(null)
-  }, [visible, activity?.id, prefillDate])
+  }, [visible, activity?.id, prefillDate, today])
 
   const distOpts: ChipOption[] = RACE_DIST.map(d => ({ key: d.key, label: d.label }))
   const typeOpts: ChipOption[] = [...RACE_TYPES.map(r => ({ key: r, label: r })), { key: '__custom', label: 'Anders' }]
@@ -135,7 +137,7 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const raceType = typeSel === '__custom' ? typeCustom : typeSel
   const totalSec = (parseInt(h || '0') * 3600) + (parseInt(m || '0') * 60) + parseInt(s || '0')
   const pace     = paceStr(totalSec, selKm)
-  const dleft    = daysUntil(date)
+  const dleft    = daysUntil(date, today)
   const hasGoal  = totalSec > 0
 
   function buildPayload(): RacePayload {
