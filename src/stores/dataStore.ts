@@ -18,8 +18,6 @@ const LEGACY_KEYS = ['runyo_schema_id', 'runyo_schema_name']
 // bij herhaalde activiteit-updates binnen dezelfde sessie.
 const backfillInFlight = new Set<string>()
 
-export type TabName = 'today' | 'week' | 'plan' | 'calendar'
-
 export type SchemaMeta = {
   id: string
   name: string
@@ -73,14 +71,8 @@ type DataStore = {
   schemaId: string | null
   schemaName: string | null
 
-  // Navigation state
-  currentTab: TabName
-  weekOffset: number
+  // Navigation state — alleen de Vandaag dag-swipe (zie useTodayData/useDaySwipe).
   dayOffset: number
-  calYear: number
-  calMonth: number
-  planWeekOffset: number
-  selectedFase: string | null
 
   // Actions
   setActivities: (activities: Activity[]) => void
@@ -102,12 +94,7 @@ type DataStore = {
   // Compat-aliassen (worden in fase 4 vervangen door bovenstaande):
   activateSchemaById: (id: string, name: string) => Promise<void>
   activateImport: (schemaId: string, schemaName: string, span?: SchemaSpan) => Promise<void>
-  setTab: (tab: TabName) => void
-  setWeekOffset: (offset: number) => void
   setDayOffset: (offset: number) => void
-  setCalDate: (year: number, month: number) => void
-  setPlanWeekOffset: (offset: number) => void
-  setSelectedFase: (fase: string | null) => void
 }
 
 export const useDataStore = create<DataStore>((set, get) => ({
@@ -121,13 +108,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   schemaId: null,
   schemaName: null,
 
-  currentTab: 'today',
-  weekOffset: 0,
   dayOffset: 0,
-  calYear: new Date().getFullYear(),
-  calMonth: new Date().getMonth(),
-  planWeekOffset: 0,
-  selectedFase: null,
 
   setActivities: (activities) => set({ activities }),
   upsertActivity: (activity) =>
@@ -317,10 +298,5 @@ export const useDataStore = create<DataStore>((set, get) => ({
     await persistVisible(d.visibleSchemaIds)
   },
 
-  setTab: (currentTab) => set({ currentTab }),
-  setWeekOffset: (weekOffset) => set({ weekOffset }),
   setDayOffset: (dayOffset) => set({ dayOffset }),
-  setCalDate: (calYear, calMonth) => set({ calYear, calMonth }),
-  setPlanWeekOffset: (planWeekOffset) => set({ planWeekOffset }),
-  setSelectedFase: (selectedFase) => set({ selectedFase }),
 }))
