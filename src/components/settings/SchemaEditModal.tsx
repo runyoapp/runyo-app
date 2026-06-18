@@ -42,22 +42,40 @@ export function SchemaEditModal({ schema, visible, onClose, onExport, exporting 
   const [startMon, setStartMon] = useState('')
   const [weekCount, setWeekCount] = useState(1)
   const [saving,   setSaving]   = useState(false)
+  // Beginwaarden bij openen — om te bepalen of er iets gewijzigd is (dirty).
+  const [initial, setInitial] = useState({ name: '', shown: true, color: '#00B98E', startMon: '', weekCount: 1 })
 
   // Resetten telkens als de modal opent voor een (ander) schema.
   useEffect(() => {
     if (!visible || !schema) return
     const sp = effectiveSpan(activities, schema)
-    setName(schema.name)
-    setShown(schema.isVisible)
-    setColor(schemaColor(schema, schemaList))
-    setStartMon(sp.start)
-    setWeekCount(sp.weeks)
+    const snap = {
+      name: schema.name,
+      shown: schema.isVisible,
+      color: schemaColor(schema, schemaList),
+      startMon: sp.start,
+      weekCount: sp.weeks,
+    }
+    setName(snap.name)
+    setShown(snap.shown)
+    setColor(snap.color)
+    setStartMon(snap.startMon)
+    setWeekCount(snap.weekCount)
+    setInitial(snap)
     setSaving(false)
   }, [visible, schema?.id])
 
   if (!schema) return null
 
   const subtitle = `${weekCount} ${weekCount === 1 ? 'week' : 'weken'} · start ${fmt(startMon)}`
+
+  // De opslaan-/annuleren-balk verschijnt alleen zodra er een veld is gewijzigd.
+  const dirty =
+    name.trim() !== initial.name ||
+    shown !== initial.shown ||
+    color !== initial.color ||
+    startMon !== initial.startMon ||
+    weekCount !== initial.weekCount
 
   async function handleSave() {
     if (!schema) return
@@ -98,7 +116,7 @@ export function SchemaEditModal({ schema, visible, onClose, onExport, exporting 
       subtitle={subtitle}
       accentDot={color}
       onClose={onClose}
-      footer={<SaveBar label="Opslaan" onSave={handleSave} onCancel={onClose} saving={saving} />}
+      footer={dirty ? <SaveBar label="Opslaan" onSave={handleSave} onCancel={onClose} saving={saving} /> : undefined}
     >
       <View style={{ gap: Spacing.lg }}>
         <View>
