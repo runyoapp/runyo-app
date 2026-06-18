@@ -76,27 +76,27 @@ beforeEach(() => {
 // ── 1. excelToText ────────────────────────────────────────────────────────────
 
 describe('excelToText', () => {
-  it('converts base64 xlsx to CSV string via xlsx library', () => {
+  it('converts base64 xlsx to CSV string via xlsx library', async () => {
     const fakeSheet = { '!ref': 'A1:C2' }
     xlsxRead.mockReturnValue({ Sheets: { Sheet1: fakeSheet }, SheetNames: ['Sheet1'] })
     xlsxSheetToCsv.mockReturnValue('datum,type,titel\n2026-06-01,run,Easy run')
 
-    const result = excelToText('FAKEB64==')
+    const result = await excelToText('FAKEB64==')
 
     expect(xlsxRead).toHaveBeenCalledWith('FAKEB64==', { type: 'base64' })
     expect(xlsxSheetToCsv).toHaveBeenCalledWith(fakeSheet)
     expect(result).toBe('datum,type,titel\n2026-06-01,run,Easy run')
   })
 
-  it('throws the quickfix help when the workbook is unreadable (e.g. macro file)', () => {
+  it('throws the quickfix help when the workbook is unreadable (e.g. macro file)', async () => {
     xlsxRead.mockImplementation(() => { throw new Error('corrupt') })
-    expect(() => excelToText('FAKEB64==')).toThrow(EXCEL_HELP)
+    await expect(excelToText('FAKEB64==')).rejects.toThrow(EXCEL_HELP)
   })
 
-  it('throws the quickfix help when the first sheet is empty', () => {
+  it('throws the quickfix help when the first sheet is empty', async () => {
     xlsxRead.mockReturnValue({ Sheets: { Sheet1: { '!ref': 'A1' } }, SheetNames: ['Sheet1'] })
     xlsxSheetToCsv.mockReturnValue('\n,,\n,,\n')
-    expect(() => excelToText('FAKEB64==')).toThrow(EXCEL_HELP)
+    await expect(excelToText('FAKEB64==')).rejects.toThrow(EXCEL_HELP)
   })
 })
 

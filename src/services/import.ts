@@ -6,7 +6,7 @@ import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as FileSystem from 'expo-file-system/legacy'
-import * as xlsx from 'xlsx'
+import type * as xlsx from 'xlsx'
 import { createSchema, deleteSchema, type SchemaSpan } from './schemas'
 import { createActivitiesBatch, type ActivityCreateInput } from './activities'
 import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
@@ -167,7 +167,12 @@ export const EXCEL_HELP =
   '• Sla op als gewone .xlsx zonder macro\'s (niet als .xlsm).\n' +
   '• Of exporteer het als openbare Google Sheet en plak de link.'
 
-export function excelToText(base64: string): string {
+export async function excelToText(base64: string): Promise<string> {
+  // Lazy-load: de xlsx-library (~430KB) wordt pas opgehaald wanneer een
+  // gebruiker daadwerkelijk een Excel-bestand importeert (≈1% van de sessies).
+  // Metro splitst dit in een eigen web-chunk i.p.v. de koude-start-bundle.
+  const xlsxMod = await import('xlsx')
+  const xlsx = (xlsxMod.default ?? xlsxMod) as typeof import('xlsx')
   let wb: xlsx.WorkBook
   try {
     wb = xlsx.read(base64, { type: 'base64' })
@@ -401,7 +406,7 @@ export async function analyseSchema(
       { type: 'text', text: userText },
     ]
   } else if (isExcel) {
-    const csvText = excelToText(fileB64)
+    const csvText = await excelToText(fileB64)
     userContent = [
       { type: 'text', text: csvText },
       { type: 'text', text: userText },
