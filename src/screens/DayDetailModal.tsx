@@ -49,8 +49,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const theme          = useTheme()
   const queryClient    = useQueryClient()
   const getToken       = useAuthStore(s => s.getToken)
-  const schemaList       = useDataStore(s => s.schemaList)
-  const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
+  const schemaList     = useDataStore(s => s.schemaList)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const removeActivity = useDataStore(s => s.removeActivity)
   // Live versie uit de store — zo blijft de weergave (o.a. beoordeling) actueel
@@ -100,8 +99,8 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const hasDist = DIST_TYPES.has(type)
   const headDot = (editing ? activityDot(type) : colors.text) ?? undefined
 
-  // Schema-label + verplaatsen alleen tonen als er meerdere schema's zichtbaar zijn.
-  const multiSchema  = visibleSchemaIds.length >= 2
+  // Schema-koppeling altijd tonen: het label in de weergave en de kiezer (= verplaatsen)
+  // in het bewerkformulier, ook bij één schema (staat dan voorgeselecteerd op het eigen plan).
   const ownSchema    = schemaList.find(s => s.id === act.schemaId) ?? null
   const schemaChips: ChipOption[] = schemaList
     .filter(s => !s.isArchived)
@@ -214,7 +213,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
           <View style={styles.badgeRow}>
             <View style={[styles.typeDot, { backgroundColor: colors.text }]} />
             <Text style={[styles.typeLabel, { color: theme.muted }]}>{typeLabel}</Text>
-            {multiSchema && ownSchema && (
+            {ownSchema && (
               <>
                 <Text style={[styles.typeLabel, { color: theme.faint }]}>·</Text>
                 <View style={[styles.typeDot, { backgroundColor: schemaColor(ownSchema, schemaList) }]} />
@@ -263,9 +262,9 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
             <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
           </View>
 
-          {multiSchema && (
+          {schemaChips.length > 0 && (
             <View>
-              <FieldLabel hint="· verplaatsen">Schema</FieldLabel>
+              <FieldLabel hint="· koppelen">Schema</FieldLabel>
               <ChipSelect options={schemaChips} value={act.schemaId} onChange={handleMove} />
             </View>
           )}

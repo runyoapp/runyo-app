@@ -93,3 +93,20 @@ export function pickSchemaForDate(
   )[0]
   return { kind: 'one', schemaId: mostRecent.id }
 }
+
+// Eén schema als voorselectie voor een datum: het zichtbare schema waarvan de span
+// de datum dekt; bij overlap het meest recent aangemaakte; valt de datum buiten alles
+// dan het meest recente zichtbare. Null = geen zichtbaar schema (caller maakt er een aan).
+export function routeSchemaId(
+  datum: string,
+  schemas: SchemaMeta[],
+  activities: Activity[],
+): string | null {
+  const pick = pickSchemaForDate(datum, schemas, activities)
+  if (pick.kind === 'none') return null
+  if (pick.kind === 'one') return pick.schemaId
+  const byRecent = pick.schemaIds
+    .map(id => schemas.find(s => s.id === id)!)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return byRecent[0].id
+}
