@@ -59,7 +59,6 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
   const theme          = useTheme()
   const insets         = useSafeAreaInsets()
   const allActivities  = useDataStore(s => s.activities)
-  const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
   const queryClient    = useQueryClient()
@@ -167,18 +166,26 @@ export function WeekbouwerScreen({ weekMonday, weeks, onBack, onEditActivity, on
   }
 
   async function handlePaste() {
-    if (!clipboard || !schemaId || pasting) return
+    if (!clipboard || pasting) return
     setPasting(true)
     const srcMon = fromDateString(clipboard.sourceMonday)
     const tgtMon = fromDateString(weekMonday)
-    const inputs: ActivityCreateInput[] = clipboard.sessions.map(a => {
+    // Elke gekopieerde sessie hoort bij háár eigen schema (multi-schema tijdlijn) —
+    // groepeer per bronschema en batch per schema in dat schema terug.
+    const bySchema = new Map<string, ActivityCreateInput[]>()
+    for (const a of clipboard.sessions) {
       const dayIdx = Math.round((fromDateString(a.datum).getTime() - srcMon.getTime()) / 86400000)
-      return copyInput(a, toDateString(addDays(tgtMon, dayIdx)))
-    })
+      const input = copyInput(a, toDateString(addDays(tgtMon, dayIdx)))
+      const list = bySchema.get(a.schemaId) ?? []
+      list.push(input)
+      bySchema.set(a.schemaId, list)
+    }
     try {
-      const created = await createActivitiesBatch(schemaId, inputs)
-      created.forEach(upsertActivity)
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      for (const [sid, inputs] of bySchema) {
+        const created = await createActivitiesBatch(sid, inputs)
+        created.forEach(upsertActivity)
+        await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', sid] })
+      }
       showToast(`Geplakt in week ${weekMeta?.num ?? ''}`.trim())
     } catch {
       showToast('Plakken mislukt, probeer opnieuw.')

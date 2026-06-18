@@ -79,7 +79,6 @@ type Props = {
 // scherm-coördinaten tegen gemeten rij-rects werkt betrouwbaar op web én touch.
 export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActivity, onDragChange }: Props) {
   const theme          = useTheme()
-  const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
   const queryClient    = useQueryClient()
@@ -129,7 +128,7 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
 
   async function commitMove(activity: Activity, toIdx: number) {
     const target = weekRef.current[toIdx]
-    if (!target || !schemaId || target.datum === activity.datum) return
+    if (!target || target.datum === activity.datum) return
 
     // Markeer als net-verplaatst → de pill mount op de nieuwe dag met de in-animatie.
     setJustMovedId(activity.id)
@@ -138,8 +137,10 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
 
     upsertActivity({ ...activity, datum: target.datum })   // optimistic
     try {
-      await patchActivity(schemaId, activity.id, { datum: target.datum })
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
+      // Per activiteit naar háár eigen schema patchen — een zichtbare sessie kan
+      // van een niet-primair schema komen (multi-schema tijdlijn).
+      await patchActivity(activity.schemaId, activity.id, { datum: target.datum })
+      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activity.schemaId] })
       showToast(`Verplaatst naar ${target.label} ${target.dayNum}`)
     } catch {
       upsertActivity(activity)             // rollback
