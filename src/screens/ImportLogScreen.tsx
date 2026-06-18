@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { getImportLog, downloadImportFile, type ImportLogEntry } from '@/services/ai'
 
@@ -223,10 +223,10 @@ export function ImportLogScreen() {
 const styles = StyleSheet.create({
   root:        { flex: 1 },
   titleRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg },
-  pageTitle:   { fontFamily: Fonts.displayBold, fontSize: 28, color: LightTheme.text, letterSpacing: -0.5 },
+  pageTitle:   { fontFamily: Fonts.displayBold, fontSize: 28, letterSpacing: -0.5 },
   subTitle:    { fontFamily: Fonts.mono, fontSize: 11, marginTop: 2 },
   closeBtn:    { padding: Spacing.sm },
-  closeBtnText:{ fontFamily: Fonts.display, fontSize: 20, color: LightTheme.muted },
+  closeBtnText:{ fontFamily: Fonts.display, fontSize: 20 },
   scroll:      { flex: 1 },
   scrollContent: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
   center:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },

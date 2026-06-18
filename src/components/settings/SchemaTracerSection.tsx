@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { createSchema } from '@/services/schemas'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
 // TODO(1.2e/2.1): tracer UI — vervang door echte schema-aware flow.
@@ -50,7 +50,7 @@ export function SchemaTracerSection() {
   if (schemaId === null) {
     return (
       <View style={styles.row}>
-        <Text style={styles.body}>Nog geen schema</Text>
+        <Text style={[styles.body, { color: theme.text }]}>Nog geen schema</Text>
         <TouchableOpacity style={styles.btn} onPress={handleCreate} disabled={loading} activeOpacity={0.8}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Maak schema</Text>}
         </TouchableOpacity>
@@ -60,7 +60,7 @@ export function SchemaTracerSection() {
 
   return (
     <View style={styles.row}>
-      <Text style={styles.body}>Schema: 0 trainingen</Text>
+      <Text style={[styles.body, { color: theme.text }]}>Schema: 0 trainingen</Text>
       <Text style={[styles.idHint, { color: theme.muted }]}>{schemaId.slice(0, 8)}…</Text>
     </View>
   )
@@ -78,7 +78,6 @@ const styles = StyleSheet.create({
   body: {
     fontFamily: Fonts.displayMedium,
     fontSize: 15,
-    color: LightTheme.text,
   },
   idHint: {
     fontFamily: Fonts.displayMedium,

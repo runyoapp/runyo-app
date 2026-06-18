@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
@@ -44,14 +44,14 @@ export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
-      <Text style={styles.title}>Hoe was je training?</Text>
+      <Text style={[styles.title, { color: theme.text }]}>Hoe was je training?</Text>
       <View style={styles.stars}>
         {EMOJIS.map((emoji, i) => {
           const val = i + 1
           return (
             <TouchableOpacity
               key={val}
-              style={[styles.starBtn, rating >= val && styles.starBtnActive]}
+              style={[styles.starBtn, { backgroundColor: rating >= val ? theme.accentGlow : theme.bgAlt }]}
               onPress={() => setRating(val)}
             >
               <Text style={styles.starEmoji}>{emoji}</Text>
@@ -60,16 +60,16 @@ export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
         })}
       </View>
       <TextInput
-        style={styles.textarea}
+        style={[styles.textarea, { color: theme.text, backgroundColor: theme.bg }]}
         placeholder="Optionele notitie..."
-        placeholderTextColor={LightTheme.faint}
+        placeholderTextColor={theme.faint}
         value={text}
         onChangeText={setText}
         multiline
         numberOfLines={3}
       />
       <TouchableOpacity
-        style={[styles.submitBtn, (!rating || saving) && styles.submitBtnDisabled]}
+        style={[styles.submitBtn, { backgroundColor: theme.accent }, (!rating || saving) && styles.submitBtnDisabled]}
         onPress={handleSubmit}
         disabled={!rating || saving}
       >
@@ -79,7 +79,7 @@ export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
       </TouchableOpacity>
       {isEdit && onCancel && (
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-          <Text style={styles.cancelBtnText}>Annuleren</Text>
+          <Text style={[styles.cancelBtnText, { color: theme.muted }]}>Annuleren</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -91,12 +91,12 @@ export function FeedbackDisplay({ feedback, onEdit }: { feedback: string; onEdit
   return (
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
       <View style={styles.displayHeader}>
-        <Text style={styles.displayLabel}>Beoordeling opgeslagen</Text>
+        <Text style={[styles.displayLabel, { color: theme.muted }]}>Beoordeling opgeslagen</Text>
         <TouchableOpacity onPress={onEdit}>
-          <Text style={styles.editLink}>Bewerken</Text>
+          <Text style={[styles.editLink, { color: theme.accent }]}>Bewerken</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.displayText}>{feedback}</Text>
+      <Text style={[styles.displayText, { color: theme.text }]}>{feedback}</Text>
     </View>
   )
 }
@@ -140,7 +140,6 @@ const styles = StyleSheet.create({
   badgeNote:  { fontFamily: Fonts.display, fontSize: 14, lineHeight: 19 },
   badgeEdit:  { fontFamily: Fonts.displayMedium, fontSize: 13 },
   container: {
-    backgroundColor: LightTheme.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     marginHorizontal: Spacing.lg,
@@ -149,7 +148,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: 15,
-    color: LightTheme.text,
     marginBottom: Spacing.md,
   },
   stars: {
@@ -162,17 +160,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.sm,
     borderRadius: Radius.md,
-    backgroundColor: LightTheme.bgAlt,
-  },
-  starBtnActive: {
-    backgroundColor: LightTheme.accentGlow,
   },
   starEmoji: { fontSize: 22 },
   textarea: {
     fontFamily: Fonts.display,
     fontSize: 14,
-    color: LightTheme.text,
-    backgroundColor: LightTheme.bg,
     borderRadius: Radius.md,
     padding: Spacing.md,
     minHeight: 72,
@@ -180,7 +172,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   submitBtn: {
-    backgroundColor: LightTheme.accent,
     borderRadius: Radius.md,
     padding: Spacing.md,
     alignItems: 'center',
@@ -201,7 +192,6 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontFamily: Fonts.display,
     fontSize: 14,
-    color: LightTheme.muted,
   },
   displayHeader: {
     flexDirection: 'row',
@@ -212,17 +202,14 @@ const styles = StyleSheet.create({
   displayLabel: {
     fontFamily: Fonts.displayMedium,
     fontSize: 13,
-    color: LightTheme.muted,
   },
   editLink: {
     fontFamily: Fonts.displayMedium,
     fontSize: 13,
-    color: LightTheme.accent,
   },
   displayText: {
     fontFamily: Fonts.display,
     fontSize: 14,
-    color: LightTheme.text,
     lineHeight: 20,
   },
 })

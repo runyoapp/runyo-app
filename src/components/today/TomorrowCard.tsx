@@ -1,6 +1,6 @@
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native'
 import { ActivityColors } from '@/constants/theme'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { DAYS_NL, toDateString, addDays, mondayIndex } from '@/utils/date'
@@ -23,13 +23,13 @@ export function TomorrowCard({ activity, onPress }: Props) {
     <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface }]} onPress={onPress} activeOpacity={0.85}>
       <View style={[styles.bar, { backgroundColor: colors.text }]} />
       <View style={styles.body}>
-        <Text style={styles.label}>Morgen · {dayStr}</Text>
-        <Text style={styles.title}>
+        <Text style={[styles.label, { color: theme.muted }]}>Morgen · {dayStr}</Text>
+        <Text style={[styles.title, { color: theme.text }]}>
           {activity.titel || label}
           {activity.km ? ` · ${activity.km} km` : ''}
         </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={[styles.chevron, { color: theme.faint }]}>›</Text>
     </TouchableOpacity>
   )
 }
@@ -38,7 +38,6 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: LightTheme.surface,
     borderRadius: Radius.lg,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
@@ -56,19 +55,16 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: Fonts.displayMedium,
     fontSize: 11,
-    color: LightTheme.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   title: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: 15,
-    color: LightTheme.text,
   },
   chevron: {
     fontFamily: Fonts.display,
     fontSize: 20,
-    color: LightTheme.faint,
     paddingRight: Spacing.md,
   },
 })
