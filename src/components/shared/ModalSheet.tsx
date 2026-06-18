@@ -92,6 +92,28 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
     atTop.current = e.nativeEvent.contentOffset.y <= 0
   }
 
+  const scrollView = (
+    <ScrollView
+      ref={sv}
+      style={styles.scroll}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+    >
+      {children}
+    </ScrollView>
+  )
+
+  // Op web slokt een Pan rond de ScrollView de browser-scroll op (RNGH componeert
+  // daar niet met de native scroll) — dus daar de scroll bloot laten; swipe-sluiten
+  // gaat via de header, de backdrop-tik en het kruisje. Op native wél de hele
+  // inhoud swipebaar maken.
+  const scrollArea = Platform.OS === 'web'
+    ? scrollView
+    : <GestureDetector gesture={contentPan}>{scrollView}</GestureDetector>
+
   return (
     <Modal
       visible={visible}
@@ -129,19 +151,7 @@ export function ModalSheet({ visible, title, onClose, children, subtitle, accent
               </View>
             </GestureDetector>
 
-            <GestureDetector gesture={contentPan}>
-              <ScrollView
-                ref={sv}
-                style={styles.scroll}
-                contentContainerStyle={[styles.scrollContent, { paddingBottom: footer ? Spacing.lg : insets.bottom + Spacing.xl }]}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                onScroll={onScroll}
-                scrollEventThrottle={16}
-              >
-                {children}
-              </ScrollView>
-            </GestureDetector>
+            {scrollArea}
 
             {footer && (
               <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: insets.bottom + Spacing.md }]}>
