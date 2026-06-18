@@ -138,6 +138,14 @@ export function ImportWizard({
     // Overlap met alle reeds weergegeven schema's (samengevoegd, informatief).
     setOverlap(overlapCount(rows, new Set(storeActivities.map(a => a.datum))))
 
+    // Vaste plan-span uit de zojuist goedgekeurde review: start = maandag van week 1
+    // (dezelfde verankering als het reviewscherm, niet de ruwe startDate), weekCount =
+    // aantal review-weken. Dit wordt de looptijd, ongevoelig voor latere activiteiten.
+    const reviewWeeks = buildReviewWeeks(rows, data.startDate)
+    const span = reviewWeeks.length
+      ? { startDate: reviewWeeks[0].days[0].datum, weekCount: reviewWeeks.length }
+      : undefined
+
     // Onthoud welke schema's nu zichtbaar zijn, vóór de import er één toevoegt.
     const prevVisible = visibleSchemaIds
 
@@ -148,8 +156,9 @@ export function ImportWizard({
         rows, getToken,
         pct => flow.setSavedCount(Math.round((pct / 100) * rows.length)),
         data.result?.schemaTitle || undefined,
+        span,
       )
-      await activateImport(schemaId, data.result?.schemaTitle || 'Geïmporteerd schema')
+      await activateImport(schemaId, data.result?.schemaTitle || 'Geïmporteerd schema', span)
       queryClient.setQueryData(['activities', 'backend', schemaId], activities)
       // "Niet weergeven" gekozen → zet de vorige schema's na de import uit.
       if (!keepOld) {

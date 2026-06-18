@@ -1,11 +1,18 @@
 import { BACKEND, getAccessToken } from './auth'
 
+// Vaste plan-span, één keer vastgelegd bij import: startDate = maandag van week 1,
+// weekCount = aantal weken. null = legacy-schema → effectiveSpan() leidt de span af
+// uit de activiteit-datums.
+export type SchemaSpan = { startDate: string; weekCount: number }
+
 export type Schema = {
   id: string
   userId: string
   name: string
   isVisible: boolean
   isArchived: boolean
+  startDate: string | null
+  weekCount: number | null
   createdAt: string
 }
 
@@ -20,15 +27,27 @@ function ensureOk(status: number, context: string): void {
   if (status >= 400) throw new Error(`${context} request failed: ${status}`)
 }
 
-export async function createSchema(name = 'Leeg schema'): Promise<{ id: string }> {
+export async function createSchema(name = 'Leeg schema', span?: SchemaSpan): Promise<{ id: string }> {
   const headers = await authHeaders()
   const res = await fetch(`${BACKEND}/api/schemas`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(span ? { name, ...span } : { name }),
   })
   ensureOk(res.status, 'create schema')
   return await res.json() as { id: string }
+}
+
+// Vaste plan-span instellen of bijwerken — voor de weekduur-instelling en de
+// eenmalige backfill van legacy-schema's.
+export async function setSchemaSpan(id: string, span: SchemaSpan): Promise<void> {
+  const headers = await authHeaders()
+  const res = await fetch(`${BACKEND}/api/schemas/${id}/span`, {
+    method: 'PATCH',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(span),
+  })
+  ensureOk(res.status, 'set schema span')
 }
 
 export async function getMySchemas(): Promise<Schema[]> {

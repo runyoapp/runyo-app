@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as xlsx from 'xlsx'
-import { createSchema, deleteSchema } from './schemas'
+import { createSchema, deleteSchema, type SchemaSpan } from './schemas'
 import { createActivitiesBatch, type ActivityCreateInput } from './activities'
 import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
 import type { Activity, ActivityType } from '@/types/activity'
@@ -487,10 +487,12 @@ export async function importToBackend(
   getToken: () => Promise<string | null>,
   onProgress: (pct: number) => void,
   schemaName?: string,
+  span?: SchemaSpan,
 ): Promise<{ schemaId: string; activities: Activity[] }> {
   // Schema pas hier aanmaken (op "Schema importeren"), zodat een mislukte analyse
-  // nooit een leeg schema achterlaat.
-  const { id: schemaId } = schemaName ? await createSchema(schemaName) : await createSchema()
+  // nooit een leeg schema achterlaat. De vaste plan-span (start + weekduur) wordt
+  // meteen meegegeven zodat de looptijd niet meer uit de datums hoeft.
+  const { id: schemaId } = await createSchema(schemaName || 'Leeg schema', span)
 
   try {
     const inputs: ActivityCreateInput[] = rows.map(row => ({

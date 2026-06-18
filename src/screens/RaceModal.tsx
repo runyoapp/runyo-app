@@ -10,6 +10,9 @@ import { DayPicker } from '@/components/shared/DayPicker'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { createActivity, patchActivity } from '@/services/activities'
+import { createSchema } from '@/services/schemas'
+import { pickSchemaForDate } from '@/utils/schemaRouting'
+import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
 import { ActivityColors, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString } from '@/utils/date'
@@ -20,6 +23,18 @@ type Props = {
   prefillDate?: string
   visible: boolean
   onClose: () => void
+}
+
+// Velden die naar de backend gaan bij het opslaan van een race.
+type RacePayload = {
+  datum: string
+  titel: string
+  type: 'race'
+  km: number | null
+  detail: string
+  raceType: string | null
+  goalTime: string | null
+  isMainGoal: boolean
 }
 
 const RACE_DIST: { key: string; label: string; km: number | null }[] = [
@@ -65,12 +80,17 @@ function parseGoal(goal: string): { h: string; m: string; s: string } {
 export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const t              = useTheme()
   const queryClient    = useQueryClient()
-  const schemaId       = useDataStore(s => s.schemaId)
+  const schemaList     = useDataStore(s => s.schemaList)
+  const activities     = useDataStore(s => s.activities)
+  const activateImport = useDataStore(s => s.activateImport)
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
 
   const isEdit   = !!activity
   const raceHex  = ActivityColors.race.text
+
+  // Bij een nieuwe race waarvan de datum in 2+ zichtbare schema's valt: keuzelijst.
+  const [ambiguous, setAmbiguous] = useState<{ ids: string[]; payload: RacePayload } | null>(null)
 
   const [name,       setName]       = useState('')
   const [date,       setDate]       = useState('')
@@ -118,6 +138,30 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
   const dleft    = daysUntil(date)
   const hasGoal  = totalSec > 0
 
+  function buildPayload(): RacePayload {
+    const goalTime = hasGoal ? (parseInt(h || '0') > 0
+      ? `${parseInt(h || '0')}:${(m || '0').padStart(2, '0')}:${(s || '0').padStart(2, '0')}`
+      : `${parseInt(m || '0')}:${(s || '0').padStart(2, '0')}`) : null
+    return {
+      datum: date, titel: name, type: 'race', km: selKm,
+      detail: notes, raceType: raceType || null, goalTime, isMainGoal: mainGoal,
+    }
+  }
+
+  // Schrijft de race naar het gekozen schema (create of patch) en bevestigt.
+  async function persistRace(targetSchemaId: string, payload: RacePayload) {
+    if (isEdit) {
+      const updated = await patchActivity(targetSchemaId, activity!.id, payload)
+      upsertActivity({ ...activity!, ...updated })
+    } else {
+      const created = await createActivity(targetSchemaId, payload)
+      upsertActivity(created)
+    }
+    await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', targetSchemaId] })
+    showToast('✓ Race opgeslagen')
+    onClose()
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       setMissing('name')
@@ -131,27 +175,27 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
       showToast('Vul een datum in')
       return
     }
-    if (!schemaId) { showToast('Geen schema gekoppeld'); return }
 
+    const payload = buildPayload()
     setSaving(true)
     try {
-      const goalTime = hasGoal ? (parseInt(h || '0') > 0
-        ? `${parseInt(h || '0')}:${(m || '0').padStart(2, '0')}:${(s || '0').padStart(2, '0')}`
-        : `${parseInt(m || '0')}:${(s || '0').padStart(2, '0')}`) : null
-      const payload = {
-        datum: date, titel: name, type: 'race' as const, km: selKm,
-        detail: notes, raceType: raceType || null, goalTime, isMainGoal: mainGoal,
-      }
       if (isEdit) {
-        const updated = await patchActivity(schemaId, activity!.id, payload)
-        upsertActivity({ ...activity!, ...updated })
+        // Een bestaande race blijft in haar eigen schema (geen herroutering).
+        await persistRace(activity!.schemaId, payload)
       } else {
-        const created = await createActivity(schemaId, payload)
-        upsertActivity(created)
+        // Nieuwe race routeren als een gewone activiteit: op datum, vraag alleen bij
+        // overlap. De vaste plan-span zorgt dat dit het schema niet opknipt.
+        const pick = pickSchemaForDate(date, schemaList, activities)
+        if (pick.kind === 'none') {
+          const { id } = await createSchema('Mijn schema')
+          await activateImport(id, 'Mijn schema')
+          await persistRace(id, payload)
+        } else if (pick.kind === 'one') {
+          await persistRace(pick.schemaId, payload)
+        } else {
+          setAmbiguous({ ids: pick.schemaIds, payload })
+        }
       }
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      showToast('✓ Race opgeslagen')
-      onClose()
     } catch {
       showToast('Opslaan mislukt')
     } finally {
@@ -159,7 +203,27 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
     }
   }
 
+  async function handlePickSchema(id: string) {
+    const payload = ambiguous?.payload
+    setAmbiguous(null)
+    if (!payload) return
+    setSaving(true)
+    try {
+      await persistRace(id, payload)
+    } catch {
+      showToast('Opslaan mislukt')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const ambiguousItems: ActionMenuItem[] = (ambiguous?.ids ?? []).map(id => ({
+    label: schemaList.find(s => s.id === id)?.name ?? id,
+    onPress: () => handlePickSchema(id),
+  }))
+
   return (
+    <>
     <ModalSheet
       visible={visible}
       title={isEdit ? 'Race bewerken' : 'Race toevoegen'}
@@ -250,6 +314,14 @@ export function RaceModal({ activity, prefillDate, visible, onClose }: Props) {
         </View>
       </View>
     </ModalSheet>
+
+    <ActionMenu
+      visible={ambiguous !== null}
+      title="Aan welk schema toevoegen?"
+      items={ambiguousItems}
+      onClose={() => setAmbiguous(null)}
+    />
+    </>
   )
 }
 

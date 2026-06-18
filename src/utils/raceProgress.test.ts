@@ -12,7 +12,10 @@ function act(p: Partial<Activity>): Activity {
   }
 }
 function schema(p: Partial<SchemaMeta> = {}): SchemaMeta {
-  return { id: 's1', name: '', isVisible: true, isArchived: false, createdAt: '2026-01-05T00:00:00Z', ...p }
+  return {
+    id: 's1', name: '', isVisible: true, isArchived: false,
+    startDate: null, weekCount: null, createdAt: '2026-01-05T00:00:00Z', ...p,
+  }
 }
 
 describe('parseGoalSeconds', () => {
@@ -53,5 +56,32 @@ describe('weekProgress', () => {
   it('null bij een blok korter dan 2 weken', () => {
     const a2 = [act({ datum: '2026-01-05' }), act({ datum: '2026-01-08', type: 'race' })]
     expect(weekProgress(a2[1], [schema()], a2, new Date('2026-01-05T12:00:00'))).toBeNull()
+  })
+
+  it('opgeslagen span: totaal = weekCount, ongevoelig voor de racedatum', () => {
+    const stored = schema({ startDate: '2026-01-05', weekCount: 12 })
+    // Race in week 3 (midden in het plan) mag het totaal niet veranderen.
+    const midRace = act({ datum: '2026-01-19', type: 'race' })
+    const p = weekProgress(midRace, [stored], [act({ datum: '2026-01-05' }), midRace],
+      new Date('2026-01-05T12:00:00'))
+    expect(p!.total).toBe(12)
+    expect(p!.done).toBe(1)
+  })
+
+  it('opgeslagen span: korte plannen (< 2 weken) tonen wel, anders dan legacy', () => {
+    const stored = schema({ startDate: '2026-01-05', weekCount: 1 })
+    const p = weekProgress(act({ datum: '2026-01-08', type: 'race' }), [stored],
+      [act({ datum: '2026-01-08', type: 'race' })], new Date('2026-01-05T12:00:00'))
+    expect(p).not.toBeNull()
+    expect(p!.total).toBe(1)
+  })
+
+  it('opgeslagen span is een ondergrens: rekt op tot een latere activiteit', () => {
+    const stored = schema({ startDate: '2026-01-05', weekCount: 12 })
+    // Losse training in week 14 (13 weken na de maandag-start) → span groeit naar 14.
+    const acts14 = [act({ datum: '2026-01-05' }), act({ datum: '2026-04-06' })]
+    const race = act({ datum: '2026-03-28', type: 'race' })
+    const p = weekProgress(race, [stored], [...acts14, race], new Date('2026-01-05T12:00:00'))
+    expect(p!.total).toBe(14)
   })
 })

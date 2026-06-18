@@ -9,11 +9,21 @@ import { syncActivitiesToSheet } from '@/services/sheets'
 import { createExportSheet } from '@/services/drive'
 import { createSchema, renameSchema } from '@/services/schemas'
 import type { SchemaMeta } from '@/stores/dataStore'
+import { effectiveSpan } from '@/utils/schemaRouting'
+import { fromDateString, MONTHS_NL } from '@/utils/date'
+import type { Activity } from '@/types/activity'
 import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
 import { Fonts } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { SectionLabel, Card, Divider, ActionRow } from './ui'
+
+// "12 weken · start 1 sep" — toont altijd een waarde (afgeleid bij een legacy-schema).
+function spanTextFor(schema: SchemaMeta, activities: Activity[]): string {
+  const sp = effectiveSpan(activities, schema)
+  const d = fromDateString(sp.start)
+  return `${sp.weeks} ${sp.weeks === 1 ? 'week' : 'weken'} · start ${d.getDate()} ${MONTHS_NL[d.getMonth()]}`
+}
 
 // ── kleine glyphs ──────────────────────────────────────────
 function DocGlyph({ color }: { color: string }) {
@@ -36,14 +46,21 @@ function Chevron({ open, color }: { open: boolean; color: string }) {
 }
 
 // ── Mijn schema's rij ──────────────────────────────────────
-function SchemaRow({ s, last, renaming, renameValue, onRenameChange, onRenameCommit, onRenameCancel, onOpenMenu }: {
+function SchemaRow({ s, last, spanText, renaming, renameValue, onRenameChange, onRenameCommit, onRenameCancel,
+  editingSpan, spanValue, onSpanChange, onSpanCommit, onSpanCancel, onOpenMenu }: {
   s: SchemaMeta
   last: boolean
+  spanText: string
   renaming: boolean
   renameValue: string
   onRenameChange: (v: string) => void
   onRenameCommit: () => void
   onRenameCancel: () => void
+  editingSpan: boolean
+  spanValue: string
+  onSpanChange: (v: string) => void
+  onSpanCommit: () => void
+  onSpanCancel: () => void
   onOpenMenu: () => void
 }) {
   const theme = useTheme()
@@ -70,16 +87,34 @@ function SchemaRow({ s, last, renaming, renameValue, onRenameChange, onRenameCom
             <Text style={[styles.schemaName, { color: theme.text }, s.isArchived && { color: theme.muted }]} numberOfLines={1}>
               {s.name}{s.isArchived ? ' · gearchiveerd' : ''}
             </Text>
+            {editingSpan ? (
+              <View style={styles.spanEditRow}>
+                <TextInput
+                  style={[styles.spanInput, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.bg }]}
+                  value={spanValue}
+                  onChangeText={v => onSpanChange(v.replace(/\D/g, '').slice(0, 2))}
+                  onSubmitEditing={onSpanCommit}
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  placeholder="weken"
+                  placeholderTextColor={theme.faint}
+                  autoFocus
+                />
+                <Text style={[styles.spanUnit, { color: theme.muted }]}>weken</Text>
+              </View>
+            ) : (
+              <Text style={[styles.schemaSpan, { color: theme.muted }]} numberOfLines={1}>{spanText}</Text>
+            )}
           </>
         )}
       </View>
 
-      {renaming ? (
+      {renaming || editingSpan ? (
         <View style={styles.renameActions}>
-          <TouchableOpacity onPress={onRenameCancel} hitSlop={8}>
+          <TouchableOpacity onPress={editingSpan ? onSpanCancel : onRenameCancel} hitSlop={8}>
             <Text style={[styles.renameBtn, { color: theme.muted }]}>✕</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onRenameCommit} hitSlop={8}>
+          <TouchableOpacity onPress={editingSpan ? onSpanCommit : onRenameCommit} hitSlop={8}>
             <Text style={[styles.renameBtn, { color: theme.accent }]}>✓</Text>
           </TouchableOpacity>
         </View>
@@ -105,6 +140,7 @@ export function ConnectSection() {
   const loadMySchemas     = useDataStore(s => s.loadMySchemas)
   const setSchemaVisible  = useDataStore(s => s.setSchemaVisible)
   const archiveSchemaById = useDataStore(s => s.archiveSchemaById)
+  const setSchemaSpanById = useDataStore(s => s.setSchemaSpanById)
   const activateImport    = useDataStore(s => s.activateImport)
   const showToast         = useUiStore(s => s.showToast)
 
@@ -115,6 +151,8 @@ export function ConnectSection() {
   const [schemasLoading, setSchemasLoading] = useState(false)
   const [renamingId,     setRenamingId]     = useState<string | null>(null)
   const [renameValue,    setRenameValue]    = useState('')
+  const [spanEditId,     setSpanEditId]     = useState<string | null>(null)
+  const [spanValue,      setSpanValue]      = useState('')
   const [menuSchemaId,   setMenuSchemaId]   = useState<string | null>(null)
 
   const menuSchema = schemaList.find(s => s.id === menuSchemaId) ?? null
@@ -198,6 +236,25 @@ export function ConnectSection() {
     }
   }
 
+  function handleSpanStart(schema: SchemaMeta) {
+    setSpanValue(String(schema.weekCount ?? effectiveSpan(activities, schema).weeks))
+    setSpanEditId(schema.id)
+  }
+
+  async function handleSpanCommit(schema: SchemaMeta) {
+    const weeks = parseInt(spanValue, 10)
+    setSpanEditId(null)
+    if (!Number.isInteger(weeks) || weeks < 1 || weeks === schema.weekCount) return
+    // Een legacy-schema heeft nog geen opgeslagen start → leid 'm af (maandag van week 1).
+    const startDate = schema.startDate ?? effectiveSpan(activities, schema).start
+    try {
+      await setSchemaSpanById(schema.id, { startDate, weekCount: weeks })
+      showToast(`✓ Weekduur op ${weeks} weken gezet`)
+    } catch {
+      showToast('Bijwerken mislukt')
+    }
+  }
+
   function menuItemsFor(schema: SchemaMeta): ActionMenuItem[] {
     if (schema.isArchived) {
       return [
@@ -209,6 +266,7 @@ export function ConnectSection() {
     return [
       { label: 'Weergeven', checked: schema.isVisible, onPress: () => handleToggleVisible(schema) },
       { label: 'Hernoemen', icon: '✏', onPress: () => handleRenameStart(schema) },
+      { label: 'Weekduur aanpassen', icon: '📆', onPress: () => handleSpanStart(schema) },
       { label: 'Exporteren', icon: '↗', onPress: () => handleExportToSheets(schema), disabled: exporting },
       { label: 'Archiveren', icon: '📦', onPress: () => handleArchive(schema), destructive: true },
     ]
@@ -263,11 +321,17 @@ export function ConnectSection() {
                   key={sc.id}
                   s={sc}
                   last={i === schemaList.length - 1}
+                  spanText={spanTextFor(sc, activities)}
                   renaming={renamingId === sc.id}
                   renameValue={renameValue}
                   onRenameChange={setRenameValue}
                   onRenameCommit={() => handleRenameCommit(sc)}
                   onRenameCancel={() => setRenamingId(null)}
+                  editingSpan={spanEditId === sc.id}
+                  spanValue={spanValue}
+                  onSpanChange={setSpanValue}
+                  onSpanCommit={() => handleSpanCommit(sc)}
+                  onSpanCancel={() => setSpanEditId(null)}
                   onOpenMenu={() => setMenuSchemaId(sc.id)}
                 />
               ))
@@ -338,6 +402,10 @@ const styles = StyleSheet.create({
   dotFill:        { width: 8, height: 8, borderRadius: 999 },
   schemaBody:     { flex: 1, minWidth: 0 },
   schemaName:     { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
+  schemaSpan:     { fontFamily: Fonts.mono, fontSize: 11, marginTop: 2 },
+  spanEditRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  spanInput:      { width: 56, fontFamily: Fonts.displaySemiBold, fontSize: 14, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderRadius: 8, textAlign: 'center' },
+  spanUnit:       { fontFamily: Fonts.mono, fontSize: 11 },
   renameInput:    { fontFamily: Fonts.displaySemiBold, fontSize: 14, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderRadius: 8 },
   menuBtn:        { paddingHorizontal: 4, paddingVertical: 2 },
   menuDots:       { fontFamily: Fonts.display, fontSize: 18 },

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import { fromDateString, toDateString, MONTHS_NL } from '@/utils/date'
+import { fromDateString, toDateString, addDays, MONTHS_NL } from '@/utils/date'
 import type { PlanWeekData } from '@/components/plan/PlanWeek'
 import type { Activity } from '@/types/activity'
 
@@ -30,8 +30,11 @@ export function SchemaHeader({ weeks, activities }: Props) {
 
   const firstWeek  = weeks[0]
   const lastWeek   = weeks[weeks.length - 1]
-  const startDate  = firstWeek?.days[0]?.datum
-  const endDate    = nextRace?.datum ?? lastWeek?.days[lastWeek.days.length - 1]?.datum
+  // Start/eind volgen de vaste span (maandag van week 1 → zondag van de laatste week),
+  // robuust ook als die weken leeg zijn. Een aankomende race overschrijft het eind-label.
+  const startDate  = firstWeek?.monday
+  const endDate    = nextRace?.datum ??
+    (lastWeek ? toDateString(addDays(fromDateString(lastWeek.monday), 6)) : undefined)
   const endLabel   = nextRace ? 'Race' : 'Eind'
 
   return (

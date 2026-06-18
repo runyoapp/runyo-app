@@ -6,7 +6,7 @@ import { ImportWizard } from '@/screens/import/ImportWizard'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
 import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useDataStore } from '@/stores/dataStore'
+import { useDataStore, type SchemaMeta } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useActivities } from '@/hooks/useActivities'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
@@ -16,40 +16,28 @@ import { EditorScreen } from '@/components/weekbouwer/EditorScreen'
 import { LightTheme, Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
-import { toDateString, fromDateString, weekStart, addDays, MONTHS_NL } from '@/utils/date'
+import { toDateString, fromDateString, addDays, MONTHS_NL } from '@/utils/date'
+import { effectiveSpan } from '@/utils/schemaRouting'
 import type { Activity } from '@/types/activity'
 
 type PlanMode = 'plan' | 'week' | 'editor'
 
-// Groepeer activiteiten in maandag-zondag weken over de hele schema-looptijd.
+// Groepeer activiteiten in maandag-zondag weken over de vaste plan-span (zie
+// effectiveSpan: maandag-start + weekduur, met de opgeslagen weekCount als ondergrens).
 // Werk-items én rustdagen tellen niet mee in plan (privé-agenda / geen training).
-function buildWeeks(activities: PlanWeekData['days'], today: string): PlanWeekData[] {
+// De start ligt vast: een race in het verleden verschuift week 1 niet; een latere
+// activiteit rekt het raster wél op (cover-weken in effectiveSpan).
+function buildWeeks(activities: PlanWeekData['days'], today: string, schema: SchemaMeta | null): PlanWeekData[] {
   const real = activities.filter(a => a.datum && a.type !== 'work' && a.type !== 'rest')
-  if (!real.length) return []
-  // De looptijd wordt bepaald door échte trainingen, niet door races: een race ver
-  // in de toekomst mag het plan niet helemaal doortrekken met lege weken. Andere
-  // actieve activiteiten rekken de looptijd wél op.
-  const trainings = real.filter(a => a.type !== 'race')
-  const span      = trainings.length ? trainings : real
-  const spanSort  = [...span].sort((a, b) => a.datum.localeCompare(b.datum))
+  if (!real.length || !schema) return []
+  const span      = effectiveSpan(activities, schema)
   const sorted    = [...real].sort((a, b) => a.datum.localeCompare(b.datum))
-  const firstMon  = weekStart(fromDateString(spanSort[0].datum))
-  let   lastMon   = weekStart(fromDateString(spanSort[spanSort.length - 1].datum))
-
-  // Een race in de wéék ná de laatste training mag het plan met één week oprekken
-  // (bv. een paar dagen taperen voor de wedstrijd). Races verder weg niet.
-  if (trainings.length) {
-    const nextMon = toDateString(addDays(lastMon, 7))
-    const raceNextWeek = real.some(a =>
-      a.type === 'race' && toDateString(weekStart(fromDateString(a.datum))) === nextMon,
-    )
-    if (raceNextWeek) lastMon = addDays(lastMon, 7)
-  }
+  const firstMon  = fromDateString(span.start)
 
   const weeks: PlanWeekData[] = []
   let cursor = firstMon
   let num    = 1
-  while (cursor.getTime() <= lastMon.getTime()) {
+  while (num <= span.weeks) {
     const mon = toDateString(cursor)
     const sun = toDateString(addDays(cursor, 6))
     const d0  = cursor
@@ -83,8 +71,14 @@ export function PlanScreen() {
   const insets     = useSafeAreaInsets()
   const activities = useDataStore(s => s.activities)
   const schemaId   = useDataStore(s => s.schemaId)
+  const schemaList = useDataStore(s => s.schemaList)
   const theme      = useTheme()
   useActivities()
+
+  const schema = useMemo(
+    () => schemaList.find(s => s.id === schemaId) ?? null,
+    [schemaList, schemaId],
+  )
 
   const today = useMemo(() => toDateString(new Date()), [])
 
@@ -104,7 +98,7 @@ export function PlanScreen() {
     return () => setTabBarHidden(false)
   }, [mode, setTabBarHidden])
 
-  const weeks = useMemo(() => buildWeeks(activities, today), [activities, today])
+  const weeks = useMemo(() => buildWeeks(activities, today, schema), [activities, today, schema])
   const maxGoalKm = useMemo(() => weeks.reduce((m, w) => Math.max(m, w.goalKm), 0), [weeks])
 
   // Huidige week staat default open.

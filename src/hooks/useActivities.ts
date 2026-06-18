@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore'
 export function useActivities() {
   const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
   const setActivities    = useDataStore(s => s.setActivities)
+  const backfillSpans    = useDataStore(s => s.backfillSpans)
   // Op tokenSet abonneren zodat een login een refetch triggert.
   const tokenSet         = useAuthStore(s => s.tokenSet)
 
@@ -36,7 +37,9 @@ export function useActivities() {
 
   useEffect(() => {
     setActivities(merged)
-  }, [merged, setActivities])
+    // Backfill vaste spans voor legacy-schema's zodra hun activiteiten geladen zijn.
+    if (merged.length) backfillSpans()
+  }, [merged, setActivities, backfillSpans])
 
   const isLoading = results.length > 0 && results.some(r => r.isLoading)
   const isError = results.some(r => r.isError)

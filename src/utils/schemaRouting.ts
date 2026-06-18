@@ -1,27 +1,67 @@
 import type { Activity } from '@/types/activity'
 import type { SchemaMeta } from '@/stores/dataStore'
+import { addDays, fromDateString, toDateString, weekStart } from '@/utils/date'
 
-// Multi-schema routing: bepaalt op basis van de datum naar welk schema een
-// nieuwe training gaat. De periode van een schema is afgeleid uit de min/max
-// datum van zijn activiteiten (leeg schema → valt terug op createdAt).
-// YYYY-MM-DD strings zijn lexicografisch = chronologisch vergelijkbaar.
+// Multi-schema routing + de vaste plan-span. effectiveSpan is dé bron van waarheid
+// voor de looptijd van een schema; alle weergave (Plan, race-chip, routing) leidt
+// hieruit af. YYYY-MM-DD strings zijn lexicografisch = chronologisch vergelijkbaar.
 
 export type Period = { start: string; end: string }
 
-export function schemaPeriod(activities: Activity[], schema: SchemaMeta): Period {
+// De daadwerkelijke span van een schema: maandag-start, aantal weken, eind.
+// `stored` = of de span uit de opgeslagen weekCount komt (anders afgeleid = legacy).
+export type EffectiveSpan = { start: string; weeks: number; end: string; stored: boolean }
+
+const DAY = 86400000
+
+// Aantal weken vanaf een maandag t/m de week waarin `dateStr` valt (>= 1). Het
+// dagverschil wordt afgerond (beide ankers staan op 12:00) zodat een DST-overgang
+// geen week wegvalt door de ~1u-afwijking in de millisecondedeling.
+function weeksFromMonday(startMon: string, dateStr: string): number {
+  const a = fromDateString(startMon).getTime()
+  const b = weekStart(fromDateString(dateStr)).getTime()
+  const days = Math.round((b - a) / DAY)
+  return Math.floor(days / 7) + 1
+}
+
+function endOf(startMon: string, weeks: number): string {
+  return toDateString(addDays(fromDateString(startMon), weeks * 7 - 1))
+}
+
+// De vaste plan-span. Met opgeslagen weekCount: start = die maandag, weken =
+// max(weekCount, weken nodig om alle activiteiten te tonen) — de opgeslagen duur
+// is een ondergrens (een race midden in het plan verkort 'm niet; een losse
+// activiteit erbuiten rekt het raster op). Zonder opgeslagen span: legacy-afleiding
+// uit de activiteit-datums, waarbij een race alleen als eindpunt telt, nooit als start.
+export function effectiveSpan(activities: Activity[], schema: SchemaMeta): EffectiveSpan {
   const own = activities.filter(a => a.schemaId === schema.id)
-  const dates = own.map(a => a.datum).sort()
-  if (dates.length === 0) {
-    const d = schema.createdAt.slice(0, 10)
-    return { start: d, end: d }
+  const lastDatum = own.length
+    ? own.reduce((m, a) => (a.datum > m ? a.datum : m), own[0].datum)
+    : null
+
+  if (schema.startDate && schema.weekCount && schema.weekCount > 0) {
+    const startMon = toDateString(weekStart(fromDateString(schema.startDate)))
+    const coverWeeks = lastDatum ? weeksFromMonday(startMon, lastDatum) : 0
+    const weeks = Math.max(schema.weekCount, coverWeeks)
+    return { start: startMon, weeks, end: endOf(startMon, weeks), stored: true }
   }
-  // Een race telt alleen als eindpunt van een schema, nooit als beginpunt: een
-  // race ver in het verleden mag de schema-start niet naar achteren trekken.
-  // start = eerste écht trainings-moment (val terug op alle data als een schema
-  // niets dan races bevat); end = laatste datum, races meegerekend.
+
+  // Legacy: geen opgeslagen span → afleiden.
+  if (!own.length) {
+    const startMon = toDateString(weekStart(fromDateString(schema.createdAt.slice(0, 10))))
+    return { start: startMon, weeks: 1, end: endOf(startMon, 1), stored: false }
+  }
   const trainingDates = own.filter(a => a.type !== 'race').map(a => a.datum).sort()
-  const start = trainingDates.length ? trainingDates[0] : dates[0]
-  return { start, end: dates[dates.length - 1] }
+  const allDates = own.map(a => a.datum).sort()
+  const startRaw = trainingDates.length ? trainingDates[0] : allDates[0]
+  const startMon = toDateString(weekStart(fromDateString(startRaw)))
+  const weeks = Math.max(1, weeksFromMonday(startMon, allDates[allDates.length - 1]))
+  return { start: startMon, weeks, end: endOf(startMon, weeks), stored: false }
+}
+
+export function schemaPeriod(activities: Activity[], schema: SchemaMeta): Period {
+  const sp = effectiveSpan(activities, schema)
+  return { start: sp.start, end: sp.end }
 }
 
 export type PickResult =

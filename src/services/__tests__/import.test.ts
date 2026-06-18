@@ -295,7 +295,16 @@ describe('importToBackend (integration)', () => {
     vi.mocked(createActivitiesBatch).mockResolvedValueOnce([])
     const rows: ParsedRow[] = [{ datum: '2026-06-01', type: 'run', titel: 'E', detail: '', km: 8, fase: '' }]
     await importToBackend(rows, async () => 'tok', () => {}, 'Marathonplan')
-    expect(createSchema).toHaveBeenCalledWith('Marathonplan')
+    expect(createSchema).toHaveBeenCalledWith('Marathonplan', undefined)
+  })
+
+  it('passes the fixed span through to createSchema when given', async () => {
+    vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-3' })
+    vi.mocked(createActivitiesBatch).mockResolvedValueOnce([])
+    const rows: ParsedRow[] = [{ datum: '2026-06-01', type: 'run', titel: 'E', detail: '', km: 8, fase: '' }]
+    const span = { startDate: '2026-06-01', weekCount: 12 }
+    await importToBackend(rows, async () => 'tok', () => {}, 'Marathonplan', span)
+    expect(createSchema).toHaveBeenCalledWith('Marathonplan', span)
   })
 })
 

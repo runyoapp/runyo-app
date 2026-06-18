@@ -1,7 +1,7 @@
 import type { Activity } from '@/types/activity'
 import type { SchemaMeta } from '@/stores/dataStore'
-import { schemaPeriod } from '@/utils/schemaRouting'
-import { fromDateString, weekStart } from '@/utils/date'
+import { effectiveSpan } from '@/utils/schemaRouting'
+import { fromDateString } from '@/utils/date'
 
 const DAY = 86400000
 
@@ -29,10 +29,12 @@ export function derivePace(goalTime: string | null, km: number | null): string |
 
 export type WeekProgress = { done: number; total: number; taper: boolean }
 
-// Trainingsweek-voortgang richting een race, afgeleid uit het schema waar de
-// race bij hoort: eerste training (maandag-verankerd) → racedatum = totaal weken;
-// start → vandaag = verstreken weken. taper = laatste ~2 weken.
-// null als er geen zinnig trainingsblok is (< 2 of > 52 weken, of schema onbekend).
+// Plan-voortgang richting een race, afgeleid uit de vaste span van het schema waar
+// de race bij hoort: totaal = de opgeslagen weekduur (effectiveSpan.weeks), niet de
+// afstand tot de racedatum — zo verschuift een race midden in het plan het totaal
+// niet. done = verstreken weken sinds de maandag-start. taper = laatste ~2 weken.
+// Bij een legacy-schema (afgeleide span) blijft de < 2 / > 52 weken sanity-guard
+// gelden; een opgeslagen span vertrouwen we (door de gebruiker gereviewd).
 export function weekProgress(
   race: Activity,
   schemaList: SchemaMeta[],
@@ -42,15 +44,15 @@ export function weekProgress(
   const schema = schemaList.find(s => s.id === race.schemaId)
   if (!schema) return null
 
-  const { start } = schemaPeriod(activities, schema)
-  const startMon = weekStart(fromDateString(start))
-  const raceD = fromDateString(race.datum)
-
-  const total = Math.ceil((raceD.getTime() - startMon.getTime()) / DAY / 7)
-  if (total < 2 || total > 52) return null
+  const span = effectiveSpan(activities, schema)
+  const startMon = fromDateString(span.start)
+  const total = span.weeks
+  if (!span.stored && (total < 2 || total > 52)) return null
 
   const t = new Date(today); t.setHours(12, 0, 0, 0)
-  const elapsed = Math.floor((t.getTime() - startMon.getTime()) / DAY / 7) + 1
+  // Dagverschil afronden (beide op 12:00) zodat een DST-overgang geen week verschuift.
+  const elapsedDays = Math.round((t.getTime() - startMon.getTime()) / DAY)
+  const elapsed = Math.floor(elapsedDays / 7) + 1
   const done = Math.max(1, Math.min(elapsed, total))
 
   return { done, total, taper: total - done <= 1 }
