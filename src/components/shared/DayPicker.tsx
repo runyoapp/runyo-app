@@ -8,7 +8,9 @@ import { Fonts, Radius, type Theme } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, toDateString, addDays, DAYS_NL, MONTHS_NL, MONTHS_FULL_NL } from '@/utils/date'
 
-const DOW = ['M', 'D', 'W', 'D', 'V', 'Z', 'Z']
+// 2-letterige dag-labels (Ma Di Wo Do Vr Za Zo) — anders zijn di/do en za/zo niet
+// te onderscheiden (beide "D" / "Z").
+const DOW = DAYS_NL
 
 function fmtFriendly(iso: string): string {
   const d = fromDateString(iso)

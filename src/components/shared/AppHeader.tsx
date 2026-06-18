@@ -11,7 +11,7 @@ import { RaceModal } from '@/screens/RaceModal'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import { signInWithGoogle } from '@/services/auth'
 import { logout } from '@/services/logout'
-import { Fonts, Spacing, Radius, LightTheme } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import type { Activity } from '@/types/activity'
 
 type Props = {

@@ -7,9 +7,10 @@ import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { Fonts } from '@/constants/theme'
 import type { Theme } from '@/constants/theme'
-import { fromDateString, toDateString, addDays, MONTHS_NL } from '@/utils/date'
+import { fromDateString, toDateString, addDays, MONTHS_NL, DAYS_NL } from '@/utils/date'
 
-const DOW = ['M', 'D', 'W', 'D', 'V', 'Z', 'Z']
+// 2-letterig (Ma Di Wo Do Vr Za Zo) — 1-letterig maakt di/do en za/zo niet te onderscheiden.
+const DOW = DAYS_NL
 
 function mondayOf(d: Date): Date {
   const dow = (d.getDay() + 6) % 7 // 0=ma … 6=zo

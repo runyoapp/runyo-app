@@ -232,7 +232,8 @@ export function ModeOption({
 }
 
 // ── Dag-selector (7 ronde knoppen ma-zo; index 0=ma … 6=zo) ───────────────────
-const DAY_LETTERS = ['M', 'D', 'W', 'D', 'V', 'Z', 'Z']
+// 2-letterig (Ma Di Wo Do Vr Za Zo) — 1-letterig maakt di/do en za/zo niet te onderscheiden.
+const DAY_LETTERS = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']
 export function DaySelector({
   t, active, onToggle,
 }: {
