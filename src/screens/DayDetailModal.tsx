@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, EditorTextField, EditorTextArea, ChipSelect,
+  FieldLabel, EditorTextField, EditorTextArea, ChipSelect, InlineSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
@@ -99,11 +99,12 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const hasDist = DIST_TYPES.has(type)
   const headDot = (editing ? activityDot(type) : colors.text) ?? undefined
 
-  // Schema-koppeling altijd tonen: het label in de weergave en de kiezer (= verplaatsen)
-  // in het bewerkformulier, ook bij één schema (staat dan voorgeselecteerd op het eigen plan).
+  // Schema-koppeling: label in de weergave, kiezer (= verplaatsen) in het bewerkformulier.
+  // Alleen schema's op 'weergeven' zijn doel, plus altijd het eigen schema (ook als dat
+  // verborgen staat) zodat de huidige koppeling klopt.
   const ownSchema    = schemaList.find(s => s.id === act.schemaId) ?? null
   const schemaChips: ChipOption[] = schemaList
-    .filter(s => !s.isArchived)
+    .filter(s => !s.isArchived && (s.isVisible || s.id === act.schemaId))
     .map(s => ({ key: s.id, label: s.name, dot: schemaColor(s, schemaList) }))
 
   // Altijd het eigen schema van de activiteit gebruiken (niet het primaire) — anders
@@ -213,7 +214,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
           <View style={styles.badgeRow}>
             <View style={[styles.typeDot, { backgroundColor: colors.text }]} />
             <Text style={[styles.typeLabel, { color: theme.muted }]}>{typeLabel}</Text>
-            {ownSchema && (
+            {schemaChips.length > 1 && ownSchema && (
               <>
                 <Text style={[styles.typeLabel, { color: theme.faint }]}>·</Text>
                 <View style={[styles.typeDot, { backgroundColor: schemaColor(ownSchema, schemaList) }]} />
@@ -262,10 +263,10 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
             <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
           </View>
 
-          {schemaChips.length > 0 && (
+          {schemaChips.length > 1 && (
             <View>
-              <FieldLabel hint="· koppelen">Schema</FieldLabel>
-              <ChipSelect options={schemaChips} value={act.schemaId} onChange={handleMove} />
+              <FieldLabel hint="· verplaatsen">Schema</FieldLabel>
+              <InlineSelect options={schemaChips} value={act.schemaId} onChange={handleMove} title="Verplaatsen naar" />
             </View>
           )}
 

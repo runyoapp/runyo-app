@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 import { ActivityColors, Fonts, Spacing, Radius, type Theme } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
 import { fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
 
 // Categorie-dot per type — werk krijgt geen dot (neutraal).
@@ -131,6 +132,44 @@ export function ChipSelect({ options, value, onChange }: {
         )
       })}
     </View>
+  )
+}
+
+// ─────────────────────────────────────────────────────────
+// Compacte één-regel keuze — toont de selectie als rij (stip + naam + chevron)
+// en opent een scrollbare keuzelijst. Schaalt naar veel opties + lange namen.
+// ─────────────────────────────────────────────────────────
+
+export function InlineSelect({ options, value, onChange, title, placeholder }: {
+  options: ChipOption[]
+  value: string
+  onChange: (key: string) => void
+  title?: string
+  placeholder?: string
+}) {
+  const t = useTheme()
+  const [open, setOpen] = useState(false)
+  const sel = options.find(o => o.key === value) ?? null
+  const items: ActionMenuItem[] = options.map(o => ({
+    label: o.label,
+    checked: o.key === value,
+    onPress: () => onChange(o.key),
+  }))
+  return (
+    <>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => setOpen(true)}
+        style={[s.selectRow, { backgroundColor: t.surface, borderColor: t.border }]}
+      >
+        {sel?.dot && <View style={[s.selectDot, { backgroundColor: sel.dot }]} />}
+        <Text style={[s.selectText, { color: sel ? t.text : t.faint }]} numberOfLines={1}>
+          {sel?.label ?? placeholder ?? 'Kies…'}
+        </Text>
+        <Text style={[s.selectChevron, { color: t.muted }]}>›</Text>
+      </TouchableOpacity>
+      <ActionMenu visible={open} title={title} items={items} onClose={() => setOpen(false)} />
+    </>
   )
 }
 
@@ -329,6 +368,11 @@ const s = StyleSheet.create({
   chip:        { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 13, paddingVertical: 9, borderRadius: Radius.pill, borderWidth: 1 },
   chipDot:     { width: 7, height: 7, borderRadius: 999 },
   chipText:    { fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.15 },
+
+  selectRow:    { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13, paddingVertical: 10, borderWidth: 1, borderRadius: Radius.md },
+  selectDot:    { width: 8, height: 8, borderRadius: 999 },
+  selectText:   { flex: 1, fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.15 },
+  selectChevron:{ fontFamily: Fonts.display, fontSize: 18 },
 
   dateRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1, borderRadius: Radius.md },
   dateIcon:    { width: 30, height: 30, borderRadius: 8, borderWidth: 1, overflow: 'hidden' },

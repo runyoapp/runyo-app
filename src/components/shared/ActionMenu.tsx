@@ -1,4 +1,4 @@
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native'
+import { Modal, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
 
 // Lichte, herbruikbare actie-menu op basis van een transparante RN Modal —
@@ -29,29 +29,31 @@ export function ActionMenu({ visible, title, items, onClose }: ActionMenuProps) 
           {title ? (
             <Text style={styles.title} numberOfLines={1}>{title}</Text>
           ) : null}
-          {items.map((item, i) => (
-            <Pressable
-              key={`${item.label}-${i}`}
-              style={({ pressed }) => [
-                styles.item,
-                pressed && styles.itemPressed,
-                item.disabled && styles.itemDisabled,
-              ]}
-              disabled={item.disabled}
-              onPress={() => {
-                onClose()
-                item.onPress()
-              }}
-            >
-              <Text style={styles.itemIcon}>{item.checked ? '✓' : (item.icon ?? '')}</Text>
-              <Text
-                style={[styles.itemLabel, item.destructive && styles.itemLabelDestructive]}
-                numberOfLines={1}
+          <ScrollView style={styles.scroll} bounces={false} keyboardShouldPersistTaps="handled">
+            {items.map((item, i) => (
+              <Pressable
+                key={`${item.label}-${i}`}
+                style={({ pressed }) => [
+                  styles.item,
+                  pressed && styles.itemPressed,
+                  item.disabled && styles.itemDisabled,
+                ]}
+                disabled={item.disabled}
+                onPress={() => {
+                  onClose()
+                  item.onPress()
+                }}
               >
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
+                <Text style={styles.itemIcon}>{item.checked ? '✓' : (item.icon ?? '')}</Text>
+                <Text
+                  style={[styles.itemLabel, item.destructive && styles.itemLabelDestructive]}
+                  numberOfLines={1}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -76,6 +78,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     overflow: 'hidden',
   },
+  scroll: { maxHeight: 320 },
   title: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: 13,

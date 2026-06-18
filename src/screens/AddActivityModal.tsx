@@ -3,7 +3,7 @@ import { View } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, EditorTextField, EditorTextArea, ChipSelect,
+  FieldLabel, EditorTextField, EditorTextArea, ChipSelect, InlineSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
@@ -73,8 +73,9 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   }, [datum, schemaList, activities])
 
   const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
+  // Alleen schema's die op 'weergeven' staan zijn koppelbaar.
   const schemaChips: ChipOption[] = schemaList
-    .filter(s => !s.isArchived)
+    .filter(s => s.isVisible && !s.isArchived)
     .map(s => ({ key: s.id, label: s.name, dot: schemaColor(s, schemaList) }))
   const isRest  = type === 'rest'
   const hasDist = DIST_TYPES.has(type)
@@ -137,13 +138,6 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
           <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
         </View>
 
-        {schemaChips.length > 0 && (
-          <View>
-            <FieldLabel hint="· koppelen">Schema</FieldLabel>
-            <ChipSelect options={schemaChips} value={schemaId ?? ''} onChange={handleSchemaPick} />
-          </View>
-        )}
-
         {isRest ? (
           <RestCard note="Geen training — plan een herstelblok in." />
         ) : (
@@ -165,6 +159,13 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
               <EditorTextArea value={detail} onChangeText={setDetail} placeholder="Notities, tempo, HR…" />
             </View>
           </>
+        )}
+
+        {schemaChips.length > 1 && (
+          <View>
+            <FieldLabel hint="· koppelen">Schema</FieldLabel>
+            <InlineSelect options={schemaChips} value={schemaId ?? ''} onChange={handleSchemaPick} title="Aan welk schema?" />
+          </View>
         )}
       </View>
     </ModalSheet>
