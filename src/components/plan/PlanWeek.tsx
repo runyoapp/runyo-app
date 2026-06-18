@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { LightTheme, Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
+import { Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { DAYS_NL, fromDateString, mondayIndex } from '@/utils/date'
@@ -119,24 +119,24 @@ export function PlanWeek({ week, today, maxGoalKm, expanded, onToggle, onActivit
 const styles = StyleSheet.create({
   wrapper:        { marginBottom: Spacing.md },
   head:           { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingBottom: 6 },
-  weekNum:        { fontFamily: Fonts.displayBold, fontSize: 14, color: LightTheme.text, letterSpacing: -0.3 },
-  weekRange:      { fontFamily: Fonts.display, fontSize: 12, color: LightTheme.muted },
-  weekMeta:       { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
-  chevron:        { fontFamily: Fonts.display, fontSize: 16, color: LightTheme.faint, width: 14, textAlign: 'center' },
+  weekNum:        { fontFamily: Fonts.displayBold, fontSize: 14, letterSpacing: -0.3 },
+  weekRange:      { fontFamily: Fonts.display, fontSize: 12 },
+  weekMeta:       { fontFamily: Fonts.mono, fontSize: 11 },
+  chevron:        { fontFamily: Fonts.display, fontSize: 16, width: 14, textAlign: 'center' },
   chevronOpen:    { transform: [{ rotate: '90deg' }] },
-  volTrack:       { height: 3, backgroundColor: LightTheme.border, borderRadius: 999, marginHorizontal: Spacing.sm, overflow: 'hidden' },
+  volTrack:       { height: 3, borderRadius: 999, marginHorizontal: Spacing.sm, overflow: 'hidden' },
   volFill:        { height: '100%', borderRadius: 999 },
 
   detail:         { borderWidth: 1, borderRadius: Radius.md, overflow: 'hidden', marginTop: Spacing.sm },
   dayRow:         { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 9 },
   dayRowPast:     { opacity: 0.5 },
   dayBar:         { width: 3, height: 22, borderRadius: 2 },
-  dayDate:        { width: 44, fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted },
-  dayTitle:       { flex: 1, minWidth: 0, fontFamily: Fonts.displaySemiBold, fontSize: 13, color: LightTheme.text, letterSpacing: -0.1 },
-  dayKm:          { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.text2 },
+  dayDate:        { width: 44, fontFamily: Fonts.mono, fontSize: 11 },
+  dayTitle:       { flex: 1, minWidth: 0, fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.1 },
+  dayKm:          { fontFamily: Fonts.mono, fontSize: 11 },
 
-  editLink:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11, borderTopWidth: 1, borderTopColor: LightTheme.border, backgroundColor: LightTheme.surface2 },
-  editLinkText:   { flex: 1, fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted },
-  editLinkStrong: { fontFamily: Fonts.displaySemiBold, color: LightTheme.text },
-  editLinkChevron:{ fontFamily: Fonts.display, fontSize: 16, color: LightTheme.muted },
+  editLink:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11, borderTopWidth: 1 },
+  editLinkText:   { flex: 1, fontFamily: Fonts.display, fontSize: 13 },
+  editLinkStrong: { fontFamily: Fonts.displaySemiBold },
+  editLinkChevron:{ fontFamily: Fonts.display, fontSize: 16 },
 })

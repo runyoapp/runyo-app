@@ -18,7 +18,7 @@ import { AddActivityModal } from '@/screens/AddActivityModal'
 import { ImportWizard } from '@/screens/import/ImportWizard'
 import { RaceModal } from '@/screens/RaceModal'
 import { patchActivity } from '@/services/activities'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
 import type { Activity } from '@/types/activity'
@@ -185,13 +185,13 @@ export function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: LightTheme.bg },
+  root:          { flex: 1 },
   scroll:        { flex: 1 },
   scrollContent: { paddingTop: Spacing.sm },
   kickerRow:     { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  kicker:        { fontFamily: Fonts.displayBold, fontSize: 22, color: LightTheme.text, letterSpacing: -0.5 },
+  kicker:        { fontFamily: Fonts.displayBold, fontSize: 22, letterSpacing: -0.5 },
   loadingRow:    { padding: Spacing.xl, alignItems: 'center' },
-  loadingText:   { fontFamily: Fonts.mono, fontSize: 13, color: LightTheme.muted },
+  loadingText:   { fontFamily: Fonts.mono, fontSize: 13 },
   todayBtn:      {
     position: 'absolute',
     bottom: 100,

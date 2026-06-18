@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, toDateString, addDays, MONTHS_NL } from '@/utils/date'
 import type { PlanWeekData } from '@/components/plan/PlanWeek'
@@ -62,11 +62,11 @@ export function SchemaHeader({ weeks, activities }: Props) {
 
 const styles = StyleSheet.create({
   container:     { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  kicker:        { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  title:         { fontFamily: Fonts.displayBold, fontSize: 26, color: LightTheme.text, letterSpacing: -0.5, marginBottom: 2 },
-  sub:           { fontFamily: Fonts.display, fontSize: 13, color: LightTheme.muted, marginBottom: Spacing.sm },
-  progressTrack: { height: 4, backgroundColor: LightTheme.border, borderRadius: 2, marginBottom: Spacing.sm },
-  progressFill:  { height: 4, backgroundColor: LightTheme.accent, borderRadius: 2 },
+  kicker:        { fontFamily: Fonts.mono, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  title:         { fontFamily: Fonts.displayBold, fontSize: 26, letterSpacing: -0.5, marginBottom: 2 },
+  sub:           { fontFamily: Fonts.display, fontSize: 13, marginBottom: Spacing.sm },
+  progressTrack: { height: 4, borderRadius: 2, marginBottom: Spacing.sm },
+  progressFill:  { height: 4, borderRadius: 2 },
   dates:         { flexDirection: 'row', justifyContent: 'space-between' },
-  dateLabel:     { fontFamily: Fonts.mono, fontSize: 11, color: LightTheme.faint },
+  dateLabel:     { fontFamily: Fonts.mono, fontSize: 11 },
 })

@@ -13,7 +13,7 @@ import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
 import { WeekbouwerScreen } from '@/components/weekbouwer/WeekbouwerScreen'
 import { EditorScreen } from '@/components/weekbouwer/EditorScreen'
-import { LightTheme, Fonts, Spacing } from '@/constants/theme'
+import { Fonts, Spacing } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { PageContainer } from '@/components/shared/PageContainer'
 import { toDateString, fromDateString, addDays, MONTHS_NL } from '@/utils/date'
@@ -244,11 +244,11 @@ export function PlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: LightTheme.bg },
+  root:          { flex: 1 },
   scrollContent: { paddingTop: Spacing.xs },
   weekWrap:      { paddingHorizontal: Spacing.lg },
   empty:         { alignItems: 'center', justifyContent: 'center' },
   emptyNoSchema: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: Spacing.xs },
-  emptyTitle:    { fontFamily: Fonts.displayBold, fontSize: 20, color: LightTheme.text, marginBottom: Spacing.sm },
-  emptySub:      { fontFamily: Fonts.display, fontSize: 14, color: LightTheme.muted, marginBottom: Spacing.lg },
+  emptyTitle:    { fontFamily: Fonts.displayBold, fontSize: 20, marginBottom: Spacing.sm },
+  emptySub:      { fontFamily: Fonts.display, fontSize: 14, marginBottom: Spacing.lg },
 })
