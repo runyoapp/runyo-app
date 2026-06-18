@@ -33,6 +33,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [statsOpen,    setStatsOpen]    = useState(false)
   const [raceActivity, setRaceActivity] = useState<Activity | null>(null)
+  const [addRaceOpen,  setAddRaceOpen]  = useState(false)
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError,   setLoginError]   = useState<string | null>(null)
 
@@ -76,6 +77,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: theme.text }]}
             onPress={onAddPress}
+            hitSlop={8}
           >
             <Text style={[styles.addBtnText, { color: theme.bg }]}>+</Text>
           </TouchableOpacity>
@@ -85,6 +87,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
             <TouchableOpacity
               style={[styles.avatar, { backgroundColor: theme.surface, borderColor: theme.border }]}
               onPress={() => setDropdownOpen(true)}
+              hitSlop={8}
             >
               <Text style={[styles.avatarText, { color: theme.text }]}>
                 {tokenSet.email?.[0]?.toUpperCase() ?? '?'}
@@ -102,7 +105,7 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       </View>
 
       {/* Race header */}
-      {showRacesBar && <RacesBar onRacePress={handleRacePress} />}
+      {showRacesBar && <RacesBar onRacePress={handleRacePress} onAddRace={() => setAddRaceOpen(true)} />}
 
       {/* Avatar dropdown */}
       <Modal visible={dropdownOpen} transparent animationType="fade" onRequestClose={() => setDropdownOpen(false)}>
@@ -128,7 +131,12 @@ export function AppHeader({ onAddPress, onRacePress, showRacesBar = true }: Prop
       </Modal>
 
       <StatsModal visible={statsOpen} onClose={() => setStatsOpen(false)} />
-      <RaceModal activity={raceActivity} visible={!!raceActivity} onClose={() => setRaceActivity(null)} />
+      {/* Eén modal voor zowel bewerken (raceActivity) als toevoegen (activity=null). */}
+      <RaceModal
+        activity={raceActivity}
+        visible={!!raceActivity || addRaceOpen}
+        onClose={() => { setRaceActivity(null); setAddRaceOpen(false) }}
+      />
 
       {/* Inline login sheet — U37: app browsebaar zonder login */}
       <ModalSheet visible={loginSheetOpen} title="Inloggen" onClose={() => { closeLoginSheet(); setLoginError(null) }}>
@@ -181,7 +189,7 @@ const styles = StyleSheet.create({
   overlay:           { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
   dropdown:          { position: 'absolute', top: 60, right: Spacing.lg, borderRadius: Radius.lg, borderWidth: 1, minWidth: 200, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 8, overflow: 'hidden' },
   dropdownEmail:     { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 1 },
-  dropdownEmailText: { fontFamily: Fonts.mono, fontSize: 11 },
+  dropdownEmailText: { fontFamily: Fonts.display, fontSize: 13 },
   dropdownItem:      { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
   dropdownLabel:     { fontFamily: Fonts.displayMedium, fontSize: 14 },
   dropdownDivider:   { height: 1, marginVertical: 2 },

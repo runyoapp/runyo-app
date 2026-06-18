@@ -11,11 +11,14 @@ type Props = {
   activity: Activity
   onPress: () => void
   onFeedbackPress: () => void
+  // True wanneer de beoordeel-sectie onder deze kaart openstaat → de CTA wordt een
+  // duidelijke sluitknop i.p.v. nog een keer "Beoordeel".
+  feedbackActive?: boolean
 }
 
 // Canonical hero card — spec: runyo-pwa.jsx ScreenVandaag
 // cat-tag → km display → progress line → 3-metric row → CTA
-export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
+export function HeroCard({ activity, onPress, onFeedbackPress, feedbackActive = false }: Props) {
   const theme  = useTheme()
   const colors = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label  = TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type
@@ -104,16 +107,19 @@ export function HeroCard({ activity, onPress, onFeedbackPress }: Props) {
       )}
       {canFeedback && !hasFb && (
         <TouchableOpacity
-          style={[styles.cta, { backgroundColor: theme.accent }]}
+          style={[styles.cta, { backgroundColor: feedbackActive ? theme.surface2 : theme.accent, borderWidth: feedbackActive ? 1 : 0, borderColor: theme.border }]}
           onPress={onFeedbackPress}
         >
-          <Text style={[styles.ctaText, { color: theme.accentInk }]}>
-            {/* Vandaag: "Start run" (opent de beoordeel-flow); eerdere dagen: "Beoordeel" */}
-            {activity.datum === today
-              ? (isRun ? 'Start run' : 'Start training')
+          {/* De knop opent de beoordeel-flow (geen run-tracking) → label is "Beoordeel",
+              ook op vandaag. Staat de sectie al open, dan wordt het een sluitknop. */}
+          <Text style={[styles.ctaText, { color: feedbackActive ? theme.text : theme.accentInk }]}>
+            {feedbackActive
+              ? 'Beoordeling sluiten'
               : (isRun ? 'Beoordeel run' : 'Beoordeel training')}
           </Text>
-          <Text style={[styles.ctaArrow, { color: theme.accentInk }]}>→</Text>
+          <Text style={[styles.ctaArrow, { color: feedbackActive ? theme.muted : theme.accentInk }]}>
+            {feedbackActive ? '×' : '→'}
+          </Text>
         </TouchableOpacity>
       )}
     </TouchableOpacity>

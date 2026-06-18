@@ -19,7 +19,9 @@ type Props = {
 // een sessie kunt vastpakken en op een andere dag laat vallen → reschedule.
 export function RescheduleWeek({ activities, selectedDate, onOpenActivity }: Props) {
   const theme    = useTheme()
-  const [open, setOpen] = useState(false)
+  // Standaard uitgeklapt: anders is de versleepbare weekstrip (en daarmee het
+  // herinplannen) niet ontdekbaar — op web kun je niet swipen om hem te openen.
+  const [open, setOpen] = useState(true)
 
   const weekDates = useMemo(() => getWeekDates(0), [])
   const week = useMemo(

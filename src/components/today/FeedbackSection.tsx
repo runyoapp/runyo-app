@@ -77,9 +77,9 @@ export function FeedbackSection({ existing, onSubmit, onCancel }: Props) {
           {saving ? '…' : isEdit ? 'Bijwerken' : 'Opslaan'}
         </Text>
       </TouchableOpacity>
-      {isEdit && onCancel && (
+      {onCancel && (
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-          <Text style={[styles.cancelBtnText, { color: theme.muted }]}>Annuleren</Text>
+          <Text style={[styles.cancelBtnText, { color: theme.muted }]}>Sluiten</Text>
         </TouchableOpacity>
       )}
     </View>

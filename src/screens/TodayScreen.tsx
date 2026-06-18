@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, Animated, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSwipeAnimation } from '@/hooks/useSwipeAnimation'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -90,6 +90,26 @@ export function TodayScreen() {
       >
         <View style={styles.kickerRow}>
           <Text style={[styles.kicker, { color: theme.text }]}>{dayLabel}</Text>
+          {/* Dag-navigatie: maakt op web (geen swipe met de muis) zichtbaar dat je
+              van dag kunt wisselen; op touch een alternatief naast het swipen. */}
+          <View style={styles.dayNav}>
+            <TouchableOpacity
+              onPress={() => setDayOffset(dayOffset - 1)}
+              hitSlop={10}
+              style={[styles.dayNavBtn, { borderColor: theme.border }]}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.dayNavText, { color: theme.muted }]}>‹</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setDayOffset(dayOffset + 1)}
+              hitSlop={10}
+              style={[styles.dayNavBtn, { borderColor: theme.border }]}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.dayNavText, { color: theme.muted }]}>›</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {dayOffset === 0 && <WeatherWidget />}
@@ -102,7 +122,8 @@ export function TodayScreen() {
           />
         ) : isLoading ? (
           <View style={styles.loadingRow}>
-            <Text style={[styles.loadingText, { color: theme.muted }]}>Laden…</Text>
+            <ActivityIndicator color={theme.accent} />
+            <Text style={[styles.loadingText, { color: theme.muted }]}>Je schema wordt opgehaald…</Text>
           </View>
         ) : isWork ? (
           <WorkCard />
@@ -116,6 +137,7 @@ export function TodayScreen() {
                 activity={row}
                 onPress={() => row.type === 'race' ? setRaceActivity(row) : setSelectedActivity(row)}
                 onFeedbackPress={() => setEditingFeedback(v => !v)}
+                feedbackActive={editingFeedback && row.id === fbRow?.id}
               />
             ))}
 
@@ -188,9 +210,12 @@ const styles = StyleSheet.create({
   root:          { flex: 1 },
   scroll:        { flex: 1 },
   scrollContent: { paddingTop: Spacing.sm },
-  kickerRow:     { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  kicker:        { fontFamily: Fonts.displayBold, fontSize: 22, letterSpacing: -0.5 },
-  loadingRow:    { padding: Spacing.xl, alignItems: 'center' },
+  kickerRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  kicker:        { flex: 1, fontFamily: Fonts.displayBold, fontSize: 22, letterSpacing: -0.5 },
+  dayNav:        { flexDirection: 'row', gap: Spacing.xs },
+  dayNavBtn:     { width: 32, height: 32, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  dayNavText:    { fontFamily: Fonts.displayMedium, fontSize: 18, lineHeight: 20, marginTop: -2 },
+  loadingRow:    { padding: Spacing.xl, alignItems: 'center', gap: Spacing.md },
   loadingText:   { fontFamily: Fonts.mono, fontSize: 13 },
   todayBtn:      {
     position: 'absolute',

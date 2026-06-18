@@ -10,6 +10,8 @@ import type { Activity } from '@/types/activity'
 
 type Props = {
   onRacePress: (activity: Activity) => void
+  // Lege staat (schema, maar geen geplande race): tik → nieuwe race toevoegen.
+  onAddRace?: () => void
 }
 
 // Race chip — spec: claude design "runyo race chip.html" → ChipA4B7cSwipe.
@@ -35,7 +37,7 @@ function fmtKm(km: number): string {
 // zodat een activiteit-update de header-component (AppHeader) op elk scherm niet
 // meer laat herrenderen — alleen deze (SVG-)component reageert nog. memo voorkomt
 // daarnaast een rerender wanneer AppHeader om een andere reden hertekent.
-function RacesBarInner({ onRacePress }: Props) {
+function RacesBarInner({ onRacePress, onAddRace }: Props) {
   const theme      = useTheme()
   const activities = useDataStore(s => s.activities)
   const schemaList = useDataStore(s => s.schemaList)
@@ -94,7 +96,12 @@ function RacesBarInner({ onRacePress }: Props) {
     },
   })).current
 
-  if (!races.length) return null
+  // Geen geplande race: wie wél een schema heeft krijgt een slanke "race plannen"-CTA
+  // (i.p.v. een verdwenen balk zonder uitleg). Zonder schema blijft de balk weg.
+  if (!races.length) {
+    if (!schemaList.length || !onAddRace) return null
+    return <AddRaceBar theme={theme} onPress={onAddRace} />
+  }
 
   const r       = races[safeIdx]
   const cd      = raceCountdown(r.datum)
@@ -216,9 +223,9 @@ function RacesBarInner({ onRacePress }: Props) {
         </Animated.View>
       </Animated.View>
 
-      {open && races.length > 1 && (
+      {open && (
         <Text style={[styles.hint, { color: theme.muted }]}>
-          swipe of tik de pijltjes voor je andere races
+          {races.length > 1 ? 'swipe of tik de pijltjes · ' : ''}lang ingedrukt om te bewerken
         </Text>
       )}
     </View>
@@ -226,6 +233,27 @@ function RacesBarInner({ onRacePress }: Props) {
 }
 
 export const RacesBar = memo(RacesBarInner)
+
+// Lege-staat-CTA: schema gekoppeld maar nog geen race gepland.
+function AddRaceBar({ theme, onPress }: { theme: Theme; onPress: () => void }) {
+  return (
+    <View style={styles.outer}>
+      <Pressable
+        onPress={onPress}
+        style={[styles.addCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      >
+        <View style={[styles.addIcon, { backgroundColor: theme.surface2, borderColor: theme.border }]}>
+          <Text style={styles.addIconText}>🏁</Text>
+        </View>
+        <View style={styles.body}>
+          <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>Plan een race</Text>
+          <Text style={[styles.meta, { color: theme.muted }]}>Krijg een aftelteller bovenaan elk scherm</Text>
+        </View>
+        <Text style={[styles.addPlus, { color: theme.accent }]}>+</Text>
+      </Pressable>
+    </View>
+  )
+}
 
 function WeekBar({ prog, theme }: { prog: WeekProgress; theme: Theme }) {
   const raceHex = ActivityColors.race.text
@@ -313,4 +341,8 @@ const styles = StyleSheet.create({
   arrow:       { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   arrowText:   { fontFamily: Fonts.display, fontSize: 15, lineHeight: 17 },
   hint:        { fontFamily: Fonts.mono, fontSize: 10, textAlign: 'center', marginTop: 6, letterSpacing: 0.2 },
+  addCard:     { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 14, borderWidth: 1 },
+  addIcon:     { width: 40, height: 40, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  addIconText: { fontSize: 18 },
+  addPlus:     { fontFamily: Fonts.displayBold, fontSize: 24, marginRight: 4 },
 })
