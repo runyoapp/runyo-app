@@ -4,12 +4,14 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '@/stores/authStore'
 import { signInWithGoogle } from '@/services/auth'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 import type { RootStackParamList } from '@/navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 export function LoginScreen() {
+  const theme       = useTheme()
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const navigation  = useNavigation<Nav>()
   const [loading,      setLoading]      = useState<'google' | 'none'>('none')
@@ -34,9 +36,9 @@ export function LoginScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>runyo</Text>
-      <Text style={styles.tagline}>schema's die meelopen</Text>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Text style={[styles.logo, { color: theme.text }]}>runyo</Text>
+      <Text style={[styles.tagline, { color: theme.accent }]}>schema's die meelopen</Text>
 
       {authError !== null && (
         <View style={styles.errorBox}>
@@ -46,7 +48,7 @@ export function LoginScreen() {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.btn, styles.btnGoogle]}
+          style={[styles.btn, styles.btnGoogle, { backgroundColor: theme.accent }]}
           onPress={handleGoogle}
           disabled={loading !== 'none'}
           activeOpacity={0.8}
@@ -60,21 +62,21 @@ export function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.btn, styles.btnApple]}
+          style={[styles.btn, styles.btnApple, { backgroundColor: theme.surface, borderColor: theme.border }]}
           disabled
           activeOpacity={0.8}
         >
-          <Text style={styles.btnAppleText}>Inloggen met Apple</Text>
-          <Text style={styles.btnAppleSoon}> · binnenkort</Text>
+          <Text style={[styles.btnAppleText, { color: theme.text }]}>Inloggen met Apple</Text>
+          <Text style={[styles.btnAppleSoon, { color: theme.muted }]}> · binnenkort</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.btn, styles.btnEmail]}
+          style={[styles.btn, styles.btnEmail, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={handleEmail}
           disabled={loading !== 'none'}
           activeOpacity={0.8}
         >
-          <Text style={styles.btnEmailText}>Inloggen met e-mail</Text>
+          <Text style={[styles.btnEmailText, { color: theme.text }]}>Inloggen met e-mail</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -84,7 +86,6 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LightTheme.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
@@ -92,7 +93,6 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: Fonts.displayBold,
     fontSize: 40,
-    color: LightTheme.text,
     letterSpacing: -1,
   },
   errorBox: {
@@ -111,7 +111,6 @@ const styles = StyleSheet.create({
   tagline: {
     fontFamily: Fonts.mono,
     fontSize: 13,
-    color: LightTheme.accent,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xxl * 2,
   },
@@ -128,7 +127,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   btnGoogle: {
-    backgroundColor: LightTheme.accent,
   },
   btnGoogleText: {
     fontFamily: Fonts.displaySemiBold,
@@ -136,29 +134,22 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   btnApple: {
-    backgroundColor: LightTheme.surface,
     borderWidth: 1,
-    borderColor: LightTheme.border,
     opacity: 0.5,
   },
   btnAppleText: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: 16,
-    color: LightTheme.text,
   },
   btnAppleSoon: {
     fontFamily: Fonts.display,
     fontSize: 13,
-    color: LightTheme.muted,
   },
   btnEmail: {
-    backgroundColor: LightTheme.surface,
     borderWidth: 1,
-    borderColor: LightTheme.border,
   },
   btnEmailText: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: 16,
-    color: LightTheme.text,
   },
 })

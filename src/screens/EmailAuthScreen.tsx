@@ -5,9 +5,11 @@ import {
 import { useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { signInWithEmail, signUpWithEmail } from '@/services/auth'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 
 export function EmailAuthScreen() {
+  const theme       = useTheme()
   const setTokenSet = useAuthStore(s => s.setTokenSet)
   const [mode, setMode]           = useState<'signin' | 'signup'>('signin')
   const [email, setEmail]         = useState('')
@@ -48,45 +50,45 @@ export function EmailAuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: theme.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>{isSignup ? 'Account aanmaken' : 'Inloggen'}</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{isSignup ? 'Account aanmaken' : 'Inloggen'}</Text>
 
         <View style={styles.form}>
-          <Text style={styles.label}>E-mailadres</Text>
+          <Text style={[styles.label, { color: theme.muted }]}>E-mailadres</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
             value={email}
             onChangeText={setEmail}
             placeholder="jij@voorbeeld.nl"
-            placeholderTextColor={LightTheme.faint}
+            placeholderTextColor={theme.faint}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
             returnKeyType="next"
           />
 
-          <Text style={[styles.label, { marginTop: Spacing.md }]}>Wachtwoord</Text>
+          <Text style={[styles.label, { color: theme.muted, marginTop: Spacing.md }]}>Wachtwoord</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
             value={password}
             onChangeText={setPassword}
             placeholder={isSignup ? 'Minimaal 10 tekens' : 'Wachtwoord'}
-            placeholderTextColor={LightTheme.faint}
+            placeholderTextColor={theme.faint}
             secureTextEntry
             returnKeyType="done"
             onSubmitEditing={handleSubmit}
           />
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={[styles.error, { color: theme.danger }]}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
+            style={[styles.btn, { backgroundColor: theme.accent }, loading && styles.btnDisabled]}
             onPress={handleSubmit}
             disabled={loading}
             activeOpacity={0.8}
@@ -99,9 +101,9 @@ export function EmailAuthScreen() {
         </View>
 
         <TouchableOpacity onPress={toggleMode} style={styles.toggle}>
-          <Text style={styles.toggleText}>
+          <Text style={[styles.toggleText, { color: theme.muted }]}>
             {isSignup ? 'Al een account? ' : 'Nog geen account? '}
-            <Text style={styles.toggleLink}>{isSignup ? 'Inloggen' : 'Aanmaken'}</Text>
+            <Text style={[styles.toggleLink, { color: theme.accent }]}>{isSignup ? 'Inloggen' : 'Aanmaken'}</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -112,7 +114,6 @@ export function EmailAuthScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: LightTheme.bg,
   },
   container: {
     flexGrow: 1,
@@ -122,7 +123,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.displayBold,
     fontSize: 28,
-    color: LightTheme.text,
     marginBottom: Spacing.xxl,
     letterSpacing: -0.5,
   },
@@ -132,27 +132,21 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: Fonts.displaySemiBold,
     fontSize: 13,
-    color: LightTheme.muted,
     marginBottom: Spacing.xs,
   },
   input: {
-    backgroundColor: LightTheme.surface,
     borderWidth: 1,
-    borderColor: LightTheme.border,
     borderRadius: Radius.md,
     padding: Spacing.lg,
     fontFamily: Fonts.display,
     fontSize: 16,
-    color: LightTheme.text,
   },
   error: {
     fontFamily: Fonts.display,
     fontSize: 14,
-    color: LightTheme.danger,
     marginTop: Spacing.sm,
   },
   btn: {
-    backgroundColor: LightTheme.accent,
     borderRadius: Radius.md,
     padding: Spacing.lg,
     alignItems: 'center',
@@ -175,10 +169,8 @@ const styles = StyleSheet.create({
   toggleText: {
     fontFamily: Fonts.display,
     fontSize: 14,
-    color: LightTheme.muted,
   },
   toggleLink: {
-    color: LightTheme.accent,
     fontFamily: Fonts.displaySemiBold,
   },
 })

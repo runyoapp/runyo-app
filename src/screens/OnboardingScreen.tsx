@@ -2,22 +2,24 @@ import { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ImportWizard } from '@/screens/import/ImportWizard'
-import { LightTheme, Fonts, Spacing, Radius } from '@/constants/theme'
+import { Fonts, Spacing, Radius } from '@/constants/theme'
+import { useTheme } from '@/hooks/useTheme'
 
 export function OnboardingScreen() {
+  const theme = useTheme()
   const setOnboardingDone = useSettingsStore(s => s.setOnboardingDone)
   const [importOpen, setImportOpen] = useState(false)
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>runyo</Text>
-      <Text style={styles.tagline}>schema's die meelopen</Text>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Text style={[styles.logo, { color: theme.text }]}>runyo</Text>
+      <Text style={[styles.tagline, { color: theme.accent }]}>schema's die meelopen</Text>
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.btnPrimary} onPress={() => setImportOpen(true)}>
+        <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: theme.accent }]} onPress={() => setImportOpen(true)}>
           <Text style={styles.btnPrimaryText}>Koppel trainingsschema</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnSecondary} onPress={setOnboardingDone}>
-          <Text style={styles.btnSecondaryText}>Eerst verkennen</Text>
+          <Text style={[styles.btnSecondaryText, { color: theme.muted }]}>Eerst verkennen</Text>
         </TouchableOpacity>
       </View>
       <ImportWizard
@@ -31,7 +33,6 @@ export function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LightTheme.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
@@ -39,19 +40,16 @@ const styles = StyleSheet.create({
   logo: {
     fontFamily: Fonts.displayBold,
     fontSize: 40,
-    color: LightTheme.text,
     letterSpacing: -1,
   },
   tagline: {
     fontFamily: Fonts.mono,
     fontSize: 13,
-    color: LightTheme.accent,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xxl * 2,
   },
   actions: { width: '100%', gap: Spacing.md },
   btnPrimary: {
-    backgroundColor: LightTheme.accent,
     borderRadius: Radius.md,
     padding: Spacing.lg,
     alignItems: 'center',
@@ -69,6 +67,5 @@ const styles = StyleSheet.create({
   btnSecondaryText: {
     fontFamily: Fonts.display,
     fontSize: 15,
-    color: LightTheme.muted,
   },
 })
