@@ -13,6 +13,7 @@ import { SeasonRibbon } from '@/components/races/SeasonRibbon'
 import { RaceHero } from '@/components/races/RaceHero'
 import { RaceResultCard } from '@/components/races/RaceResultCard'
 import { RaceUpNextList } from '@/components/races/RaceUpNextList'
+import { RacePastList } from '@/components/races/RacePastList'
 import { weekProgress } from '@/utils/raceProgress'
 import { fromDateString } from '@/utils/date'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
@@ -89,13 +90,24 @@ export function RacesScreen() {
                   {upNext.length > 0 && (
                     <RaceUpNextList races={upNext} onPress={race => openDetail(race)} />
                   )}
+                  {/* Toekomstige race in beeld → alle gelopen races in de Gelopen-lijst. */}
+                  {past.length > 0 && (
+                    <RacePastList races={past} onPress={race => openDetail(race)} />
+                  )}
                 </>
               ) : lastPast ? (
-                <RaceResultCard
-                  race={lastPast}
-                  onPress={() => openDetail(lastPast)}
-                  onRate={() => openDetail(lastPast, true)}
-                />
+                <>
+                  {/* Geen toekomstige race → meest recente gelopen race prominent,
+                      de rest in de Gelopen-lijst. */}
+                  <RaceResultCard
+                    race={lastPast}
+                    onPress={() => openDetail(lastPast)}
+                    onRate={() => openDetail(lastPast, true)}
+                  />
+                  {past.length > 1 && (
+                    <RacePastList races={past.slice(0, -1)} onPress={race => openDetail(race)} />
+                  )}
+                </>
               ) : null}
             </>
           ) : (
