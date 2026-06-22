@@ -8,6 +8,7 @@ import { View, StyleSheet, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RootNavigator } from '@/navigation/RootNavigator'
+import { navigationRef } from '@/navigation/navigationRef'
 import { useAuthStore } from '@/stores/authStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -72,6 +73,7 @@ export default function App() {
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <NavigationContainer
+              ref={navigationRef}
               initialState={initialState}
               onStateChange={state => {
                 if (isWeb) AsyncStorage.setItem(NAV_STATE_KEY, JSON.stringify(state)).catch(() => {})

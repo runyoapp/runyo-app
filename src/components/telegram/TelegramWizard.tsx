@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Easing } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Easing, Platform } from 'react-native'
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context'
 import { Fonts, type Theme } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { goToToday } from '@/navigation/navigationRef'
 import { createTelegramLink, getTelegramStatus } from '@/services/telegram'
 import { StepHead, HintRow } from '@/screens/import/components/atoms'
 import { TelegramMark, StatusPill, SuccessCheck, DailyMessagePreview } from './atoms'
@@ -18,6 +19,21 @@ type WizardState = 'idle' | 'waiting' | 'linked' | 'timeout' | 'error'
 const BOT = '@runyo_appbot'
 const POLL_MS = 3000
 const WAIT_TIMEOUT_MS = 90_000
+
+// Open de deep-link. Op web in een NIEUW tabblad (de app-tab blijft staan en
+// pollt door, dus je hoeft het Telegram-tabblad niet te sluiten om terug te
+// keren); we proberen daarna de app-tab weer naar voren te halen (browser mag
+// dit negeren). Op native gewoon via Linking (Telegram-app opent eroverheen).
+function openDeepLink(url: string) {
+  if (Platform.OS === 'web') {
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      window.focus()
+    } catch { /* popup geblokkeerd → val terug op Linking */ Linking.openURL(url).catch(() => {}) }
+    return
+  }
+  Linking.openURL(url).catch(() => {})
+}
 
 type Props = {
   visible: boolean
@@ -64,10 +80,17 @@ export function TelegramWizard({ visible, onClose, onLinked }: Props) {
       const link = await createTelegramLink(tk)
       waitStart.current = Date.now()
       setState('waiting')
-      await Linking.openURL(link.url).catch(() => {})
+      openDeepLink(link.url)
     } catch {
       setState('error')
     }
+  }
+
+  // Klaar → sluit de wizard én spring naar de Vandaag-tab (niet terug naar
+  // Instellingen, waar de wizard vandaan kwam).
+  function done() {
+    onClose()
+    goToToday()
   }
 
   return (
@@ -87,7 +110,7 @@ export function TelegramWizard({ visible, onClose, onLinked }: Props) {
           <WaitingView t={t} timedOut={state === 'timeout'} onRetry={openTelegram}
             onSkip={() => setConfirmSkip(true)} insets={insets} />
         )}
-        {state === 'linked' && <LinkedView t={t} onContinue={onClose} insets={insets} />}
+        {state === 'linked' && <LinkedView t={t} onContinue={done} insets={insets} />}
         {state === 'error' && <ErrorView t={t} onRetry={openTelegram} onSkip={() => setConfirmSkip(true)} insets={insets} />}
 
         {confirmSkip && (
