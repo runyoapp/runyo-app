@@ -61,6 +61,15 @@ export function DayRow({ t, row }: { t: Theme; row: ReviewDay }) {
         s.dayTitle,
         { color: row.isRest ? t.muted : t.text, fontFamily: row.isRest ? Fonts.displayMedium : Fonts.displaySemiBold, fontSize: row.isRest ? 12.5 : 13.5 },
       ]}>{row.titel}</Text>
+      {row.targetPace ? (
+        <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>{row.targetPace}</Text>
+      ) : null}
+      {row.hasIntervals ? (
+        <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>intervallen</Text>
+      ) : null}
+      {row.isRace && row.goalTime ? (
+        <Text style={[s.metaPill, { color: t.danger, borderColor: t.danger }]}>doel {row.goalTime}</Text>
+      ) : null}
       {flag ? (
         <View style={[s.checkBadge, { borderColor: row.isRace ? t.danger : CHECK_BORDER }]}>
           <Text style={[s.checkBadgeTxt, { color: row.isRace ? t.danger : CHECK_TXT }]}>check</Text>
@@ -184,6 +193,7 @@ const s = StyleSheet.create({
   dayTitle: { flex: 1, minWidth: 0, letterSpacing: -0.15 },
   checkBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 1 },
   checkBadgeTxt: { fontFamily: Fonts.mono, fontSize: 9.5 },
+  metaPill: { fontFamily: Fonts.mono, fontSize: 9.5, borderWidth: 1, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' },
   dayKm: { fontFamily: Fonts.monoMedium, fontSize: 12 },
   // week
   weekHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 12, paddingBottom: 6 },

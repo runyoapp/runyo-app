@@ -10,7 +10,7 @@ import type * as xlsx from 'xlsx'
 import { createSchema, deleteSchema, type SchemaSpan } from './schemas'
 import { createActivitiesBatch, type ActivityCreateInput } from './activities'
 import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
-import type { Activity, ActivityType } from '@/types/activity'
+import type { Activity, ActivityType, IntervalBlock } from '@/types/activity'
 
 // Trainingsdagen-keuze uit de wizard. 'keep' = dagen uit het document aanhouden;
 // 'choose' = trainingen naar de gekozen weekdagen verschuiven (0=ma … 6=zo).
@@ -48,6 +48,13 @@ WAT JE WEL MAG:
 - Meerdere sessies op één dag samenvoegen in één item
 
 Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 500 tekens — kopieer zo letterlijk mogelijk), km (number|null), fase ("" altijd leeg).
+
+Optionele velden (alleen invullen als ze LETTERLIJK in de bron staan, anders weglaten):
+- targetPace: doeltempo als vrije tekst, bv. "4:30".
+- targetHr: doelhartslag als getal (bpm), bv. 150.
+- intervals: array van blokken {repeat (getal), distanceKm of durationMin (getal), pace (tekst), recovery (tekst)} voor interval-/blok-sessies.
+- Voor type "race": raceType (afstand/soort), goalTime (doeltijd, bv. "37:30"), isMainGoal (true als het schema deze race als hoofddoel markeert).
+Staat er geen tempo/hartslag/interval/doeltijd → laat het veld weg. NOOIT verzinnen of afleiden.
 
 Regels:
 1. Begindatum opgegeven door gebruiker = dag 1 van week 1. Elke week +7 dagen.
@@ -136,6 +143,14 @@ export type ParsedRow = {
   fase: string
   // BUG11: gezet als het brontype onbekend was en stil naar 'run' viel → check-badge.
   needsCheck?: boolean
+  // Optionele sessie-/race-velden — alleen aanwezig als ze letterlijk in de bron
+  // stonden. We sturen ze door naar de backend; afwezig = leeg laten.
+  targetPace?: string | null
+  targetHr?: number | null
+  intervals?: IntervalBlock[] | null
+  raceType?: string | null
+  goalTime?: string | null
+  isMainGoal?: boolean
 }
 
 export type PickResult = {
@@ -316,6 +331,50 @@ function findRowsArray(raw: string): unknown[] | null {
 }
 
 /**
+ * Spiegelt de backend-`normalizeIntervals` (runyo-auth/routes/activities.ts:67):
+ * valideert een array van blokken {repeat, distanceKm|durationMin, pace, recovery}.
+ * Bij élke vormfout dropt het hele veld naar null — we sturen liever niets dan een
+ * rij die de backend met een 400 zou weigeren en zo de hele batch laat falen.
+ * Genereert zelf een `id` per blok (de bron levert die niet, de backend vereist een
+ * niet-lege string-id); geen Math.random zodat de output deterministisch blijft.
+ */
+export function sanitizeIntervals(value: unknown): IntervalBlock[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null
+  const out: IntervalBlock[] = []
+  for (let i = 0; i < value.length; i++) {
+    const item = value[i]
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+    const block = item as Record<string, unknown>
+    // repeat: optioneel; aanwezig → eindig getal ≥ 1.
+    let repeat = 1
+    if (block.repeat !== undefined && block.repeat !== null) {
+      if (typeof block.repeat !== 'number' || !Number.isFinite(block.repeat) || block.repeat < 1) return null
+      repeat = block.repeat
+    }
+    // label/pace/recovery: optionele strings.
+    for (const f of ['label', 'pace', 'recovery'] as const) {
+      if (block[f] !== undefined && block[f] !== null && typeof block[f] !== 'string') return null
+    }
+    // distanceKm/durationMin: optionele getallen ≥ 0.
+    for (const f of ['distanceKm', 'durationMin'] as const) {
+      if (block[f] !== undefined && block[f] !== null) {
+        if (typeof block[f] !== 'number' || !Number.isFinite(block[f]) || (block[f] as number) < 0) return null
+      }
+    }
+    out.push({
+      id: typeof block.id === 'string' && block.id.length > 0 ? block.id : `intv-${i}`,
+      label: (block.label as string | undefined) ?? null,
+      repeat,
+      distanceKm: (block.distanceKm as number | undefined) ?? null,
+      durationMin: (block.durationMin as number | undefined) ?? null,
+      pace: (block.pace as string | undefined) ?? null,
+      recovery: (block.recovery as string | undefined) ?? null,
+    })
+  }
+  return out
+}
+
+/**
  * Parse the raw text response from the backend into structured AnalyseResult.
  * Pure function — safe to unit-test without mocking fetch.
  */
@@ -347,6 +406,15 @@ export function parseRawResponse(raw: string): AnalyseResult {
     .filter(r => typeof r?.datum === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
     .map(r => {
       const { type, known } = normalizeType(String(r.type ?? ''))
+      // Optionele velden: leniente extractie, client-side gespiegeld aan de
+      // backend-validatie. Aanwezig+fout → naar null/weglaten (faalt de import nooit).
+      const targetPace = typeof r.targetPace === 'string' && r.targetPace.trim() ? r.targetPace.trim() : null
+      const targetHr = Number.isInteger(r.targetHr) && (r.targetHr as number) >= 20 && (r.targetHr as number) <= 260
+        ? (r.targetHr as number) : null
+      const intervals = sanitizeIntervals(r.intervals)
+      const raceType = typeof r.raceType === 'string' && r.raceType.trim() ? r.raceType.trim() : null
+      const goalTime = typeof r.goalTime === 'string' && r.goalTime.trim() ? r.goalTime.trim() : null
+      const isMainGoal = type === 'race' && r.isMainGoal === true
       return {
         datum: r.datum as string,
         type,
@@ -355,6 +423,12 @@ export function parseRawResponse(raw: string): AnalyseResult {
         km: r.km != null ? Number(r.km) || null : null,
         fase: typeof r.fase === 'string' ? r.fase : '',
         ...(known ? {} : { needsCheck: true }),
+        ...(targetPace ? { targetPace } : {}),
+        ...(targetHr != null ? { targetHr } : {}),
+        ...(intervals ? { intervals } : {}),
+        ...(raceType ? { raceType } : {}),
+        ...(goalTime ? { goalTime } : {}),
+        ...(isMainGoal ? { isMainGoal } : {}),
       }
     })
 
@@ -506,6 +580,12 @@ export async function importToBackend(
       titel: row.titel || null,
       detail: row.detail || null,
       km: row.km,
+      targetPace: row.targetPace ?? null,
+      targetHr: row.targetHr ?? null,
+      intervals: row.intervals ?? null,
+      raceType: row.raceType ?? null,
+      goalTime: row.goalTime ?? null,
+      isMainGoal: row.isMainGoal ?? false,
     }))
     // Eén transactie op de backend (all-or-nothing) i.p.v. N sequentiële POSTs.
     const activities = await createActivitiesBatch(schemaId, inputs)

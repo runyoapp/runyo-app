@@ -15,6 +15,10 @@ export type ReviewDay = {
   isRest: boolean
   isRace: boolean
   needsCheck: boolean
+  // Geïmporteerde sessie-/race-velden — voeden de subtiele indicatoren in de DayRow.
+  targetPace: string | null
+  hasIntervals: boolean
+  goalTime: string | null
 }
 
 export type ReviewWeek = {
@@ -85,6 +89,9 @@ export function buildReviewWeeks(rows: ParsedRow[], startDate: string): ReviewWe
         isRest,
         isRace,
         needsCheck: !!row?.needsCheck,
+        targetPace: row?.targetPace ?? null,
+        hasIntervals: !!(row?.intervals && row.intervals.length > 0),
+        goalTime: row?.goalTime ?? null,
       })
     }
     weeks.push({ num: w + 1, range: rangeLabel(wStart, wEnd), km, trainingCount, days })

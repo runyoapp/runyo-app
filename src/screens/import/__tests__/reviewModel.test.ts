@@ -42,6 +42,22 @@ describe('buildReviewWeeks', () => {
     const weeks = buildReviewWeeks([row('2026-09-07', 'run', 'X', 5, true)], '2026-09-07')
     expect(weeks[0].days[0].needsCheck).toBe(true)
   })
+
+  it('surfaces targetPace, intervals and goalTime on the day', () => {
+    const tempo: ParsedRow = {
+      datum: '2026-09-07', type: 'run', titel: 'Interval', detail: '', km: 12, fase: '',
+      targetPace: '4:00',
+      intervals: [{ id: 'intv-0', label: null, repeat: 5, distanceKm: 1, durationMin: null, pace: '3:50', recovery: '90s' }],
+    }
+    const race: ParsedRow = {
+      datum: '2026-09-08', type: 'race', titel: '10K', detail: '', km: 10, fase: '', goalTime: '37:30',
+    }
+    const day = buildReviewWeeks([tempo, race], '2026-09-07')[0].days
+    expect(day[0]).toMatchObject({ targetPace: '4:00', hasIntervals: true })
+    expect(day[1]).toMatchObject({ goalTime: '37:30', hasIntervals: false })
+    // Een kale rust-dag heeft geen indicatoren.
+    expect(day[2]).toMatchObject({ targetPace: null, hasIntervals: false, goalTime: null })
+  })
 })
 
 describe('reviewTotals', () => {

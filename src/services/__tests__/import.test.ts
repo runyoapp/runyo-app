@@ -53,6 +53,7 @@ import {
   analyseSchemaFromUrl,
   importToBackend,
   parseRawResponse,
+  sanitizeIntervals,
   checkFileSize,
   base64Bytes,
   IMPORT_BACKEND,
@@ -376,5 +377,116 @@ describe('parseRawResponse', () => {
   it('leaves daysSignal null when the signal is absent', () => {
     const raw = 'TITEL: P\nWEKEN: 1\nPIEK: 10 km\nRAPPORT: x.\n[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":5,"fase":""}]'
     expect(parseRawResponse(raw).daysSignal).toBeNull()
+  })
+})
+
+// ── 7. Optionele pace/HR/intervals/race-velden ────────────────────────────────
+
+const HEAD = 'TITEL: P\nWEKEN: 1\nRAPPORT: x.\n'
+
+describe('parseRawResponse — optionele velden', () => {
+  it('parses targetPace, targetHr and intervals when present', () => {
+    const raw = HEAD + JSON.stringify([{
+      datum: '2026-08-01', type: 'run', titel: 'Tempo', detail: '', km: 10, fase: '',
+      targetPace: '4:30', targetHr: 150,
+      intervals: [{ repeat: 5, distanceKm: 1, pace: '3:50', recovery: '90s' }],
+    }])
+    const row = parseRawResponse(raw).rows[0]
+    expect(row.targetPace).toBe('4:30')
+    expect(row.targetHr).toBe(150)
+    expect(row.intervals).toHaveLength(1)
+    expect(row.intervals![0]).toMatchObject({ id: 'intv-0', repeat: 5, distanceKm: 1, pace: '3:50', recovery: '90s' })
+  })
+
+  it('parses race fields and marks isMainGoal only on a race', () => {
+    const raw = HEAD + JSON.stringify([{
+      datum: '2026-08-01', type: 'race', titel: 'Marathon', detail: '', km: 42, fase: '',
+      raceType: 'Marathon', goalTime: '3:30:00', isMainGoal: true,
+    }])
+    const row = parseRawResponse(raw).rows[0]
+    expect(row.raceType).toBe('Marathon')
+    expect(row.goalTime).toBe('3:30:00')
+    expect(row.isMainGoal).toBe(true)
+  })
+
+  it('ignores isMainGoal on a non-race row', () => {
+    const raw = HEAD + JSON.stringify([{
+      datum: '2026-08-01', type: 'run', titel: 'E', detail: '', km: 8, fase: '', isMainGoal: true,
+    }])
+    expect(parseRawResponse(raw).rows[0].isMainGoal).toBeUndefined()
+  })
+
+  it('omits optional fields when the source has none (no hallucination)', () => {
+    const raw = HEAD + '[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":8,"fase":""}]'
+    const row = parseRawResponse(raw).rows[0]
+    expect(row.targetPace).toBeUndefined()
+    expect(row.targetHr).toBeUndefined()
+    expect(row.intervals).toBeUndefined()
+    expect(row.goalTime).toBeUndefined()
+  })
+
+  it('drops an out-of-range targetHr to null but keeps the row valid', () => {
+    const raw = HEAD + '[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":8,"fase":"","targetHr":999}]'
+    const rows = parseRawResponse(raw).rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0].targetHr).toBeUndefined()
+  })
+
+  it('drops a broken intervals block to null but keeps the row valid', () => {
+    const raw = HEAD + '[{"datum":"2026-08-01","type":"run","titel":"E","detail":"","km":8,"fase":"","intervals":[{"distanceKm":"veel"}]}]'
+    const rows = parseRawResponse(raw).rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0].intervals).toBeUndefined()
+  })
+})
+
+describe('sanitizeIntervals', () => {
+  it('normalizes valid blocks and generates ids', () => {
+    const out = sanitizeIntervals([
+      { repeat: 4, durationMin: 3, pace: '4:00' },
+      { id: 'keep-me', distanceKm: 1 },
+    ])
+    expect(out).toHaveLength(2)
+    expect(out![0]).toMatchObject({ id: 'intv-0', repeat: 4, durationMin: 3, pace: '4:00', distanceKm: null })
+    expect(out![1].id).toBe('keep-me')
+    expect(out![1].repeat).toBe(1) // default
+  })
+
+  it('returns null on any shape error (whole field dropped)', () => {
+    expect(sanitizeIntervals([{ repeat: 0 }])).toBeNull()
+    expect(sanitizeIntervals([{ distanceKm: -1 }])).toBeNull()
+    expect(sanitizeIntervals([{ pace: 5 }])).toBeNull()
+    expect(sanitizeIntervals(['nope'])).toBeNull()
+  })
+
+  it('returns null for a non-array or empty array', () => {
+    expect(sanitizeIntervals(null)).toBeNull()
+    expect(sanitizeIntervals('x')).toBeNull()
+    expect(sanitizeIntervals([])).toBeNull()
+  })
+})
+
+describe('importToBackend — optionele velden doorgeven', () => {
+  it('forwards pace/HR/intervals/race fields to the batch insert', async () => {
+    vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-opt' })
+    vi.mocked(createActivitiesBatch).mockResolvedValueOnce([])
+    const rows: ParsedRow[] = [{
+      datum: '2026-06-01', type: 'run', titel: 'Tempo', detail: '', km: 10, fase: '',
+      targetPace: '4:30', targetHr: 150,
+      intervals: [{ id: 'intv-0', label: null, repeat: 5, distanceKm: 1, durationMin: null, pace: '3:50', recovery: '90s' }],
+    }]
+    await importToBackend(rows, async () => 'tok', () => {})
+    const input = vi.mocked(createActivitiesBatch).mock.calls[0][1][0]
+    expect(input).toMatchObject({ targetPace: '4:30', targetHr: 150, isMainGoal: false })
+    expect(input.intervals).toHaveLength(1)
+  })
+
+  it('sends nulls/false for rows without optional fields', async () => {
+    vi.mocked(createSchema).mockResolvedValueOnce({ id: 'schema-bare' })
+    vi.mocked(createActivitiesBatch).mockResolvedValueOnce([])
+    const rows: ParsedRow[] = [{ datum: '2026-06-01', type: 'run', titel: 'E', detail: '', km: 8, fase: '' }]
+    await importToBackend(rows, async () => 'tok', () => {})
+    const input = vi.mocked(createActivitiesBatch).mock.calls[0][1][0]
+    expect(input).toMatchObject({ targetPace: null, targetHr: null, intervals: null, raceType: null, goalTime: null, isMainGoal: false })
   })
 })
