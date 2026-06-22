@@ -55,6 +55,8 @@ Optionele velden (alleen invullen als ze LETTERLIJK in de bron staan, anders weg
 - intervals: array van blokken {repeat (getal), distanceKm of durationMin (getal), pace (tekst), recovery (tekst)} voor interval-/blok-sessies.
 - Voor type "race": raceType (afstand/soort), goalTime (doeltijd, bv. "37:30"), isMainGoal (true als het schema deze race als hoofddoel markeert).
 Staat er geen tempo/hartslag/interval/doeltijd → laat het veld weg. NOOIT verzinnen of afleiden.
+Behoud de oorspronkelijke omschrijving ALTIJD óók letterlijk in detail — de optionele velden zijn een aanvulling, geen vervanging.
+Interval-afstanden in meters (bv. "600", "8x400m") → distanceKm in km (600 m = 0,6). De pace van een intervalblok hoort in het blok (pace); targetPace alleen voor een tempo dat voor de hele sessie geldt.
 
 Regels:
 1. Begindatum opgegeven door gebruiker = dag 1 van week 1. Elke week +7 dagen.
