@@ -22,6 +22,7 @@ import {
   FileRow, ModeOption, DaySelector,
 } from './components/atoms'
 import { WeekStartPicker } from './components/WeekStartPicker'
+import { SchemaExample } from './components/SchemaExample'
 import { Ring, WeekGroup, ReviewSummary, ReviewLegend } from './components/review'
 import { AbortSheet } from './components/AbortSheet'
 import { useImportFlow } from './useImportFlow'
@@ -61,9 +62,6 @@ export function ImportWizard({
 
   const [chooseDays, setChooseDays] = useState<boolean[]>([true, false, true, false, true, false, true])
   const [overlap, setOverlap] = useState(0)
-  // Bron-stap: voorbeeld van een herkenbaar schema in-/uitklappen, zodat een
-  // nieuwe gebruiker vóór het uploaden weet hoe "goed genoeg" eruitziet.
-  const [showExample, setShowExample] = useState(false)
   // Multi-schema: laat de gebruiker kiezen of de bestaande zichtbare schema's
   // zichtbaar blijven (default) of na de import verborgen worden.
   const [keepOld, setKeepOld] = useState(true)
@@ -103,10 +101,10 @@ export function ImportWizard({
     const runId = ++analyzeRun.current
     flow.setAPct(0); flow.setShowCancel(false)
     flow.goAnalyze()
-    // Annuleren pas na 1 min tonen: analyses duren legitiem even, dus niet meteen
-    // een knop laten zien (wie te vroeg afbreekt, moet opnieuw wachten). Maar 3 min
-    // was te lang — wie écht vastzit, wil niet de hele modal hoeven sluiten.
-    const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 60_000)
+    // Annuleren pas na 3 min tonen: analyses kunnen legitiem enkele minuten duren,
+    // en wie te vroeg een knop ziet, drukt erop en moet opnieuw wachten. De knop
+    // is daarom bewust laat én met uitleg, zodat het geen reflex-tap wordt (zie CTA).
+    const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 180_000)
     const onProg = (pct: number) => { if (analyzeRun.current === runId) flow.setAPct(pct / 100) }
     const abort = new AbortController()
     analyzeAbort.current = abort
@@ -194,32 +192,19 @@ export function ImportWizard({
     switch (step) {
       case 'source':
         return (
-          <View style={s.fill}>
+          <ScrollView style={s.fill} contentContainerStyle={{ paddingBottom: 24 }}>
             <StepHead t={t} title="Importeer je trainingsschema" sub="runyo leest je bestand en zet het om naar je weekschema in de app." />
             <View style={s.tileList}>
               <ChoiceTile t={t} icon="pdf" primary title="PDF" sub="Van je coach of trainingsplan" onPress={() => pickSourceFile('pdf')} />
               <ChoiceTile t={t} icon="sheet" title="Excel / sheet" sub="Spreadsheet, .csv of Google Sheet" onPress={() => flow.go('excelChoice')} />
               <ChoiceTile t={t} icon="photo" title="Foto" sub="Whiteboard, briefje of schermafdruk" onPress={pickSourcePhoto} />
             </View>
-            <View style={s.flex1} />
-            <View style={[s.padH20, { gap: 14 }]}>
-              <View>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => setShowExample(v => !v)} style={s.exampleToggle}>
-                  <Text style={[s.exampleToggleTxt, { color: t.text2 }]}>Wat voor schema werkt?</Text>
-                  <Text style={[s.exampleChevron, { color: t.muted }]}>{showExample ? '∧' : '∨'}</Text>
-                </TouchableOpacity>
-                {showExample ? (
-                  <View style={[s.exampleCard, { backgroundColor: t.surface, borderColor: t.border }]}>
-                    <Text style={[s.exampleHead, { color: t.muted }]}>Voorbeeld — runyo herkent dit:</Text>
-                    <Text style={[s.exampleMono, { color: t.text }]}>{'Week 1\nma   rust\ndi   5 km rustig\ndo   8 km interval\nza   12 km lange duurloop'}</Text>
-                    <Text style={[s.exampleNote, { color: t.muted }]}>Weeknummers of datums, en per dag een afstand of duur. Een PDF, spreadsheet of duidelijke foto werkt - runyo snapt ook losse "dag 1, dag 2"-schema's.</Text>
-                  </View>
-                ) : null}
-              </View>
+            <View style={[s.padH20, { paddingTop: 22, gap: 14 }]}>
+              <SchemaExample t={t} />
               <HintRow t={t}>Je bestand wordt alleen gebruikt om je schema te lezen - daarna kun je het altijd zelf bijschaven.</HintRow>
             </View>
             {data.error ? <Text style={[s.err, { color: t.danger }]}>{data.error}</Text> : null}
-          </View>
+          </ScrollView>
         )
       case 'excelChoice':
         return (
@@ -463,9 +448,12 @@ export function ImportWizard({
       case 'analyze':
         return flow.showCancel ? (
           <View style={s.analyzeFoot}>
+            <Text style={[s.cancelHint, { color: t.muted }]}>
+              Dit duurt langer dan gewoonlijk. Even geduld - runyo is nog bezig. Lukt het niet? Pas dan je bron of instellingen aan.
+            </Text>
             <TouchableOpacity activeOpacity={0.85} onPress={cancelAnalyze}
               style={[s.cancelBtn, { backgroundColor: t.surface, borderColor: t.border }]}>
-              <Text style={[s.cancelBtnTxt, { color: t.text }]}>Annuleren en aanpassen</Text>
+              <Text style={[s.cancelBtnTxt, { color: t.text }]}>Aanpassen en opnieuw proberen</Text>
             </TouchableOpacity>
           </View>
         ) : null
@@ -529,21 +517,14 @@ const s = StyleSheet.create({
   bold: { fontFamily: Fonts.displaySemiBold },
   tileList: { paddingHorizontal: 20, paddingTop: 22, gap: 12 },
   err: { fontFamily: Fonts.display, fontSize: 13, paddingHorizontal: 20, marginTop: 12 },
-  // bron-stap: uitklapbaar voorbeeldschema
-  exampleToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  exampleToggleTxt: { fontFamily: Fonts.displaySemiBold, fontSize: 13 },
-  exampleChevron: { fontFamily: Fonts.display, fontSize: 13 },
-  exampleCard: { marginTop: 10, borderWidth: 1, borderRadius: 12, padding: 13, gap: 9 },
-  exampleHead: { fontFamily: Fonts.mono, fontSize: 10.5, letterSpacing: 0.2, textTransform: 'uppercase' },
-  exampleMono: { fontFamily: Fonts.mono, fontSize: 12, lineHeight: 19 },
-  exampleNote: { fontFamily: Fonts.display, fontSize: 12, lineHeight: 17 },
   linkInput: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, fontFamily: Fonts.mono, fontSize: 12.5 },
   dayHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 11 },
   dayHeadTitle: { fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.15 },
   dayHeadCount: { fontFamily: Fonts.mono, fontSize: 11.5 },
   analyzePhase: { fontFamily: Fonts.displaySemiBold, fontSize: 18, letterSpacing: -0.4, marginTop: 28 },
   analyzeSub: { fontFamily: Fonts.display, fontSize: 13, textAlign: 'center', lineHeight: 19, marginTop: 8, maxWidth: 250 },
-  analyzeFoot: { paddingHorizontal: 20, paddingBottom: 30, alignItems: 'center', gap: 16 },
+  analyzeFoot: { paddingHorizontal: 20, paddingBottom: 30, alignItems: 'center', gap: 14 },
+  cancelHint: { fontFamily: Fonts.display, fontSize: 12.5, textAlign: 'center', lineHeight: 18, maxWidth: 300 },
   cancelBtn: { width: '100%', height: 52, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cancelBtnTxt: { fontFamily: Fonts.displaySemiBold, fontSize: 15, letterSpacing: -0.2 },
   savingCount: { fontFamily: Fonts.mono, fontSize: 12, marginTop: 8 },
