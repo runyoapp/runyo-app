@@ -19,6 +19,7 @@ export function SchemaSwitcher({ schemas, activeId, onSelect }: Props) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
       contentContainerStyle={styles.row}
     >
       {schemas.map(s => {
@@ -48,6 +49,10 @@ export function SchemaSwitcher({ schemas, activeId, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // Horizontale ScrollView in een flex-kolom: niet laten meeschalen/krimpen,
+  // anders drukt de verticale weken-lijst eronder 'm op de eerste render plat
+  // (hoogte 0) en valt het weekoverzicht over de schema-chips heen.
+  scroll: { flexGrow: 0, flexShrink: 0 },
   row:   { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, gap: Spacing.sm },
   chip:  {
     flexDirection: 'row',

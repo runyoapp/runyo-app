@@ -261,7 +261,7 @@ export function PlanScreen() {
                 ]}
               >
                 <Text style={[styles.pillsToggleText, { color: showPills ? theme.accent : theme.muted }]}>
-                  {showPills ? 'Tempo-pills aan' : 'Tempo-pills uit'}
+                  {showPills ? 'Details aan' : 'Details uit'}
                 </Text>
               </TouchableOpacity>
             </View>
