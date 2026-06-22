@@ -452,11 +452,21 @@ describe('sanitizeIntervals', () => {
     expect(out![1].repeat).toBe(1) // default
   })
 
+  it('preserves a valid amountUnit and defaults it to null', () => {
+    const out = sanitizeIntervals([
+      { distanceKm: 0.4, amountUnit: 'm' },
+      { distanceKm: 1 },
+    ])
+    expect(out![0].amountUnit).toBe('m')
+    expect(out![1].amountUnit).toBeNull()
+  })
+
   it('returns null on any shape error (whole field dropped)', () => {
     expect(sanitizeIntervals([{ repeat: 0 }])).toBeNull()
     expect(sanitizeIntervals([{ distanceKm: -1 }])).toBeNull()
     expect(sanitizeIntervals([{ pace: 5 }])).toBeNull()
     expect(sanitizeIntervals(['nope'])).toBeNull()
+    expect(sanitizeIntervals([{ distanceKm: 1, amountUnit: 'meters' }])).toBeNull()
   })
 
   it('returns null for a non-array or empty array', () => {

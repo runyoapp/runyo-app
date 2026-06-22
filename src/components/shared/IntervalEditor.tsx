@@ -74,7 +74,10 @@ function draftToBlock(d: Draft): IntervalBlock {
 
   return {
     id: d.id, label: null, repeat: Math.max(1, d.repeat),
-    distanceKm, durationMin, pace: d.pace.trim() || null, recovery,
+    distanceKm, durationMin,
+    // De gekozen eenheid exact bewaren zodat "400 m" niet als "0,4 km" terugkomt.
+    amountUnit: valid ? d.unit : null,
+    pace: d.pace.trim() || null, recovery,
   }
 }
 

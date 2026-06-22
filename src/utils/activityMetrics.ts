@@ -7,7 +7,9 @@
 // Duck-typed op de velden zodat zowel `Activity` als de wizard-`ParsedRow` dit
 // kunnen voeden — vandaar het losse MetricSource-type i.p.v. een vaste Activity.
 
-import type { IntervalBlock } from '@/types/activity'
+import type { IntervalBlock, IntervalUnit } from '@/types/activity'
+
+export type { IntervalUnit }
 
 type MetricSource = {
   targetPace?: string | null
@@ -42,12 +44,19 @@ export function deriveActivityMetrics(a: MetricSource): ActivityMetrics {
   return { pace, hr, duur, hasIntervals: intervals != null, intervals }
 }
 
-export type IntervalUnit = 'm' | 'km' | 's' | 'min'
-
-// Leidt het ingevoerde bedrag + eenheid terug af uit de canonieke opslag
-// (distanceKm/durationMin). Hele waarden tonen we als km/min, fracties als m/s,
-// zodat 400 m ↔ 0,4 km en 90 s ↔ 1,5 min netjes terugkomen in de editor.
+// Geeft het in te vullen bedrag + eenheid van een intervalblok terug.
+// Voorkeur: de exact opgeslagen `amountUnit` (geen flip — "400 m" blijft "400 m").
+// Alleen bruikbaar als hij bij het gevulde veld past; ontbreekt hij (legacy/import)
+// of is hij inconsistent, dan leiden we de eenheid af uit de canonieke opslag
+// (hele waarden als km/min, fracties als m/s; 400 m ↔ 0,4 km, 90 s ↔ 1,5 min).
 export function intervalAmountUnit(block: IntervalBlock): { amount: string; unit: IntervalUnit } {
+  const u = block.amountUnit
+  if ((u === 'm' || u === 'km') && block.distanceKm != null) {
+    return { amount: u === 'm' ? String(Math.round(block.distanceKm * 1000)) : String(block.distanceKm), unit: u }
+  }
+  if ((u === 's' || u === 'min') && block.durationMin != null) {
+    return { amount: u === 's' ? String(Math.round(block.durationMin * 60)) : String(block.durationMin), unit: u }
+  }
   if (block.durationMin != null) {
     return Number.isInteger(block.durationMin)
       ? { amount: String(block.durationMin), unit: 'min' }

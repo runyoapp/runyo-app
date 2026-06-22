@@ -10,7 +10,10 @@ import type * as xlsx from 'xlsx'
 import { createSchema, deleteSchema, type SchemaSpan } from './schemas'
 import { createActivitiesBatch, type ActivityCreateInput } from './activities'
 import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
-import type { Activity, ActivityType, IntervalBlock } from '@/types/activity'
+import type { Activity, ActivityType, IntervalBlock, IntervalUnit } from '@/types/activity'
+
+// Geldige interval-eenheden, gespiegeld aan de backend-normalizeIntervals.
+const INTERVAL_UNITS: readonly IntervalUnit[] = ['m', 'km', 's', 'min']
 
 // Trainingsdagen-keuze uit de wizard. 'keep' = dagen uit het document aanhouden;
 // 'choose' = trainingen naar de gekozen weekdagen verschuiven (0=ma … 6=zo).
@@ -362,12 +365,19 @@ export function sanitizeIntervals(value: unknown): IntervalBlock[] | null {
         if (typeof block[f] !== 'number' || !Number.isFinite(block[f]) || (block[f] as number) < 0) return null
       }
     }
+    // amountUnit: optioneel; aanwezig → één van de vier eenheden.
+    let amountUnit: IntervalUnit | null = null
+    if (block.amountUnit !== undefined && block.amountUnit !== null) {
+      if (!INTERVAL_UNITS.includes(block.amountUnit as IntervalUnit)) return null
+      amountUnit = block.amountUnit as IntervalUnit
+    }
     out.push({
       id: typeof block.id === 'string' && block.id.length > 0 ? block.id : `intv-${i}`,
       label: (block.label as string | undefined) ?? null,
       repeat,
       distanceKm: (block.distanceKm as number | undefined) ?? null,
       durationMin: (block.durationMin as number | undefined) ?? null,
+      amountUnit,
       pace: (block.pace as string | undefined) ?? null,
       recovery: (block.recovery as string | undefined) ?? null,
     })

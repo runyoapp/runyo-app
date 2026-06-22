@@ -2,16 +2,23 @@ import type { ActivityType } from '@/constants/activities'
 
 export type { ActivityType }
 
+// De eenheid waarin de gebruiker afstand/duur van een intervalblok invoerde.
+// Wordt exact bewaard zodat de editor "400 m" niet naar "0,4 km" laat flippen.
+export type IntervalUnit = 'm' | 'km' | 's' | 'min'
+
 // Eén intervalblok in de weekbouwer. `repeat` = "herhaal blok xN"; een blok
 // heeft een afstand (distanceKm) óf een duur (durationMin). pace en recovery
-// zijn vrije tekst ("4:30", "90s dribbel"). Opgeslagen als jsonb-array in de
-// backend (activities.intervals).
+// zijn vrije tekst ("4:30", "90s dribbel"). `amountUnit` legt vast in welke
+// eenheid de afstand/duur is ingevoerd (m/km/s/min) zodat de weergave exact
+// terugkomt; ontbreekt hij (legacy/import) dan leidt de app de eenheid af.
+// Opgeslagen als jsonb-array in de backend (activities.intervals).
 export type IntervalBlock = {
   id: string
   label: string | null
   repeat: number
   distanceKm: number | null
   durationMin: number | null
+  amountUnit?: IntervalUnit | null
   pace: string | null
   recovery: string | null
 }
