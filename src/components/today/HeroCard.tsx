@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { FeedbackBadge } from '@/components/today/FeedbackSection'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
+import { deriveActivityMetrics } from '@/utils/activityMetrics'
 import type { Activity, ActivityType } from '@/types/activity'
 
 type Props = {
@@ -29,26 +30,17 @@ export function HeroCard({ activity, onPress, onFeedbackPress, feedbackActive = 
   // U43/U47: feedback voor elke training in het verleden/vandaag, behalve werk en races (eigen recap-flow)
   const canFeedback = isPastOrToday && activity.type !== 'work' && activity.type !== 'race'
 
-  const detail    = activity.detail ?? ''
-  const paceMatch = detail.match(/(\d+:\d+)[–-]?(\d+:\d+)?\/km/)
-  const hrMatch   = detail.match(/<?\s*(\d+)\s*bpm/i) ?? detail.match(/HR\s*<?(\d+)/i)
-  const duurMatch = detail.match(/(\d+)\s*(?:min|')/i)
+  const detail = activity.detail ?? ''
 
-  // U44: HR en pace alleen renderen als er een waarde is. De gestructureerde
-  // weekbouwer-velden (targetPace/targetHr) hebben voorrang; ontbreken ze, dan
-  // valt het terug op de slimme detail-parsing zodat geïmporteerde schema's die
-  // pace/HR alleen in de tekst hebben het nog steeds tonen.
-  const paceVal = activity.targetPace
-    ? (/km/i.test(activity.targetPace) ? activity.targetPace : `${activity.targetPace}/km`)
-    : (paceMatch ? paceMatch[0].replace('/km','').trim() + '/km' : null)
-  const hrVal = activity.targetHr != null
-    ? `${activity.targetHr} bpm`
-    : (hrMatch ? `${hrMatch[1]} bpm` : null)
-
+  // U44: pace/HR/duur worden afgeleid via de gedeelde laag (struct-first met
+  // detail-fallback) zodat de Today-kaart dezelfde bron gebruikt als de rest van
+  // de app. De weergave (3-metric-rij) blijft ongewijzigd.
+  const m       = deriveActivityMetrics(activity)
+  const duurNum = m.duur ? m.duur.replace('′', '') : null
   const metrics = [
-    { key: 'pace',  val: paceVal },
-    { key: 'hr',    val: hrVal },
-    { key: 'duur',  val: duurMatch ? `${duurMatch[1]}′`  : null },
+    { key: 'pace', val: m.pace },
+    { key: 'hr',   val: m.hr },
+    { key: 'duur', val: m.duur },
   ].filter(m => m.val)
 
   return (
@@ -71,9 +63,9 @@ export function HeroCard({ activity, onPress, onFeedbackPress, feedbackActive = 
           {activity.km}<Text style={[styles.heroUnit, { color: theme.muted }]}> km</Text>
         </Text>
       )}
-      {activity.km == null && duurMatch && (
+      {activity.km == null && duurNum && (
         <Text style={[styles.heroNum, { color: theme.text }]}>
-          {duurMatch[1]}<Text style={[styles.heroUnit, { color: theme.muted }]}> min</Text>
+          {duurNum}<Text style={[styles.heroUnit, { color: theme.muted }]}> min</Text>
         </Text>
       )}
 

@@ -7,6 +7,8 @@ import { useUiStore } from '@/stores/uiStore'
 import { patchActivity } from '@/services/activities'
 import { ActivityColors, Fonts, Radius, type Theme } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { MetricPills } from '@/components/shared/MetricPills'
+import { deriveActivityMetrics } from '@/utils/activityMetrics'
 import { DAYS_NL, toDateString } from '@/utils/date'
 import { TYPE_DISPLAY, type ActivityType } from '@/constants/activities'
 import type { Activity } from '@/types/activity'
@@ -285,6 +287,9 @@ function SessionPill({ session, theme, dragging = false, animateIn = false, drag
     Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 7, tension: 90 }).start()
   }, [animateIn, anim])
 
+  // Metrics tonen we alleen in de rustende kaart — de sleep-ghost blijft compact.
+  const metrics = dragging ? null : deriveActivityMetrics(session)
+
   const animStyle = animateIn
     ? {
         opacity: anim,
@@ -309,6 +314,11 @@ function SessionPill({ session, theme, dragging = false, animateIn = false, drag
           <Text style={[styles.pillMeta, { color: theme.muted }]} numberOfLines={1}>
             {session.km != null ? `${session.km} km` : typeLabel(session.type)}
           </Text>
+          {metrics && (metrics.pace || metrics.hr || metrics.hasIntervals) ? (
+            <View style={styles.pillPills}>
+              <MetricPills theme={theme} pace={metrics.pace} hr={metrics.hr} hasIntervals={metrics.hasIntervals} />
+            </View>
+          ) : null}
         </View>
         {dragGesture ? (
           <GestureDetector gesture={dragGesture} touchAction="none">
@@ -351,6 +361,7 @@ const styles = StyleSheet.create({
   pillBody:    { flex: 1, minWidth: 0 },
   pillTitle:   { fontFamily: Fonts.displaySemiBold, fontSize: 13.5, letterSpacing: -0.1 },
   pillMeta:    { fontFamily: Fonts.mono, fontSize: 10.5, marginTop: 1 },
+  pillPills:   { marginTop: 5 },
   gripTouch:   { paddingVertical: 9, paddingLeft: 12, paddingRight: 2, marginVertical: -9, marginRight: -2, justifyContent: 'center' },
   grip:        { gap: 3, opacity: 0.55 },
   gripLine:    { width: 15, height: 1.5, borderRadius: 1 },

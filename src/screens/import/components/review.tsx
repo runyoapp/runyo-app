@@ -64,6 +64,9 @@ export function DayRow({ t, row }: { t: Theme; row: ReviewDay }) {
       {row.targetPace ? (
         <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>{row.targetPace}</Text>
       ) : null}
+      {row.targetHr ? (
+        <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>{row.targetHr} bpm</Text>
+      ) : null}
       {row.hasIntervals ? (
         <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>intervallen</Text>
       ) : null}

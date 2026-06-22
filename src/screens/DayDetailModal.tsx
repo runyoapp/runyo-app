@@ -7,6 +7,8 @@ import {
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
+import { MetricPills, IntervalBlocks } from '@/components/shared/MetricPills'
+import { deriveActivityMetrics } from '@/utils/activityMetrics'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
@@ -93,6 +95,9 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const todayStr      = new Date().toISOString().split('T')[0]
   const isPast        = act.datum <= todayStr
   const canHaveFeedback = isPast && act.type !== 'rest' && act.type !== 'work'
+
+  // Afgeleide metrics (struct-first + detail-fallback) voor de read-only weergave.
+  const metrics = deriveActivityMetrics(act)
 
   const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
   const isRest  = type === 'rest'
@@ -224,6 +229,8 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
           </View>
           {!!act.titel    && <Text style={[styles.displayTitle, { color: theme.text }]}>{act.titel}</Text>}
           {act.km != null && <Text style={[styles.displayKm, { color: theme.text }]}>{act.km}<Text style={[styles.displayKmUnit, { color: theme.muted }]}> km</Text></Text>}
+          <MetricPills theme={theme} pace={metrics.pace} hr={metrics.hr} hasIntervals={metrics.hasIntervals} />
+          {metrics.intervals && <IntervalBlocks theme={theme} intervals={metrics.intervals} />}
           {!!act.detail   && <Text style={[styles.displayDetail, { color: theme.muted }]}>{act.detail}</Text>}
           <TouchableOpacity style={[styles.editToggle, { borderTopColor: theme.border }]} onPress={() => setEditing(true)}>
             <Text style={[styles.editToggleText, { color: theme.muted }]}>Activiteit bewerken ›</Text>
