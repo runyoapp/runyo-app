@@ -45,9 +45,8 @@ WAT JE NOOIT MAG VERANDEREN:
 WAT JE WEL MAG:
 - Vertalen van Engels naar Nederlands (maar behoud alle waarden letterlijk)
 - Miles → km omrekenen (× 1.609, afgerond op 1 decimaal)
-- Meerdere sessies op één dag samenvoegen in één item
 
-Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 500 tekens — kopieer zo letterlijk mogelijk), km (number|null), fase ("" altijd leeg).
+Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 500 tekens — kopieer zo letterlijk mogelijk), km (number|null).
 
 Optionele velden (alleen invullen als ze LETTERLIJK in de bron staan, anders weglaten):
 - targetPace: doeltempo als vrije tekst, bv. "4:30".
@@ -62,7 +61,7 @@ Regels:
 1. Begindatum opgegeven door gebruiker = dag 1 van week 1. Elke week +7 dagen.
 2. Ontbrekende of lege dagen → type rust.
 3. REST / Off / Vrij → type rust. Cross-Training → mobiliteit.
-4. Output: chronologisch, één entry per dag, alle weken volledig.
+4. Output: chronologisch, alle weken volledig, elke dag aanwezig (lege dag → rust). Meerdere sessies op één dag (bv. 2 runs, of 1 run + 1 kracht) → meerdere losse items met dezelfde datum, NIET samenvoegen.
 
 TRAININGSDAGEN — volg de instructie van de gebruiker:
 - "Houd de trainingsdagen aan": neem de weekdagen exact over zoals in het document.
