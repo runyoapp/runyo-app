@@ -42,15 +42,40 @@ export function deriveActivityMetrics(a: MetricSource): ActivityMetrics {
   return { pace, hr, duur, hasIntervals: intervals != null, intervals }
 }
 
-// Compacte one-liner voor een intervalblok — gespiegeld op de editor-opbouw
-// (EditorScreen.tsx blockTitle + blockMeta), bv. "Tempo-blok · 5× · 1 km · 3:50/km · 90s herstel".
+export type IntervalUnit = 'm' | 'km' | 's' | 'min'
+
+// Leidt het ingevoerde bedrag + eenheid terug af uit de canonieke opslag
+// (distanceKm/durationMin). Hele waarden tonen we als km/min, fracties als m/s,
+// zodat 400 m ↔ 0,4 km en 90 s ↔ 1,5 min netjes terugkomen in de editor.
+export function intervalAmountUnit(block: IntervalBlock): { amount: string; unit: IntervalUnit } {
+  if (block.durationMin != null) {
+    return Number.isInteger(block.durationMin)
+      ? { amount: String(block.durationMin), unit: 'min' }
+      : { amount: String(Math.round(block.durationMin * 60)), unit: 's' }
+  }
+  if (block.distanceKm != null) {
+    return Number.isInteger(block.distanceKm)
+      ? { amount: String(block.distanceKm), unit: 'km' }
+      : { amount: String(Math.round(block.distanceKm * 1000)), unit: 'm' }
+  }
+  return { amount: '', unit: 'm' }
+}
+
+export function formatIntervalAmount(block: IntervalBlock): string | null {
+  const { amount, unit } = intervalAmountUnit(block)
+  return amount ? `${amount} ${unit}` : null
+}
+
+// Compacte one-liner voor een intervalblok, bv. "6× 400 m · 3:45/km · 90 s herstel".
 export function formatIntervalBlock(block: IntervalBlock): string {
-  const parts: string[] = []
-  if (block.label) parts.push(block.label)
-  if (block.repeat > 1) parts.push(`${block.repeat}×`)
-  if (block.distanceKm != null) parts.push(`${block.distanceKm} km`)
-  else if (block.durationMin != null) parts.push(`${block.durationMin} min`)
-  if (block.pace) parts.push(`${block.pace}/km`)
-  if (block.recovery) parts.push(`${block.recovery} herstel`)
+  const amt = formatIntervalAmount(block)
+  const head = amt
+    ? (block.repeat > 1 ? `${block.repeat}× ${amt}` : amt)
+    : (block.repeat > 1 ? `${block.repeat}×` : '')
+  const parts = [
+    head || null,
+    block.pace ? `${block.pace}/km` : null,
+    block.recovery ? `${block.recovery} herstel` : null,
+  ].filter(Boolean)
   return parts.join(' · ') || `Blok ${block.repeat}×`
 }
