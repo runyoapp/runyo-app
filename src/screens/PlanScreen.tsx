@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { ImportWizard } from '@/screens/import/ImportWizard'
@@ -79,6 +79,7 @@ export function PlanScreen() {
   const schemaId   = useDataStore(s => s.schemaId)
   const schemaList = useDataStore(s => s.schemaList)
   const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
+  const isLoading  = useDataStore(s => s.activitiesLoading)
   const theme      = useTheme()
 
   // Welk zichtbaar schema toont de tijdlijn. null = volg de globale primary;
@@ -170,7 +171,11 @@ export function PlanScreen() {
   }, [activeSchemaId])
 
   const noSchema = !schemaId
-  const noData   = !noSchema && !weeks.length
+  // Onderscheid laden van écht-leeg: zolang de activiteiten nog binnenkomen en er
+  // nog geen weken zijn, tonen we een spinner i.p.v. de "geen data"-melding. Bij een
+  // refetch met al-gevulde weken blijft de lijst staan (geen flikker).
+  const loading  = !noSchema && isLoading && !weeks.length
+  const noData    = !noSchema && !isLoading && !weeks.length
 
   // Weekbouwer (week-overzicht van één week, dagen live uit de store).
   if (mode === 'week' && activeWeekMonday) {
@@ -218,10 +223,17 @@ export function PlanScreen() {
           </View>
         )}
 
+        {loading && (
+          <View style={[styles.empty, { flex: 1 }]}>
+            <ActivityIndicator color={theme.accent} />
+            <Text style={[styles.emptySub, { color: theme.muted, marginTop: Spacing.md }]}>Je schema wordt geladen…</Text>
+          </View>
+        )}
+
         {noData && (
           <View style={[styles.empty, { flex: 1 }]}>
             <Text style={[styles.emptyTitle, { color: theme.text }]}>Geen data</Text>
-            <Text style={[styles.emptySub, { color: theme.muted }]}>Je schema is leeg of wordt geladen.</Text>
+            <Text style={[styles.emptySub, { color: theme.muted }]}>Je schema is nog leeg.</Text>
           </View>
         )}
 
