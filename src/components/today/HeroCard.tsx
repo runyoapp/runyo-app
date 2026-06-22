@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { FeedbackBadge } from '@/components/today/FeedbackSection'
 import { ImportSchemaTile } from '@/components/shared/ImportSchemaTile'
+import { Logo } from '@/components/shared/Logo'
 import { deriveActivityMetrics } from '@/utils/activityMetrics'
 import type { Activity, ActivityType } from '@/types/activity'
 
@@ -148,22 +149,49 @@ export function WorkCard() {
 
 export function NoSchemaCard({ isSignedIn, onConnect, onLogin }: { isSignedIn: boolean; onConnect: () => void; onLogin?: () => void }) {
   const theme = useTheme()
+
+  // Niet-ingelogd: i.p.v. een kale "kapotte" lege tab een 'begin hier'-kaart met
+  // één duidelijke startknop. Inloggen/registreren gaat via dezelfde login-sheet.
+  if (!isSignedIn) {
+    return (
+      <View style={[styles.beginWrap, { paddingHorizontal: Spacing.lg }]}>
+        <View style={[styles.beginCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={[styles.beginLogoTile, { backgroundColor: theme.accent + '18' }]}>
+            <Logo size={20} />
+          </View>
+          <Text style={[styles.beginTitle, { color: theme.text }]}>Je week is nog leeg</Text>
+          <Text style={[styles.beginSub, { color: theme.muted }]}>
+            Breng je schema mee, dan zet runyo je trainingen hier klaar — en krijg je elke
+            ochtend een bericht met de training van die dag.
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.beginCta, { backgroundColor: theme.accent }]}
+          onPress={onLogin}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.ctaText, { color: theme.accentInk }]}>Breng je schema mee</Text>
+          <Text style={[styles.ctaArrow, { color: theme.accentInk }]}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={onLogin} activeOpacity={0.7} style={styles.beginLoginRow}>
+          <Text style={[styles.beginLoginText, { color: theme.muted }]}>
+            Heb je al een account?{' '}
+            <Text style={[styles.beginLoginLink, { color: theme.text }]}>Inloggen</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
   return (
     <View style={[styles.noSchema, { paddingHorizontal: Spacing.xl }]}>
-      <Text style={[styles.noSchemaTitle, { color: theme.text }]}>
-        {isSignedIn ? 'Geen schema gekoppeld' : 'Breng je schema mee'}
-      </Text>
+      <Text style={[styles.noSchemaTitle, { color: theme.text }]}>Geen schema gekoppeld</Text>
       <Text style={[styles.noSchemaSub, { color: theme.muted }]}>
-        {isSignedIn
-          ? 'Koppel jouw trainingsschema en ontvang dagelijks wat er op het programma staat.'
-          : 'Log in en importeer je trainingsschema om elke dag te zien wat er op het programma staat.'}
+        Koppel jouw trainingsschema en ontvang dagelijks wat er op het programma staat.
       </Text>
-      {!isSignedIn && onLogin && (
-        <TouchableOpacity style={[styles.cta, { backgroundColor: theme.accent }]} onPress={onLogin}>
-          <Text style={[styles.ctaText, { color: theme.accentInk }]}>Inloggen</Text>
-        </TouchableOpacity>
-      )}
-      {isSignedIn && <ImportSchemaTile onPress={onConnect} />}
+      <ImportSchemaTile onPress={onConnect} />
     </View>
   )
 }
@@ -187,4 +215,14 @@ const styles = StyleSheet.create({
   noSchema:       { paddingVertical: Spacing.xl, gap: Spacing.md },
   noSchemaTitle:  { fontFamily: Fonts.displayBold, fontSize: 24, letterSpacing: -0.5 },
   noSchemaSub:    { fontFamily: Fonts.display, fontSize: 14, lineHeight: 22 },
+
+  beginWrap:      { paddingVertical: Spacing.lg, gap: Spacing.md },
+  beginCard:      { borderWidth: 1, borderRadius: Radius.lg, paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center' },
+  beginLogoTile:  { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  beginTitle:     { fontFamily: Fonts.displayBold, fontSize: 19, letterSpacing: -0.4 },
+  beginSub:       { fontFamily: Fonts.display, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 8 },
+  beginCta:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: Radius.sm, paddingVertical: 15, paddingHorizontal: Spacing.lg },
+  beginLoginRow:  { alignItems: 'center', paddingVertical: 4 },
+  beginLoginText: { fontFamily: Fonts.display, fontSize: 13.5 },
+  beginLoginLink: { fontFamily: Fonts.displaySemiBold, textDecorationLine: 'underline' },
 })
