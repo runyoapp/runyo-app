@@ -12,7 +12,7 @@ import {
 } from '@/components/shared/editor'
 import { IntervalEditor } from '@/components/shared/IntervalEditor'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
-import { runCategory, activityColor } from '@/utils/runCategory'
+import { activityColor } from '@/utils/runCategory'
 import type { Activity, IntervalBlock } from '@/types/activity'
 
 type Props = {
@@ -35,9 +35,13 @@ export function EditorScreen({ activity, onBack }: Props) {
   const [targetPace, setTargetPace] = useState(activity.targetPace ?? '')
   const [targetHr,   setTargetHr]   = useState(activity.targetHr != null ? String(activity.targetHr) : '')
   const [intervals,  setIntervals]  = useState<IntervalBlock[]>(activity.intervals ?? [])
+  const [intervalsOpen, setIntervalsOpen] = useState(false)
   const [saving,     setSaving]     = useState(false)
 
-  const showIntervals = runCategory(activity) === 'tempo'
+  // Intervallen horen bij hardloopsessies — voor élke run beschikbaar (geen
+  // titel-/trefwoord-gok meer), getoond als inklapbare sectie net als in de
+  // DayDetailModal zodat beide editors gelijklopen.
+  const showIntervals = activity.type === 'run'
 
   async function handleSave() {
     if (!schemaId || saving) return
@@ -131,13 +135,20 @@ export function EditorScreen({ activity, onBack }: Props) {
             </View>
           </View>
 
-          {/* Intervallen — alleen voor kwaliteitssessies */}
+          {/* Intervallen — inklapbaar, beschikbaar voor elke run */}
           {showIntervals && (
             <View style={styles.section}>
-              <FieldLabel hint={`${intervals.length} ${intervals.length === 1 ? 'blok' : 'blokken'}`}>
-                Intervallen
-              </FieldLabel>
-              <IntervalEditor intervals={intervals} onChange={setIntervals} />
+              <TouchableOpacity
+                style={styles.intervalsHead}
+                activeOpacity={0.7}
+                onPress={() => setIntervalsOpen(o => !o)}
+              >
+                <FieldLabel hint={intervals.length ? `· ${intervals.length} ${intervals.length === 1 ? 'blok' : 'blokken'}` : undefined}>
+                  Intervallen
+                </FieldLabel>
+                <Text style={[styles.intervalsChevron, { color: theme.muted }, intervalsOpen && styles.intervalsChevronOpen]}>›</Text>
+              </TouchableOpacity>
+              {intervalsOpen && <IntervalEditor intervals={intervals} onChange={setIntervals} />}
             </View>
           )}
 
@@ -185,6 +196,9 @@ const styles = StyleSheet.create({
   scroll:      { paddingHorizontal: Spacing.lg, paddingTop: 4 },
   section:     { marginBottom: Spacing.lg },
   paceRow:     { flexDirection: 'row', gap: 10, marginBottom: Spacing.lg },
+  intervalsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  intervalsChevron: { fontFamily: Fonts.display, fontSize: 17 },
+  intervalsChevronOpen: { transform: [{ rotate: '90deg' }] },
 
   saveBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, paddingHorizontal: 16, borderRadius: Radius.lg, marginTop: 4 },
   saveText:    { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.1 },
