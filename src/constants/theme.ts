@@ -75,6 +75,21 @@ export function schemaColor(
   return SchemaPalette[(idx < 0 ? 0 : idx) % SchemaPalette.length]
 }
 
+// Kiest de eerste paletkleur die nog niet (effectief) door een ander niet-gearchiveerd
+// schema gebruikt wordt — voor het automatisch toekennen van een kleurlabel zodra een
+// schema op 'weergeven' gaat. Valt terug op de eerste paletkleur als alles bezet is.
+export function pickUnusedSchemaColor(
+  schemaList: { id: string; color: string | null; isArchived?: boolean }[],
+  excludeId: string,
+): string {
+  const used = new Set(
+    schemaList
+      .filter(s => s.id !== excludeId && !s.isArchived)
+      .map(s => schemaColor(s, schemaList)),
+  )
+  return SchemaPalette.find(c => !used.has(c)) ?? SchemaPalette[0]
+}
+
 export const Fonts = {
   display:        'Sora',
   displayMedium:  'Sora-Medium',

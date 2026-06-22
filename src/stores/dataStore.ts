@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Activity, Race, PersonalRecord } from '@/types/activity'
 import { getMySchemas, setSchemaVisibility, archiveSchema, setSchemaSpan, setSchemaColor, type SchemaSpan } from '@/services/schemas'
 import { effectiveSpan } from '@/utils/schemaRouting'
+import { pickUnusedSchemaColor } from '@/constants/theme'
 
 // Multi-schema: meerdere schema's kunnen tegelijk zichtbaar zijn. De backend
 // (is_visible) is de bron van waarheid; deze key is alleen een optimistische
@@ -250,6 +251,16 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const d = derive(schemaList)
     set({ schemaList, ...d })
     await persistVisible(d.visibleSchemaIds)
+
+    // Zichtbaar gemaakt zonder eigen kleur → automatisch een nog vrij kleurlabel
+    // toekennen en opslaan, zodat elk zichtbaar schema een eigen vaste stip-kleur
+    // heeft (i.p.v. de positie-afhankelijke fallback die kan verschuiven).
+    const target = schemaList.find(s => s.id === id)
+    if (visible && target && target.color == null) {
+      try {
+        await get().setSchemaColorById(id, pickUnusedSchemaColor(schemaList, id))
+      } catch { /* kleur is cosmetisch — stille no-op bij falen */ }
+    }
   },
 
   archiveSchemaById: async (id, archived = true) => {
