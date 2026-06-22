@@ -231,9 +231,12 @@ export function PlanScreen() {
         )}
 
         {noData && (
-          <View style={[styles.empty, { flex: 1 }]}>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>Geen data</Text>
-            <Text style={[styles.emptySub, { color: theme.muted }]}>Je schema is nog leeg.</Text>
+          <View style={styles.emptyNoSchema}>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>Je schema is nog leeg</Text>
+            <Text style={[styles.emptySub, { color: theme.muted }]}>
+              Er staan nog geen trainingen in dit schema. Importeer het opnieuw, of voeg met + zelf een training toe.
+            </Text>
+            <ImportSchemaTile onPress={() => setImportOpen(true)} />
           </View>
         )}
 

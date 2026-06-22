@@ -61,6 +61,9 @@ export function ImportWizard({
 
   const [chooseDays, setChooseDays] = useState<boolean[]>([true, false, true, false, true, false, true])
   const [overlap, setOverlap] = useState(0)
+  // Bron-stap: voorbeeld van een herkenbaar schema in-/uitklappen, zodat een
+  // nieuwe gebruiker vóór het uploaden weet hoe "goed genoeg" eruitziet.
+  const [showExample, setShowExample] = useState(false)
   // Multi-schema: laat de gebruiker kiezen of de bestaande zichtbare schema's
   // zichtbaar blijven (default) of na de import verborgen worden.
   const [keepOld, setKeepOld] = useState(true)
@@ -100,9 +103,10 @@ export function ImportWizard({
     const runId = ++analyzeRun.current
     flow.setAPct(0); flow.setShowCancel(false)
     flow.goAnalyze()
-    // Annuleren pas na 3 min tonen: analyses kunnen legitiem enkele minuten duren,
-    // en wie te vroeg een knop ziet, drukt erop en moet opnieuw wachten.
-    const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 180_000)
+    // Annuleren pas na 1 min tonen: analyses duren legitiem even, dus niet meteen
+    // een knop laten zien (wie te vroeg afbreekt, moet opnieuw wachten). Maar 3 min
+    // was te lang — wie écht vastzit, wil niet de hele modal hoeven sluiten.
+    const cancelTimer = setTimeout(() => { if (analyzeRun.current === runId) flow.setShowCancel(true) }, 60_000)
     const onProg = (pct: number) => { if (analyzeRun.current === runId) flow.setAPct(pct / 100) }
     const abort = new AbortController()
     analyzeAbort.current = abort
@@ -198,7 +202,20 @@ export function ImportWizard({
               <ChoiceTile t={t} icon="photo" title="Foto" sub="Whiteboard, briefje of schermafdruk" onPress={pickSourcePhoto} />
             </View>
             <View style={s.flex1} />
-            <View style={s.padH20}>
+            <View style={[s.padH20, { gap: 14 }]}>
+              <View>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => setShowExample(v => !v)} style={s.exampleToggle}>
+                  <Text style={[s.exampleToggleTxt, { color: t.text2 }]}>Wat voor schema werkt?</Text>
+                  <Text style={[s.exampleChevron, { color: t.muted }]}>{showExample ? '∧' : '∨'}</Text>
+                </TouchableOpacity>
+                {showExample ? (
+                  <View style={[s.exampleCard, { backgroundColor: t.surface, borderColor: t.border }]}>
+                    <Text style={[s.exampleHead, { color: t.muted }]}>Voorbeeld — runyo herkent dit:</Text>
+                    <Text style={[s.exampleMono, { color: t.text }]}>{'Week 1\nma   rust\ndi   5 km rustig\ndo   8 km interval\nza   12 km lange duurloop'}</Text>
+                    <Text style={[s.exampleNote, { color: t.muted }]}>Weeknummers of datums, en per dag een afstand of duur. Een PDF, spreadsheet of duidelijke foto werkt - runyo snapt ook losse "dag 1, dag 2"-schema's.</Text>
+                  </View>
+                ) : null}
+              </View>
               <HintRow t={t}>Je bestand wordt alleen gebruikt om je schema te lezen - daarna kun je het altijd zelf bijschaven.</HintRow>
             </View>
             {data.error ? <Text style={[s.err, { color: t.danger }]}>{data.error}</Text> : null}
@@ -512,6 +529,14 @@ const s = StyleSheet.create({
   bold: { fontFamily: Fonts.displaySemiBold },
   tileList: { paddingHorizontal: 20, paddingTop: 22, gap: 12 },
   err: { fontFamily: Fonts.display, fontSize: 13, paddingHorizontal: 20, marginTop: 12 },
+  // bron-stap: uitklapbaar voorbeeldschema
+  exampleToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  exampleToggleTxt: { fontFamily: Fonts.displaySemiBold, fontSize: 13 },
+  exampleChevron: { fontFamily: Fonts.display, fontSize: 13 },
+  exampleCard: { marginTop: 10, borderWidth: 1, borderRadius: 12, padding: 13, gap: 9 },
+  exampleHead: { fontFamily: Fonts.mono, fontSize: 10.5, letterSpacing: 0.2, textTransform: 'uppercase' },
+  exampleMono: { fontFamily: Fonts.mono, fontSize: 12, lineHeight: 19 },
+  exampleNote: { fontFamily: Fonts.display, fontSize: 12, lineHeight: 17 },
   linkInput: { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, fontFamily: Fonts.mono, fontSize: 12.5 },
   dayHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 11 },
   dayHeadTitle: { fontFamily: Fonts.displaySemiBold, fontSize: 14, letterSpacing: -0.15 },
