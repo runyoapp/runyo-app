@@ -21,6 +21,9 @@ export type AppPrefs = {
   weatherLat: number | null
   weatherLon: number | null
   weatherCity: string | null
+  // Toont pace/HR/interval-pills bij de dagen in de Plan-tab. Standaard uit zodat
+  // de planning rustig blijft; de gebruiker zet ze aan met een knop op die tab.
+  showPlanPills: boolean
 }
 
 export const DEFAULT_NOTIFICATIONS: Notifications = {
@@ -35,4 +38,5 @@ export const DEFAULT_PREFS: AppPrefs = {
   weatherLat: 52.0907,
   weatherLon: 5.1214,
   weatherCity: 'Utrecht',
+  showPlanPills: false,
 }

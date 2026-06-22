@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, EditorTextField, EditorTextArea, ChipSelect, InlineSelect,
+  FieldLabel, EditorTextField, EditorTextArea, TypeSelect, InlineSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
@@ -92,7 +92,8 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
     setTargetPace(activity.targetPace ?? '')
     setTargetHr(activity.targetHr != null ? String(activity.targetHr) : '')
     setIntervals(activity.intervals ?? [])
-    setIntervalsOpen(false)
+    // Zit er al een interval in, dan opent de sectie meteen uitgeklapt.
+    setIntervalsOpen((activity.intervals?.length ?? 0) > 0)
   }, [activity?.id])
 
   if (!activity) return null
@@ -247,7 +248,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
           </View>
           {!!act.titel    && <Text style={[styles.displayTitle, { color: theme.text }]}>{act.titel}</Text>}
           {act.km != null && <Text style={[styles.displayKm, { color: theme.text }]}>{act.km}<Text style={[styles.displayKmUnit, { color: theme.muted }]}> km</Text></Text>}
-          <MetricPills theme={theme} pace={metrics.pace} hr={metrics.hr} hasIntervals={metrics.hasIntervals} />
+          <MetricPills pace={metrics.pace} hr={metrics.hr} hasIntervals={metrics.hasIntervals} />
           {metrics.intervals && <IntervalBlocks theme={theme} intervals={metrics.intervals} />}
           {!!act.detail   && <Text style={[styles.displayDetail, { color: theme.muted }]}>{act.detail}</Text>}
           <TouchableOpacity style={[styles.editToggle, { borderTopColor: theme.border }]} onPress={() => setEditing(true)}>
@@ -278,6 +279,13 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
 
       {editing && (
         <View style={{ gap: Spacing.lg }}>
+          {!isRest && (
+            <View>
+              <FieldLabel>Titel</FieldLabel>
+              <EditorTextField value={titel} onChangeText={setTitel} placeholder="bv. 16 km easy" />
+            </View>
+          )}
+
           <View>
             <FieldLabel>Datum</FieldLabel>
             <DayPicker value={datum} onChange={setDatum} />
@@ -285,25 +293,13 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
 
           <View>
             <FieldLabel>Type</FieldLabel>
-            <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
+            <TypeSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
           </View>
-
-          {schemaChips.length > 1 && (
-            <View>
-              <FieldLabel hint="· verplaatsen">Schema</FieldLabel>
-              <InlineSelect options={schemaChips} value={act.schemaId} onChange={handleMove} title="Verplaatsen naar" />
-            </View>
-          )}
 
           {isRest ? (
             <RestCard note="Geen training gepland. Herstel telt ook als werk." />
           ) : (
             <>
-              <View>
-                <FieldLabel>Titel</FieldLabel>
-                <EditorTextField value={titel} onChangeText={setTitel} placeholder="bv. 16 km easy" />
-              </View>
-
               {hasDist && (
                 <View>
                   <FieldLabel hint="· optioneel">Afstand</FieldLabel>
@@ -341,10 +337,18 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
               )}
 
               <View>
-                <FieldLabel hint="· optioneel">Detail</FieldLabel>
+                <FieldLabel hint="· optioneel">Opmerkingen</FieldLabel>
                 <EditorTextArea value={detail} onChangeText={setDetail} placeholder="Pace, hartslag, intervallen…" />
               </View>
             </>
+          )}
+
+          {/* Schema-koppeling helemaal onderaan (alleen bij 2+ koppelbare schema's). */}
+          {schemaChips.length > 1 && (
+            <View>
+              <FieldLabel hint="· verplaatsen">Schema</FieldLabel>
+              <InlineSelect options={schemaChips} value={act.schemaId} onChange={handleMove} title="Verplaatsen naar" />
+            </View>
           )}
         </View>
       )}

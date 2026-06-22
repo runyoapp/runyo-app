@@ -1,21 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
-import { View } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
-  FieldLabel, EditorTextField, EditorTextArea, ChipSelect, InlineSelect,
+  FieldLabel, EditorTextField, EditorTextArea, TypeSelect, InlineSelect,
   DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
+import { IntervalEditor } from '@/components/shared/IntervalEditor'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useTheme } from '@/hooks/useTheme'
 import { createActivity } from '@/services/activities'
 import { createSchema } from '@/services/schemas'
 import { routeSchemaId } from '@/utils/schemaRouting'
 import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
-import { Spacing, schemaColor } from '@/constants/theme'
+import { Fonts, Spacing, schemaColor } from '@/constants/theme'
 import { toDateString, fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
 import type { ActivityType } from '@/constants/activities'
+import type { IntervalBlock } from '@/types/activity'
 
 type Props = {
   visible: boolean
@@ -45,6 +48,7 @@ function friendlyDate(iso: string): string {
 }
 
 export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
+  const theme          = useTheme()
   const queryClient    = useQueryClient()
   const schemaList     = useDataStore(s => s.schemaList)
   const activities     = useDataStore(s => s.activities)
@@ -60,6 +64,11 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
   const [detail,   setDetail]   = useState('')
   const [schemaId, setSchemaId] = useState<string | null>(null)
   const [saving,   setSaving]   = useState(false)
+  // Sessie-velden (run): pace/HR + intervalblokken, identiek aan de bewerk-modal.
+  const [targetPace,    setTargetPace]    = useState('')
+  const [targetHr,      setTargetHr]      = useState('')
+  const [intervals,     setIntervals]     = useState<IntervalBlock[]>([])
+  const [intervalsOpen, setIntervalsOpen] = useState(false)
 
   // Het schema staat standaard op het plan waarvan de span de datum dekt en volgt de
   // datum, totdat de gebruiker zelf een schema kiest — dan blijft die keuze staan.
@@ -78,20 +87,31 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
     .filter(s => s.isVisible && !s.isArchived)
     .map(s => ({ key: s.id, label: s.name, dot: schemaColor(s, schemaList) }))
   const isRest  = type === 'rest'
+  const isRun   = type === 'run'
   const hasDist = DIST_TYPES.has(type)
   const headDot = activityDot(type) ?? undefined
+
+  function resetForm() {
+    setTitel(''); setKm(0); setDetail(''); setType('run')
+    setTargetPace(''); setTargetHr(''); setIntervals([]); setIntervalsOpen(false)
+  }
 
   // Schrijft de activiteit naar het gekozen schema en bevestigt met een toast.
   async function persist(activeSchemaId: string) {
     const kmVal = isRest || !hasDist || km <= 0 ? null : km
+    const hrNum = targetHr.trim() ? Number(targetHr.trim()) : null
     const created = await createActivity(activeSchemaId, {
       datum, titel: isRest ? null : titel, type, km: kmVal, detail: isRest ? null : detail,
+      // Sessie-velden alleen voor runs.
+      targetPace: isRun ? (targetPace.trim() || null) : null,
+      targetHr: isRun && hrNum != null && !Number.isNaN(hrNum) ? hrNum : null,
+      intervals: isRun && intervals.length ? intervals : null,
     })
     upsertActivity(created)
     await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', activeSchemaId] })
     const name = schemaList.find(s => s.id === activeSchemaId)?.name ?? 'schema'
     showToast(`✓ Toegevoegd aan ${name}`)
-    setTitel(''); setKm(0); setDetail(''); setType('run')
+    resetForm()
     onClose()
   }
 
@@ -128,6 +148,13 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
       footer={<SaveBar label="Toevoegen" onSave={handleSave} onCancel={onClose} saving={saving} />}
     >
       <View style={{ gap: Spacing.lg }}>
+        {!isRest && (
+          <View>
+            <FieldLabel>Titel</FieldLabel>
+            <EditorTextField value={titel} onChangeText={setTitel} placeholder={TITLE_HINT[type]} />
+          </View>
+        )}
+
         <View>
           <FieldLabel>Datum</FieldLabel>
           <DayPicker value={datum} onChange={setDatum} />
@@ -135,18 +162,13 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
 
         <View>
           <FieldLabel>Type</FieldLabel>
-          <ChipSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
+          <TypeSelect options={typeOpts} value={type} onChange={k => setType(k as ActivityType)} />
         </View>
 
         {isRest ? (
           <RestCard note="Geen training — plan een herstelblok in." />
         ) : (
           <>
-            <View>
-              <FieldLabel>Titel</FieldLabel>
-              <EditorTextField value={titel} onChangeText={setTitel} placeholder={TITLE_HINT[type]} />
-            </View>
-
             {hasDist && (
               <View>
                 <FieldLabel hint="· optioneel">Afstand</FieldLabel>
@@ -154,13 +176,43 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
               </View>
             )}
 
+            {isRun && (
+              <>
+                <View style={styles.paceRow}>
+                  <View style={{ flex: 1 }}>
+                    <FieldLabel>Streefpace</FieldLabel>
+                    <EditorTextField value={targetPace} onChangeText={setTargetPace} placeholder="4:30" mono />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <FieldLabel>Hartslag</FieldLabel>
+                    <EditorTextField value={targetHr} onChangeText={setTargetHr} placeholder="145" keyboardType="numeric" />
+                  </View>
+                </View>
+
+                <View>
+                  <TouchableOpacity
+                    style={styles.intervalsHead}
+                    activeOpacity={0.7}
+                    onPress={() => setIntervalsOpen(o => !o)}
+                  >
+                    <FieldLabel hint={intervals.length ? `· ${intervals.length} ${intervals.length === 1 ? 'blok' : 'blokken'}` : undefined}>
+                      Intervallen
+                    </FieldLabel>
+                    <Text style={[styles.intervalsChevron, { color: theme.muted }, intervalsOpen && styles.intervalsChevronOpen]}>›</Text>
+                  </TouchableOpacity>
+                  {intervalsOpen && <IntervalEditor intervals={intervals} onChange={setIntervals} />}
+                </View>
+              </>
+            )}
+
             <View>
-              <FieldLabel hint="· optioneel">Detail</FieldLabel>
+              <FieldLabel hint="· optioneel">Opmerkingen</FieldLabel>
               <EditorTextArea value={detail} onChangeText={setDetail} placeholder="Notities, tempo, HR…" />
             </View>
           </>
         )}
 
+        {/* Schema-koppeling helemaal onderaan (alleen bij 2+ koppelbare schema's). */}
         {schemaChips.length > 1 && (
           <View>
             <FieldLabel hint="· koppelen">Schema</FieldLabel>
@@ -171,3 +223,10 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
     </ModalSheet>
   )
 }
+
+const styles = StyleSheet.create({
+  paceRow:          { flexDirection: 'row', gap: 10 },
+  intervalsHead:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  intervalsChevron: { fontFamily: Fonts.display, fontSize: 17 },
+  intervalsChevronOpen: { transform: [{ rotate: '90deg' }] },
+})

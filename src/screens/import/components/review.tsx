@@ -6,6 +6,7 @@ import Svg, { Circle } from 'react-native-svg'
 import { Fonts, ActivityColors } from '@/constants/theme'
 import type { Theme } from '@/constants/theme'
 import type { ReviewDay, ReviewWeek } from '../reviewModel'
+import { MetricPillColors } from '@/components/shared/MetricPills'
 import { HintRow } from './atoms'
 
 const WARN = '#B5912B'
@@ -62,13 +63,13 @@ export function DayRow({ t, row }: { t: Theme; row: ReviewDay }) {
         { color: row.isRest ? t.muted : t.text, fontFamily: row.isRest ? Fonts.displayMedium : Fonts.displaySemiBold, fontSize: row.isRest ? 12.5 : 13.5 },
       ]}>{row.titel}</Text>
       {row.targetPace ? (
-        <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>{row.targetPace}</Text>
+        <Text style={[s.metaPill, { color: MetricPillColors.pace.text, backgroundColor: MetricPillColors.pace.bg, borderColor: MetricPillColors.pace.text }]}>{row.targetPace}</Text>
       ) : null}
       {row.targetHr ? (
-        <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>{row.targetHr} bpm</Text>
+        <Text style={[s.metaPill, { color: MetricPillColors.hr.text, backgroundColor: MetricPillColors.hr.bg, borderColor: MetricPillColors.hr.text }]}>{row.targetHr} bpm</Text>
       ) : null}
       {row.hasIntervals ? (
-        <Text style={[s.metaPill, { color: t.muted, borderColor: t.border }]}>intervallen</Text>
+        <Text style={[s.metaPill, { color: MetricPillColors.interval.text, backgroundColor: MetricPillColors.interval.bg, borderColor: MetricPillColors.interval.text }]}>interval</Text>
       ) : null}
       {row.isRace && row.goalTime ? (
         <Text style={[s.metaPill, { color: t.danger, borderColor: t.danger }]}>doel {row.goalTime}</Text>

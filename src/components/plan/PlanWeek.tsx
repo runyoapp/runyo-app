@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { Fonts, Spacing, Radius, ActivityColors } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
+import { MetricPills } from '@/components/shared/MetricPills'
+import { deriveActivityMetrics } from '@/utils/activityMetrics'
 import { TYPE_DISPLAY } from '@/constants/activities'
 import { DAYS_NL, fromDateString, mondayIndex } from '@/utils/date'
 import type { Activity, ActivityType } from '@/types/activity'
@@ -21,14 +23,16 @@ type Props = {
   today: string
   maxGoalKm: number
   expanded: boolean
+  showPills: boolean
   onToggle: () => void
   onActivityPress: (a: Activity) => void
   onEditWeek: () => void   // → weekbouwer (stap 3); nu nog inert
 }
 
 // Eén dagrij in het uitgeklapte weekdetail. Tikbaar → opent de activiteit-details.
-// Dagen in het verleden worden gedempt getoond.
-function DayRow({ activity, today, onPress }: { activity: Activity; today: string; onPress: () => void }) {
+// Dagen in het verleden worden gedempt getoond. Met showPills tonen we onder de
+// regel de afgeleide pace/HR/interval-pills (opt-in via de Plan-tab).
+function DayRow({ activity, today, showPills, onPress }: { activity: Activity; today: string; showPills: boolean; onPress: () => void }) {
   const theme   = useTheme()
   const d       = fromDateString(activity.datum)
   const dayName = DAYS_NL[mondayIndex(d)].toLowerCase()
@@ -37,6 +41,9 @@ function DayRow({ activity, today, onPress }: { activity: Activity; today: strin
   const colors  = ActivityColors[activity.type as ActivityType] ?? ActivityColors.run
   const label   = activity.titel || (TYPE_DISPLAY[activity.type as ActivityType]?.nl ?? activity.type)
 
+  const metrics  = showPills ? deriveActivityMetrics(activity) : null
+  const hasPills = !!(metrics && (metrics.pace || metrics.hr || metrics.hasIntervals))
+
   return (
     <TouchableOpacity
       style={[styles.dayRow, past && styles.dayRowPast]}
@@ -44,21 +51,30 @@ function DayRow({ activity, today, onPress }: { activity: Activity; today: strin
       activeOpacity={0.6}
     >
       <View style={[styles.dayBar, { backgroundColor: colors.text }]} />
-      <Text style={[styles.dayDate, { color: theme.muted }]}>{dayName} {d.getDate()}</Text>
-      <Text
-        style={[styles.dayTitle, { color: theme.text }, isRace && { color: ActivityColors.race.text }]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-      {activity.km != null && (
-        <Text style={[styles.dayKm, { color: theme.text2 }]}>{activity.km} km</Text>
-      )}
+      <View style={styles.dayMain}>
+        <View style={styles.dayTop}>
+          <Text style={[styles.dayDate, { color: theme.muted }]}>{dayName} {d.getDate()}</Text>
+          <Text
+            style={[styles.dayTitle, { color: theme.text }, isRace && { color: ActivityColors.race.text }]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+          {activity.km != null && (
+            <Text style={[styles.dayKm, { color: theme.text2 }]}>{activity.km} km</Text>
+          )}
+        </View>
+        {hasPills && (
+          <View style={styles.dayPills}>
+            <MetricPills pace={metrics!.pace} hr={metrics!.hr} hasIntervals={metrics!.hasIntervals} />
+          </View>
+        )}
+      </View>
     </TouchableOpacity>
   )
 }
 
-export function PlanWeek({ week, today, maxGoalKm, expanded, onToggle, onActivityPress, onEditWeek }: Props) {
+export function PlanWeek({ week, today, maxGoalKm, expanded, showPills, onToggle, onActivityPress, onEditWeek }: Props) {
   const theme   = useTheme()
   const cur     = week.status === 'current'
   const done    = week.status === 'done'
@@ -98,7 +114,7 @@ export function PlanWeek({ week, today, maxGoalKm, expanded, onToggle, onActivit
           { backgroundColor: theme.surface, borderColor: cur ? theme.accent : theme.border },
         ]}>
           {week.days.map(a => (
-            <DayRow key={a.id} activity={a} today={today} onPress={() => onActivityPress(a)} />
+            <DayRow key={a.id} activity={a} today={today} showPills={showPills} onPress={() => onActivityPress(a)} />
           ))}
           <TouchableOpacity
             style={[styles.editLink, { borderTopColor: theme.border, backgroundColor: theme.surface2 }]}
@@ -131,9 +147,12 @@ const styles = StyleSheet.create({
   dayRow:         { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 9 },
   dayRowPast:     { opacity: 0.5 },
   dayBar:         { width: 3, height: 22, borderRadius: 2 },
+  dayMain:        { flex: 1, minWidth: 0, gap: 5 },
+  dayTop:         { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   dayDate:        { width: 44, fontFamily: Fonts.mono, fontSize: 11 },
   dayTitle:       { flex: 1, minWidth: 0, fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.1 },
   dayKm:          { fontFamily: Fonts.mono, fontSize: 11 },
+  dayPills:       { paddingLeft: 44 + Spacing.sm },
 
   editLink:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11, borderTopWidth: 1 },
   editLinkText:   { flex: 1, fontFamily: Fonts.display, fontSize: 13 },

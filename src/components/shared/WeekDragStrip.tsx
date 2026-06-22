@@ -316,7 +316,7 @@ function SessionPill({ session, theme, dragging = false, animateIn = false, drag
           </Text>
           {metrics && (metrics.pace || metrics.hr || metrics.hasIntervals) ? (
             <View style={styles.pillPills}>
-              <MetricPills theme={theme} pace={metrics.pace} hr={metrics.hr} hasIntervals={metrics.hasIntervals} />
+              <MetricPills pace={metrics.pace} hr={metrics.hr} hasIntervals={metrics.hasIntervals} />
             </View>
           ) : null}
         </View>

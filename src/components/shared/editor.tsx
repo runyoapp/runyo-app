@@ -136,6 +136,44 @@ export function ChipSelect({ options, value, onChange }: {
 }
 
 // ─────────────────────────────────────────────────────────
+// Type-kiezer — inklapbaar. Standaard toont hij alleen de gekozen type-chip
+// (bv. run) + een "wijzig"-knop; tikken onthult alle type-chips. Zo blijft het
+// formulier rustig terwijl een ander type kiezen één tik verderop zit.
+// ─────────────────────────────────────────────────────────
+
+export function TypeSelect({ options, value, onChange }: {
+  options: ChipOption[]
+  value: string
+  onChange: (key: string) => void
+}) {
+  const t = useTheme()
+  const [open, setOpen] = useState(false)
+
+  if (open) {
+    return (
+      <ChipSelect
+        options={options}
+        value={value}
+        onChange={k => { onChange(k); setOpen(false) }}
+      />
+    )
+  }
+
+  const sel = options.find(o => o.key === value) ?? options[0]
+  return (
+    <View style={s.typeRow}>
+      <View style={[s.chip, { backgroundColor: t.text, borderColor: t.text }]}>
+        {sel?.dot && <View style={[s.chipDot, { backgroundColor: sel.dot, borderWidth: 1.5, borderColor: t.bg }]} />}
+        <Text style={[s.chipText, { color: t.bg }]}>{sel?.label}</Text>
+      </View>
+      <TouchableOpacity activeOpacity={0.7} onPress={() => setOpen(true)} style={s.typeChange}>
+        <Text style={[s.typeChangeText, { color: t.muted }]}>wijzig ›</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+// ─────────────────────────────────────────────────────────
 // Compacte één-regel keuze — toont de selectie als rij (stip + naam + chevron)
 // en opent een scrollbare keuzelijst. Schaalt naar veel opties + lange namen.
 // ─────────────────────────────────────────────────────────
@@ -368,6 +406,10 @@ const s = StyleSheet.create({
   chip:        { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 13, paddingVertical: 9, borderRadius: Radius.pill, borderWidth: 1 },
   chipDot:     { width: 7, height: 7, borderRadius: 999 },
   chipText:    { fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.15 },
+
+  typeRow:        { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  typeChange:     { paddingVertical: 4, paddingHorizontal: 2 },
+  typeChangeText: { fontFamily: Fonts.displayMedium, fontSize: 12.5 },
 
   selectRow:    { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13, paddingVertical: 10, borderWidth: 1, borderRadius: Radius.md },
   selectDot:    { width: 8, height: 8, borderRadius: 999 },

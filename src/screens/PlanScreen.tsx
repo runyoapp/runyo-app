@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native'
 import { AddActivityModal } from '@/screens/AddActivityModal'
 import { DayDetailModal } from '@/screens/DayDetailModal'
 import { ImportWizard } from '@/screens/import/ImportWizard'
@@ -8,6 +8,7 @@ import { AppHeader } from '@/components/shared/AppHeader'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useDataStore, type SchemaMeta } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { SchemaHeader } from '@/components/plan/SchemaHeader'
 import { SchemaSwitcher } from '@/components/plan/SchemaSwitcher'
 import { PlanWeek, type PlanWeekData } from '@/components/plan/PlanWeek'
@@ -80,6 +81,8 @@ export function PlanScreen() {
   const schemaList = useDataStore(s => s.schemaList)
   const visibleSchemaIds = useDataStore(s => s.visibleSchemaIds)
   const isLoading  = useDataStore(s => s.activitiesLoading)
+  const showPills  = useSettingsStore(s => s.prefs.showPlanPills)
+  const setPrefs   = useSettingsStore(s => s.setPrefs)
   const theme      = useTheme()
 
   // Welk zichtbaar schema toont de tijdlijn. null = volg de globale primary;
@@ -248,6 +251,20 @@ export function PlanScreen() {
             contentContainerStyle={styles.scrollContent}
           >
             <SchemaHeader weeks={weeks} activities={schemaActivities} />
+            <View style={styles.pillsToggleRow}>
+              <TouchableOpacity
+                onPress={() => setPrefs({ showPlanPills: !showPills })}
+                activeOpacity={0.7}
+                style={[
+                  styles.pillsToggle,
+                  { borderColor: showPills ? theme.accent : theme.border, backgroundColor: showPills ? theme.accentGlow : 'transparent' },
+                ]}
+              >
+                <Text style={[styles.pillsToggleText, { color: showPills ? theme.accent : theme.muted }]}>
+                  {showPills ? 'Tempo-pills aan' : 'Tempo-pills uit'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             {weeks.map(w => (
               <View
                 key={w.num}
@@ -261,6 +278,7 @@ export function PlanScreen() {
                   today={today}
                   maxGoalKm={maxGoalKm}
                   expanded={openSet.has(w.num)}
+                  showPills={showPills}
                   onToggle={() => toggle(w.num)}
                   onActivityPress={setDetailActivity}
                   onEditWeek={() => { setActiveWeekMonday(w.monday); setMode('week') }}
@@ -294,6 +312,9 @@ const styles = StyleSheet.create({
   root:          { flex: 1 },
   scrollContent: { paddingTop: Spacing.xs },
   weekWrap:      { paddingHorizontal: Spacing.lg },
+  pillsToggleRow:{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
+  pillsToggle:   { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+  pillsToggleText:{ fontFamily: Fonts.displaySemiBold, fontSize: 12 },
   empty:         { alignItems: 'center', justifyContent: 'center' },
   emptyNoSchema: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: Spacing.xs },
   emptyTitle:    { fontFamily: Fonts.displayBold, fontSize: 20, marginBottom: Spacing.sm },
