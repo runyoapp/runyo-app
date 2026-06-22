@@ -8,6 +8,7 @@ import {
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
 import { MetricPills, IntervalBlocks } from '@/components/shared/MetricPills'
+import { IntervalEditor } from '@/components/shared/IntervalEditor'
 import { deriveActivityMetrics } from '@/utils/activityMetrics'
 import { FeedbackSection, FeedbackDisplay } from '@/components/today/FeedbackSection'
 import { useAuthStore } from '@/stores/authStore'
@@ -19,7 +20,7 @@ import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, Fonts, Spacing, Radius, schemaColor } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, DAYS_NL, MONTHS_FULL_NL, MONTHS_NL, mondayIndex } from '@/utils/date'
-import type { Activity, ActivityType } from '@/types/activity'
+import type { Activity, ActivityType, IntervalBlock } from '@/types/activity'
 
 const EMOJIS = ['😵', '😓', '😐', '💪', '🔥']
 function buildFeedbackString(rating: number, text: string): string {
@@ -69,6 +70,12 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   const [type,   setType]   = useState<ActivityType>('run')
   const [km,     setKm]     = useState(0)
   const [detail, setDetail] = useState('')
+  // Sessie-velden (run): pace/HR + intervalblokken. Intervallen tonen we als
+  // één inklapbare sectie (standaard dicht) zodat de modal compact blijft.
+  const [targetPace,    setTargetPace]    = useState('')
+  const [targetHr,      setTargetHr]      = useState('')
+  const [intervals,     setIntervals]     = useState<IntervalBlock[]>([])
+  const [intervalsOpen, setIntervalsOpen] = useState(false)
 
   const pendingDelete = useRef<Activity | null>(null)
   const deleteTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -82,6 +89,10 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
     setType((activity.type as ActivityType) ?? 'run')
     setKm(activity.km ?? 0)
     setDetail(activity.detail ?? '')
+    setTargetPace(activity.targetPace ?? '')
+    setTargetHr(activity.targetHr != null ? String(activity.targetHr) : '')
+    setIntervals(activity.intervals ?? [])
+    setIntervalsOpen(false)
   }, [activity?.id])
 
   if (!activity) return null
@@ -101,6 +112,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
 
   const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
   const isRest  = type === 'rest'
+  const isRun   = type === 'run'
   const hasDist = DIST_TYPES.has(type)
   const headDot = (editing ? activityDot(type) : colors.text) ?? undefined
 
@@ -152,11 +164,17 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   async function handleSave() {
     const err = validateDeleteContext(act.schemaId)
     if (err) { showToast(err); return }
+    const hrNum = targetHr.trim() ? Number(targetHr.trim()) : null
     const input: SaveInput = {
       datum, type,
       titel: isRest ? '' : titel,
       km: isRest || !hasDist || km <= 0 ? null : km,
       detail: isRest ? '' : detail,
+      // Sessie-velden alleen voor runs; bij andere types op null zodat ze niet
+      // ongepast blijven hangen na een type-wissel.
+      targetPace: isRun ? (targetPace.trim() || null) : null,
+      targetHr: isRun && hrNum != null && !Number.isNaN(hrNum) ? hrNum : null,
+      intervals: isRun && intervals.length ? intervals : null,
     }
     setSaving(true)
     try {
@@ -293,6 +311,35 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
                 </View>
               )}
 
+              {isRun && (
+                <>
+                  <View style={styles.paceRow}>
+                    <View style={{ flex: 1 }}>
+                      <FieldLabel>Streefpace</FieldLabel>
+                      <EditorTextField value={targetPace} onChangeText={setTargetPace} placeholder="4:30" mono />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <FieldLabel>Hartslag</FieldLabel>
+                      <EditorTextField value={targetHr} onChangeText={setTargetHr} placeholder="145" keyboardType="numeric" />
+                    </View>
+                  </View>
+
+                  <View>
+                    <TouchableOpacity
+                      style={styles.intervalsHead}
+                      activeOpacity={0.7}
+                      onPress={() => setIntervalsOpen(o => !o)}
+                    >
+                      <FieldLabel hint={intervals.length ? `· ${intervals.length} ${intervals.length === 1 ? 'blok' : 'blokken'}` : undefined}>
+                        Intervallen
+                      </FieldLabel>
+                      <Text style={[styles.intervalsChevron, { color: theme.muted }, intervalsOpen && styles.intervalsChevronOpen]}>›</Text>
+                    </TouchableOpacity>
+                    {intervalsOpen && <IntervalEditor intervals={intervals} onChange={setIntervals} />}
+                  </View>
+                </>
+              )}
+
               <View>
                 <FieldLabel hint="· optioneel">Detail</FieldLabel>
                 <EditorTextArea value={detail} onChangeText={setDetail} placeholder="Pace, hartslag, intervallen…" />
@@ -318,4 +365,8 @@ const styles = StyleSheet.create({
   feedbackPromptText: { fontFamily: Fonts.displayBold, fontSize: 15, letterSpacing: -0.2 },
   editToggle:         { paddingTop: Spacing.sm, borderTopWidth: 1 },
   editToggleText:     { fontFamily: Fonts.displayMedium, fontSize: 13 },
+  paceRow:            { flexDirection: 'row', gap: 10 },
+  intervalsHead:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  intervalsChevron:   { fontFamily: Fonts.display, fontSize: 17 },
+  intervalsChevronOpen:{ transform: [{ rotate: '90deg' }] },
 })

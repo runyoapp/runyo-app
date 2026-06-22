@@ -53,6 +53,11 @@ export type SaveInput = {
   type: import('@/types/activity').ActivityType
   km: number | null
   detail: string
+  // Sessie-velden (alleen relevant voor trainingen) — meegestuurd zodat de
+  // DayDetailModal dezelfde pace/HR/intervallen kan bewerken als de weekbouwer.
+  targetPace?: string | null
+  targetHr?: number | null
+  intervals?: import('@/types/activity').IntervalBlock[] | null
 }
 
 /**
