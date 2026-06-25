@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/hooks/useTheme'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { patchActivity, deleteActivity } from '@/services/activities'
+import { patchActivity } from '@/services/activities'
+import { useDeleteActivityWithUndo } from '@/components/weekbouwer/useDeleteActivity'
 import { PageContainer } from '@/components/shared/PageContainer'
 import {
   FieldLabel, EditorTextField, EditorTextArea, TypeSelect,
@@ -36,9 +37,9 @@ export function EditorScreen({ activity, onBack }: Props) {
   const insets         = useSafeAreaInsets()
   const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
-  const removeActivity = useDataStore(s => s.removeActivity)
   const showToast      = useUiStore(s => s.showToast)
   const queryClient    = useQueryClient()
+  const deleteWithUndo = useDeleteActivityWithUndo()
 
   const [datum,      setDatum]      = useState(activity.datum)
   const [type,       setType]       = useState<ActivityType>((activity.type as ActivityType) ?? 'run')
@@ -99,18 +100,9 @@ export function EditorScreen({ activity, onBack }: Props) {
     }
   }
 
-  async function handleDelete() {
-    if (!schemaId) return
-    removeActivity(activity.id)
+  function handleDelete() {
     onBack()
-    try {
-      await deleteActivity(schemaId, activity.id)
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      showToast('Verwijderd')
-    } catch {
-      upsertActivity(activity)
-      showToast('Verwijderen mislukt, probeer opnieuw.')
-    }
+    deleteWithUndo(activity)
   }
 
   return (

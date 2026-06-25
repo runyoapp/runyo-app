@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '@/hooks/useTheme'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
-import { patchActivity, createActivity, deleteActivity } from '@/services/activities'
+import { patchActivity, createActivity } from '@/services/activities'
+import { useDeleteActivityWithUndo } from '@/components/weekbouwer/useDeleteActivity'
 import { Calendar } from '@/components/shared/DayPicker'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { activityColor } from '@/utils/runCategory'
@@ -53,9 +54,9 @@ export function ActivityActionSheet({ activity, onClose, onEdit }: Props) {
   const theme          = useTheme()
   const schemaId       = useDataStore(s => s.schemaId)
   const upsertActivity = useDataStore(s => s.upsertActivity)
-  const removeActivity = useDataStore(s => s.removeActivity)
   const showToast      = useUiStore(s => s.showToast)
   const queryClient    = useQueryClient()
+  const deleteWithUndo = useDeleteActivityWithUndo()
 
   const [picker, setPicker] = useState<Picker>(null)
   const [target, setTarget] = useState<string | null>(null)
@@ -102,18 +103,9 @@ export function ActivityActionSheet({ activity, onClose, onEdit }: Props) {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     close()
-    if (!schemaId) return
-    removeActivity(act.id)
-    try {
-      await deleteActivity(schemaId, act.id)
-      await queryClient.invalidateQueries({ queryKey: ['activities', 'backend', schemaId] })
-      showToast('Verwijderd')
-    } catch {
-      upsertActivity(act)
-      showToast('Verwijderen mislukt, probeer opnieuw.')
-    }
+    deleteWithUndo(act)
   }
 
   const actions = [
