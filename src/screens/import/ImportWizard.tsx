@@ -11,6 +11,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
+import { useUiStore } from '@/stores/uiStore'
+import { goToPlan } from '@/navigation/navigationRef'
 import { Fonts } from '@/constants/theme'
 import {
   pickFile, pickPhoto, analyseSchema, analyseSchemaFromUrl, importToBackend,
@@ -60,8 +62,13 @@ export function ImportWizard({
   const flow = useImportFlow()
   const { data } = flow
 
+  const openWeekbouwer = useUiStore(s => s.openWeekbouwer)
+
   const [chooseDays, setChooseDays] = useState<boolean[]>([true, false, true, false, true, false, true])
   const [overlap, setOverlap] = useState(0)
+  // Onthoud het zojuist geïmporteerde schema + de maandag van week 1, zodat de
+  // "Naar weekbouwer"-knop op het klaar-scherm dáár naartoe kan openen.
+  const [imported, setImported] = useState<{ schemaId: string; monday: string } | null>(null)
   // Multi-schema: laat de gebruiker kiezen of de bestaande zichtbare schema's
   // zichtbaar blijven (default) of na de import verborgen worden.
   const [keepOld, setKeepOld] = useState(true)
@@ -73,6 +80,15 @@ export function ImportWizard({
 
   const close = useCallback(() => { analyzeAbort.current?.abort(); flow.restart(); onClose() }, [flow, onClose])
   const finish = useCallback(() => { flow.restart(); (onSuccess ?? onClose)() }, [flow, onSuccess, onClose])
+  // Sluit de wizard en open de weekbouwer op week 1 van het nieuwe schema. Sluit
+  // altijd via onClose (niet onSuccess, dat bij sommige aanroepers naar Vandaag
+  // navigeert) en spring daarna expliciet naar de Plan-tab.
+  const finishToWeekbouwer = useCallback(() => {
+    if (imported) openWeekbouwer(imported)
+    flow.restart()
+    onClose()
+    goToPlan()
+  }, [imported, openWeekbouwer, flow, onClose])
 
   // ── Bron kiezen ───────────────────────────────────────────────────────────
   async function pickSourceFile(source: 'pdf' | 'excel') {
@@ -137,6 +153,7 @@ export function ImportWizard({
   async function runSave() {
     const rows = data.result?.rows ?? []
     if (!rows.length) return
+    setImported(null)
     // Overlap met alle reeds weergegeven schema's (samengevoegd, informatief).
     // Alleen écht-actieve dagen tellen: een nieuwe training op een oude rustdag
     // is geen botsing — rust wijkt voor een actieve activiteit.
@@ -164,6 +181,9 @@ export function ImportWizard({
       )
       await activateImport(schemaId, data.result?.schemaTitle || 'Geïmporteerd schema', span)
       queryClient.setQueryData(['activities', 'backend', schemaId], activities)
+      // Week 1 = de maandag waarop de review verankerde (span.startDate). Bewaar 'm
+      // samen met het schema-id voor de "Naar weekbouwer"-knop.
+      if (span) setImported({ schemaId, monday: span.startDate })
       // "Niet weergeven" gekozen → zet de vorige schema's na de import uit.
       if (!keepOld) {
         for (const id of prevVisible) {
@@ -392,7 +412,7 @@ export function ImportWizard({
               <View style={[s.overlapBox, { backgroundColor: t.surface2 }]}>
                 <View style={[s.overlapBadge, { borderColor: t.muted }]}><Text style={[s.overlapBadgeTxt, { color: t.muted }]}>i</Text></View>
                 <Text style={[s.overlapTxt, { color: t.muted }]}>
-                  <Text style={{ fontFamily: Fonts.displaySemiBold, color: t.text2 }}>{overlap === 1 ? '1 dag had al een training' : `${overlap} dagen hadden al een training`}</Text> - die staan nu samen. Je ontdubbelt ze zo in de weekbouwer.
+                  <Text style={{ fontFamily: Fonts.displaySemiBold, color: t.text2 }}>{overlap === 1 ? '1 dag had al een training uit een ander schema' : `${overlap} dagen hadden al een training uit een ander schema`}</Text>. {overlap === 1 ? 'Die staat' : 'Die staan'} nu naast je nieuwe. Aanpassen kan in de weekbouwer.
                 </Text>
               </View>
             ) : null}
@@ -468,8 +488,8 @@ export function ImportWizard({
               <Text style={[s.donePrimaryTxt, { color: t.accentInk }]}>Naar vandaag</Text>
               <Text style={[s.donePrimaryTxt, { color: t.accentInk }]}>→</Text>
             </TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.85} onPress={finish} style={[s.doneSecondary, { backgroundColor: t.surface, borderColor: t.border }]}>
-              <Text style={[s.doneSecondaryTxt, { color: t.text }]}>Schema aanpassen</Text>
+            <TouchableOpacity activeOpacity={0.85} onPress={finishToWeekbouwer} disabled={!imported} style={[s.doneSecondary, { backgroundColor: t.surface, borderColor: t.border, opacity: imported ? 1 : 0.5 }]}>
+              <Text style={[s.doneSecondaryTxt, { color: t.text }]}>Naar weekbouwer</Text>
             </TouchableOpacity>
           </View>
         )

@@ -13,3 +13,10 @@ export function goToToday(): void {
   // RootStackParamList Main als parameterloos type heeft.
   ;(navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: 'Today' })
 }
+
+// Spring naar de Plan-tab (bv. om na een import de weekbouwer te openen via de
+// weekbouwerTarget in uiStore).
+export function goToPlan(): void {
+  if (!navigationRef.isReady()) return
+  ;(navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: 'Plan' })
+}

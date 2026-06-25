@@ -7,6 +7,13 @@ export type ToastAction = {
   onPress: () => void
 }
 
+// Cross-screen ingang voor de weekbouwer: een andere plek (bv. de import-wizard)
+// zet een doel, de Plan-tab pikt het op en opent de weekbouwer op die week.
+export type WeekbouwerTarget = {
+  schemaId: string
+  monday: string // ISO-maandag van de te openen week (week 1 bij import)
+}
+
 type UiStore = {
   isLoading: boolean
   loadingMessage: string | null
@@ -16,9 +23,12 @@ type UiStore = {
   modalData: unknown
   loginSheetOpen: boolean
   tabBarHidden: boolean
+  weekbouwerTarget: WeekbouwerTarget | null
 
   setLoading: (loading: boolean, message?: string | null) => void
   setTabBarHidden: (hidden: boolean) => void
+  openWeekbouwer: (target: WeekbouwerTarget) => void
+  clearWeekbouwerTarget: () => void
   showToast: (message: string, durationMs?: number, action?: ToastAction) => void
   hideToast: () => void
   openModal: (modal: NonNullable<ModalName>, data?: unknown) => void
@@ -38,11 +48,15 @@ export const useUiStore = create<UiStore>((set) => ({
   modalData: null,
   loginSheetOpen: false,
   tabBarHidden: false,
+  weekbouwerTarget: null,
 
   setLoading: (isLoading, loadingMessage = null) =>
     set({ isLoading, loadingMessage }),
 
   setTabBarHidden: (tabBarHidden) => set({ tabBarHidden }),
+
+  openWeekbouwer: (weekbouwerTarget) => set({ weekbouwerTarget }),
+  clearWeekbouwerTarget: () => set({ weekbouwerTarget: null }),
 
   showToast: (message, durationMs = 3000, action) => {
     if (toastTimer) clearTimeout(toastTimer)

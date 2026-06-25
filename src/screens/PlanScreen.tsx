@@ -122,6 +122,19 @@ export function PlanScreen() {
     return () => setTabBarHidden(false)
   }, [mode, setTabBarHidden])
 
+  // Cross-screen ingang: een andere plek (bv. de import-wizard "Naar weekbouwer")
+  // zet een weekbouwerTarget → scope de tijdlijn op dat schema en open de
+  // weekbouwer op die week. Daarna het doel wissen zodat het niet herhaalt.
+  const weekbouwerTarget = useUiStore(s => s.weekbouwerTarget)
+  const clearWeekbouwerTarget = useUiStore(s => s.clearWeekbouwerTarget)
+  useEffect(() => {
+    if (!weekbouwerTarget) return
+    setViewSchemaId(weekbouwerTarget.schemaId)
+    setActiveWeekMonday(weekbouwerTarget.monday)
+    setMode('week')
+    clearWeekbouwerTarget()
+  }, [weekbouwerTarget, clearWeekbouwerTarget])
+
   const weeks = useMemo(() => buildWeeks(activities, today, schema), [activities, today, schema])
   // SchemaHeader (titel via volgende race, start/eind) volgt dezelfde primaire-schema
   // tijdlijn als de week-lijst eronder.
