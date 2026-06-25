@@ -7,7 +7,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { syncActivitiesToSheet } from '@/services/sheets'
 import { createExportSheet } from '@/services/drive'
-import { createSchema } from '@/services/schemas'
+import { createSchema, deleteSchema } from '@/services/schemas'
 import type { SchemaMeta } from '@/stores/dataStore'
 import { effectiveSpan } from '@/utils/schemaRouting'
 import { fromDateString, MONTHS_NL } from '@/utils/date'
@@ -67,7 +67,7 @@ function SchemaRow({ s, last, spanText, dotColor, onPress }: {
 
       <View style={styles.schemaBody}>
         <Text style={[styles.schemaName, { color: theme.text }, s.isArchived && { color: theme.muted }]} numberOfLines={1}>
-          {s.name}{s.isArchived ? ' · gearchiveerd' : ''}
+          {s.name}
         </Text>
         <Text style={[styles.schemaSpan, { color: theme.muted }]} numberOfLines={1}>{spanText}</Text>
       </View>
@@ -92,6 +92,7 @@ export function ConnectSection() {
   const showToast         = useUiStore(s => s.showToast)
 
   const [open,           setOpen]           = useState(false)
+  const [archivedOpen,   setArchivedOpen]   = useState(false)
   const [importOpen,     setImportOpen]     = useState(false)
   const [creating,       setCreating]       = useState(false)
   const [exporting,      setExporting]      = useState(false)
@@ -99,6 +100,12 @@ export function ConnectSection() {
   const [editSchemaId,   setEditSchemaId]   = useState<string | null>(null)
 
   const editSchema = schemaList.find(s => s.id === editSchemaId) ?? null
+
+  // Gearchiveerde schema's apart: ze blijven bereikbaar (terugzetten kan), maar
+  // niet als lange grijze lijst tussen de actieve schema's. Ze zitten ingeklapt
+  // achter een "Gearchiveerd (n)"-rij.
+  const activeSchemas   = schemaList.filter(s => !s.isArchived)
+  const archivedSchemas = schemaList.filter(s => s.isArchived)
 
   async function handleExportToSheets(schema: SchemaMeta) {
     if (tokenSet?.authMethod !== 'google') {
@@ -135,7 +142,19 @@ export function ConnectSection() {
     try {
       const { id } = await createSchema('Leeg schema')
       await activateImport(id, 'Leeg schema')
-      showToast('✓ Leeg schema aangemaakt')
+      // Net als bij verwijderen: even ongedaan kunnen maken. Tik je binnen 5s op
+      // "Ongedaan maken", dan halen we het zojuist aangemaakte schema weer weg.
+      showToast('Leeg schema aangemaakt', 5000, {
+        label: 'Ongedaan maken',
+        onPress: async () => {
+          try {
+            await deleteSchema(id)
+            await loadMySchemas()
+          } catch {
+            showToast('Ongedaan maken mislukt, probeer opnieuw.')
+          }
+        },
+      })
     } catch {
       showToast('Aanmaken mislukt')
     } finally {
@@ -171,7 +190,7 @@ export function ConnectSection() {
             <View style={styles.triggerTitleRow}>
               <Text style={[styles.triggerTitle, { color: theme.text }]}>Mijn schema's</Text>
               <View style={[styles.countBadge, { backgroundColor: theme.accent }]}>
-                <Text style={[styles.countText, { color: theme.accentInk }]}>{schemaList.length}</Text>
+                <Text style={[styles.countText, { color: theme.accentInk }]}>{activeSchemas.length}</Text>
               </View>
             </View>
             <Text style={[styles.triggerSub, { color: theme.muted }]} numberOfLines={1}>{summary}</Text>
@@ -187,16 +206,44 @@ export function ConnectSection() {
             ) : schemaList.length === 0 ? (
               <Text style={[styles.emptyText, { color: theme.muted }]}>Geen schema's gevonden.</Text>
             ) : (
-              schemaList.map((sc, i) => (
-                <SchemaRow
-                  key={sc.id}
-                  s={sc}
-                  last={i === schemaList.length - 1}
-                  spanText={spanTextFor(sc, activities)}
-                  dotColor={schemaColor(sc, schemaList)}
-                  onPress={() => setEditSchemaId(sc.id)}
-                />
-              ))
+              <>
+                {activeSchemas.map((sc, i) => (
+                  <SchemaRow
+                    key={sc.id}
+                    s={sc}
+                    last={i === activeSchemas.length - 1 && archivedSchemas.length === 0}
+                    spanText={spanTextFor(sc, activities)}
+                    dotColor={schemaColor(sc, schemaList)}
+                    onPress={() => setEditSchemaId(sc.id)}
+                  />
+                ))}
+
+                {archivedSchemas.length > 0 && (
+                  <>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setArchivedOpen(o => !o)}
+                      style={styles.archivedToggle}
+                    >
+                      <Text style={[styles.archivedToggleText, { color: theme.muted }]}>
+                        Gearchiveerd ({archivedSchemas.length})
+                      </Text>
+                      <Chevron open={archivedOpen} color={theme.muted} />
+                    </TouchableOpacity>
+
+                    {archivedOpen && archivedSchemas.map((sc, i) => (
+                      <SchemaRow
+                        key={sc.id}
+                        s={sc}
+                        last={i === archivedSchemas.length - 1}
+                        spanText={spanTextFor(sc, activities)}
+                        dotColor={schemaColor(sc, schemaList)}
+                        onPress={() => setEditSchemaId(sc.id)}
+                      />
+                    ))}
+                  </>
+                )}
+              </>
             )}
           </>
         )}
@@ -266,6 +313,9 @@ const styles = StyleSheet.create({
   schemaName:     { fontFamily: Fonts.displaySemiBold, fontSize: 14.5, letterSpacing: -0.1 },
   schemaSpan:     { fontFamily: Fonts.mono, fontSize: 11, marginTop: 2 },
   rowChevron:     { fontFamily: Fonts.display, fontSize: 18 },
+
+  archivedToggle:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11 },
+  archivedToggleText: { fontFamily: Fonts.monoMedium, fontSize: 11, letterSpacing: 0.3, textTransform: 'uppercase' },
 
   emptyText:      { fontFamily: Fonts.mono, fontSize: 12, padding: 14 },
   notSignedIn:    { fontFamily: Fonts.display, fontSize: 13 },

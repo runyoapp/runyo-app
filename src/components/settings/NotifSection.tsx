@@ -174,7 +174,7 @@ export function NotifSection() {
         ) : (
           <View style={styles.unlinkedBody}>
             <Text style={[styles.unlinkedText, { color: theme.muted }]}>
-              Nog niet aan. Koppel Telegram en runyo stuurt je elke ochtend de training van die dag.
+              Meldingen staan nog niet aan. Koppel je Telegram hier en runyo stuurt je elke ochtend de training van die dag!
             </Text>
             <TouchableOpacity
               activeOpacity={0.85}

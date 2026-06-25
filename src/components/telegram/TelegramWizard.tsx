@@ -48,12 +48,11 @@ export function TelegramWizard({ visible, onClose, onLinked }: Props) {
   const showToast = useUiStore(s => s.showToast)
 
   const [state, setState] = useState<WizardState>('idle')
-  const [confirmSkip, setConfirmSkip] = useState(false)
   const waitStart = useRef(0)
 
   // Bij (her)openen terug naar de begintoestand.
   useEffect(() => {
-    if (visible) { setState('idle'); setConfirmSkip(false) }
+    if (visible) { setState('idle') }
   }, [visible])
 
   // Pollen zolang we wachten: zodra de bot de chat koppelt → linked.
@@ -105,19 +104,13 @@ export function TelegramWizard({ visible, onClose, onLinked }: Props) {
           </TouchableOpacity>
         </View>
 
-        {state === 'idle' && <IdleView t={t} onOpen={openTelegram} onSkip={() => setConfirmSkip(true)} insets={insets} />}
+        {state === 'idle' && <IdleView t={t} onOpen={openTelegram} onSkip={onClose} insets={insets} />}
         {(state === 'waiting' || state === 'timeout') && (
           <WaitingView t={t} timedOut={state === 'timeout'} onRetry={openTelegram}
-            onSkip={() => setConfirmSkip(true)} insets={insets} />
+            onSkip={onClose} insets={insets} />
         )}
         {state === 'linked' && <LinkedView t={t} onContinue={done} insets={insets} />}
-        {state === 'error' && <ErrorView t={t} onRetry={openTelegram} onSkip={() => setConfirmSkip(true)} insets={insets} />}
-
-        {confirmSkip && (
-          <SkipSheet t={t} insets={insets}
-            onStay={() => setConfirmSkip(false)}
-            onConfirm={() => { setConfirmSkip(false); onClose() }} />
-        )}
+        {state === 'error' && <ErrorView t={t} onRetry={openTelegram} onSkip={onClose} insets={insets} />}
       </View>
     </Modal>
   )
@@ -216,7 +209,7 @@ function LinkedView({ t, onContinue, insets }: { t: Theme; onContinue: () => voi
         <SuccessCheck t={t} />
         <Text style={[styles.centerTitle, { color: t.text }]}>Telegram gekoppeld</Text>
         <Text style={[styles.centerText, { color: t.muted }]}>
-          Je eerste bericht komt morgenochtend om 06:30. Aan- en uitzetten kan altijd in je profiel.
+          Je eerste bericht komt morgenochtend om 07:00. Aan- en uitzetten kan altijd in je profiel.
         </Text>
         <View style={[styles.linkedRow, { backgroundColor: t.surface, borderColor: t.border }]}>
           <TelegramMark size={34} />
@@ -263,33 +256,6 @@ function ErrorView({ t, onRetry, onSkip, insets }: { t: Theme; onRetry: () => vo
   )
 }
 
-// ── overslaan-bevestiging (bottom-sheet) ──────────────────────────────────────
-function SkipSheet({ t, onStay, onConfirm, insets }: { t: Theme; onStay: () => void; onConfirm: () => void; insets: EdgeInsets }) {
-  return (
-    <View style={styles.skipRoot}>
-      <TouchableOpacity activeOpacity={1} onPress={onStay} style={styles.skipBackdrop} />
-      <View style={[styles.skipSheet, { backgroundColor: t.bg, paddingBottom: insets.bottom + 20 }]}>
-        <View style={[styles.skipHandle, { backgroundColor: t.border }]} />
-        <View style={styles.skipHead}>
-          <TelegramMark size={40} bg={t.muted} />
-          <Text style={[styles.skipTitle, { color: t.text }]}>Zonder koppeling geen ochtendbericht</Text>
-        </View>
-        <Text style={[styles.skipText, { color: t.muted }]}>
-          Je schema loopt gewoon mee in de app — je krijgt alleen geen dagelijks bericht met je
-          training. Aanzetten kan op elk moment alsnog, in twee tikken.
-        </Text>
-        <TouchableOpacity activeOpacity={0.85} onPress={onStay}
-          style={[styles.primaryBtn, { backgroundColor: t.accent, marginTop: 20 }]}>
-          <Text style={[styles.primaryLabel, { color: t.accentInk }]}>Toch koppelen</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onConfirm} style={styles.skipDismiss}>
-          <Text style={[styles.skipDismissText, { color: t.muted }]}>Niet nu</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex1: { flex: 1, minWidth: 0 },
@@ -321,14 +287,4 @@ const styles = StyleSheet.create({
   primaryBtn: { height: 52, borderRadius: 8, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   primaryLabel: { fontFamily: Fonts.displayBold, fontSize: 15.5, letterSpacing: -0.2 },
   primaryArrow: { fontFamily: Fonts.displaySemiBold, fontSize: 17 },
-
-  skipRoot: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end' },
-  skipBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,31,26,0.45)' },
-  skipSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingTop: 12 },
-  skipHandle: { width: 38, height: 4, borderRadius: 999, alignSelf: 'center', marginBottom: 18 },
-  skipHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  skipTitle: { flex: 1, fontFamily: Fonts.displayBold, fontSize: 18, letterSpacing: -0.4 },
-  skipText: { fontFamily: Fonts.display, fontSize: 13.5, lineHeight: 20 },
-  skipDismiss: { height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  skipDismissText: { fontFamily: Fonts.displaySemiBold, fontSize: 14 },
 })
