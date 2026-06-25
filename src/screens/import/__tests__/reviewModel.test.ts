@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildReviewWeeks, reviewTotals, nextTraining, overlapCount } from '../reviewModel'
+import { buildReviewWeeks, reviewTotals, nextTraining, overlapCount, existingActiveDates } from '../reviewModel'
 import type { ParsedRow } from '@/services/import'
 
 const row = (datum: string, type: string, titel = '', km: number | null = null, needsCheck = false): ParsedRow => ({
@@ -84,5 +84,24 @@ describe('overlapCount', () => {
   it('counts non-rest rows whose date already exists', () => {
     const rows: ParsedRow[] = [row('2026-09-01', 'run'), row('2026-09-02', 'rest'), row('2026-09-03', 'run')]
     expect(overlapCount(rows, new Set(['2026-09-01', '2026-09-02']))).toBe(1)
+  })
+})
+
+describe('existingActiveDates', () => {
+  it('telt alleen echte trainingsdagen, geen rust/werk', () => {
+    const existing = [
+      { datum: '2026-09-01', type: 'run' },
+      { datum: '2026-09-02', type: 'rest' },
+      { datum: '2026-09-03', type: 'work' },
+      { datum: '2026-09-04', type: 'strength' },
+    ]
+    const set = existingActiveDates(existing)
+    expect([...set].sort()).toEqual(['2026-09-01', '2026-09-04'])
+  })
+
+  it('een nieuwe training op een oude rustdag telt niet als overlap', () => {
+    const existing = [{ datum: '2026-09-02', type: 'rest' }]
+    const rows: ParsedRow[] = [row('2026-09-02', 'run')]
+    expect(overlapCount(rows, existingActiveDates(existing))).toBe(0)
   })
 })

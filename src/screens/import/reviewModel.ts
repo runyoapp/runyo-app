@@ -123,3 +123,13 @@ export function nextTraining(rows: ParsedRow[], todayIso: string): ParsedRow | n
 export function overlapCount(rows: ParsedRow[], existingDates: Set<string>): number {
   return rows.filter(r => existingDates.has(r.datum) && !REST_TYPES.has(r.type)).length
 }
+
+// Datums waarop de reeds weergegeven schema's een ECHTE training hadden (geen
+// rust/werk-placeholder). Een nieuwe training die op een oude rustdag landt is
+// geen botsing - alleen training-op-training is dat. Sluit 'rest' en 'work' uit,
+// net als useTodayData het actieve-dag-begrip hanteert.
+export function existingActiveDates(activities: { datum: string; type: string }[]): Set<string> {
+  return new Set(
+    activities.filter(a => a.type !== 'rest' && a.type !== 'work').map(a => a.datum),
+  )
+}

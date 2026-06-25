@@ -26,7 +26,7 @@ import { SchemaExample } from './components/SchemaExample'
 import { Ring, WeekGroup, ReviewSummary, ReviewLegend } from './components/review'
 import { AbortSheet } from './components/AbortSheet'
 import { useImportFlow } from './useImportFlow'
-import { buildReviewWeeks, reviewTotals, nextTraining, overlapCount } from './reviewModel'
+import { buildReviewWeeks, reviewTotals, nextTraining, overlapCount, existingActiveDates } from './reviewModel'
 import { fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
 
 const DAY_INDEX_TO_MASK = [0, 1, 2, 3, 4, 5, 6] // 0=ma … 6=zo
@@ -138,7 +138,9 @@ export function ImportWizard({
     const rows = data.result?.rows ?? []
     if (!rows.length) return
     // Overlap met alle reeds weergegeven schema's (samengevoegd, informatief).
-    setOverlap(overlapCount(rows, new Set(storeActivities.map(a => a.datum))))
+    // Alleen écht-actieve dagen tellen: een nieuwe training op een oude rustdag
+    // is geen botsing — rust wijkt voor een actieve activiteit.
+    setOverlap(overlapCount(rows, existingActiveDates(storeActivities)))
 
     // Vaste plan-span uit de zojuist goedgekeurde review: start = maandag van week 1
     // (dezelfde verankering als het reviewscherm, niet de ruwe startDate), weekCount =
