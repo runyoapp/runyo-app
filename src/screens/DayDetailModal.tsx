@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
   FieldLabel, EditorTextField, EditorTextArea, TypeSelect, InlineSelect,
-  DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
+  DistanceStepper, SaveBar, RestCard, activityDot, buildTypeOptions, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
 import { MetricPills, IntervalBlocks } from '@/components/shared/MetricPills'
@@ -16,7 +16,7 @@ import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { commitDelete, saveActivity, validateDeleteContext, type SaveInput } from '@/services/activityEdit'
 import { patchActivity, moveActivity } from '@/services/activities'
-import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
+import { TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, Fonts, Spacing, Radius, schemaColor } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { fromDateString, DAYS_NL, MONTHS_FULL_NL, MONTHS_NL, mondayIndex } from '@/utils/date'
@@ -111,7 +111,7 @@ export function DayDetailModal({ activity, visible, onClose, startInFeedback }: 
   // Afgeleide metrics (struct-first + detail-fallback) voor de read-only weergave.
   const metrics = deriveActivityMetrics(act)
 
-  const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
+  const typeOpts = buildTypeOptions(type)
   const isRest  = type === 'rest'
   const isRun   = type === 'run'
   const hasDist = DIST_TYPES.has(type)

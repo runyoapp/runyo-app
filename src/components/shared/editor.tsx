@@ -14,11 +14,23 @@ import { ActivityColors, Fonts, Spacing, Radius, type Theme } from '@/constants/
 import { useTheme } from '@/hooks/useTheme'
 import { ActionMenu, type ActionMenuItem } from '@/components/shared/ActionMenu'
 import { fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
+import { SELECTABLE_ACTIVITY_TYPES, TYPE_DISPLAY, type ActivityType } from '@/constants/activities'
 
 // Categorie-dot per type — werk krijgt geen dot (neutraal).
 export function activityDot(type: string): string | null {
   if (type === 'work') return null
   return (ActivityColors as Record<string, { text: string }>)[type]?.text ?? null
+}
+
+// Type-opties voor de kiezer: de selecteerbare types (zonder rust/herstel/werk).
+// Is de huidige activiteit tóch zo'n verborgen type (bv. een geïmporteerde
+// herstelloop), dan voegen we dat vooraan toe zodat het correct blijft tonen.
+export function buildTypeOptions(currentType: string): ChipOption[] {
+  const selectable = SELECTABLE_ACTIVITY_TYPES as readonly string[]
+  const keys: string[] = selectable.includes(currentType)
+    ? [...selectable]
+    : [currentType, ...selectable]
+  return keys.map(t => ({ key: t, label: TYPE_DISPLAY[t as ActivityType]?.nl ?? t, dot: activityDot(t) }))
 }
 
 // ─────────────────────────────────────────────────────────
@@ -137,7 +149,8 @@ export function ChipSelect({ options, value, onChange }: {
 
 // ─────────────────────────────────────────────────────────
 // Type-kiezer — inklapbaar. Standaard toont hij alleen de gekozen type-chip
-// (bv. run) + een "wijzig"-knop; tikken onthult alle type-chips. Zo blijft het
+// (bv. run) + een "meer ›"-knop; tikken onthult alle type-chips plus een
+// "‹ minder" om weer in te klappen zonder iets te wijzigen. Zo blijft het
 // formulier rustig terwijl een ander type kiezen één tik verderop zit.
 // ─────────────────────────────────────────────────────────
 
@@ -151,11 +164,17 @@ export function TypeSelect({ options, value, onChange }: {
 
   if (open) {
     return (
-      <ChipSelect
-        options={options}
-        value={value}
-        onChange={k => { onChange(k); setOpen(false) }}
-      />
+      <View style={s.typeOpen}>
+        <ChipSelect
+          options={options}
+          value={value}
+          onChange={k => { onChange(k); setOpen(false) }}
+        />
+        {/* Inklappen zonder iets te wijzigen. */}
+        <TouchableOpacity activeOpacity={0.7} onPress={() => setOpen(false)} style={s.typeChange}>
+          <Text style={[s.typeChangeText, { color: t.muted }]}>‹ minder</Text>
+        </TouchableOpacity>
+      </View>
     )
   }
 
@@ -167,7 +186,7 @@ export function TypeSelect({ options, value, onChange }: {
         <Text style={[s.chipText, { color: t.bg }]}>{sel?.label}</Text>
       </View>
       <TouchableOpacity activeOpacity={0.7} onPress={() => setOpen(true)} style={s.typeChange}>
-        <Text style={[s.typeChangeText, { color: t.muted }]}>wijzig ›</Text>
+        <Text style={[s.typeChangeText, { color: t.muted }]}>meer ›</Text>
       </TouchableOpacity>
     </View>
   )
@@ -408,6 +427,7 @@ const s = StyleSheet.create({
   chipText:    { fontFamily: Fonts.displaySemiBold, fontSize: 13, letterSpacing: -0.15 },
 
   typeRow:        { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  typeOpen:       { gap: 8, alignItems: 'flex-start' },
   typeChange:     { paddingVertical: 4, paddingHorizontal: 2 },
   typeChangeText: { fontFamily: Fonts.displayMedium, fontSize: 12.5 },
 

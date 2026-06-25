@@ -419,7 +419,7 @@ export function ImportWizard({
                     <Text style={[s.keepOldTitle, { color: t.text }]}>Vorige schema's blijven tonen</Text>
                     <Text style={[s.keepOldSub, { color: t.muted }]}>
                       {keepOld
-                        ? 'Je historie blijft in de tijdlijn staan.'
+                        ? 'Je andere actieve schema’s blijven ook getoond worden.'
                         : 'Alleen dit nieuwe schema wordt weergegeven (omkeerbaar via Mijn schema’s).'}
                     </Text>
                   </View>

@@ -5,6 +5,13 @@ export const ACTIVITY_TYPES = [
 
 export type ActivityType = typeof ACTIVITY_TYPES[number]
 
+// Types die de gebruiker handmatig kan kiezen in de activiteit-editor. rust en
+// werk zijn 'geen training' (auto-afgehandeld), en herstel hoort niet in de
+// handmatige keuzelijst — die blijven dus uit de type-kiezer.
+export const SELECTABLE_ACTIVITY_TYPES = ACTIVITY_TYPES.filter(
+  t => t !== 'rest' && t !== 'recovery' && t !== 'work',
+)
+
 export const TYPE_NL_MAP: Record<string, ActivityType> = {
   hardlopen: 'run', lopen: 'run', rennen: 'run',
   werk: 'work', werken: 'work',

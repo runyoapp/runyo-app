@@ -10,11 +10,11 @@ import { useDeleteActivityWithUndo } from '@/components/weekbouwer/useDeleteActi
 import { PageContainer } from '@/components/shared/PageContainer'
 import {
   FieldLabel, EditorTextField, EditorTextArea, TypeSelect,
-  DistanceStepper, RestCard, activityDot, type ChipOption,
+  DistanceStepper, RestCard, buildTypeOptions,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
 import { IntervalEditor } from '@/components/shared/IntervalEditor'
-import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
+import { TYPE_DISPLAY } from '@/constants/activities'
 import { ActivityColors, Fonts, Spacing, Radius } from '@/constants/theme'
 import type { Activity, ActivityType, IntervalBlock } from '@/types/activity'
 
@@ -53,7 +53,7 @@ export function EditorScreen({ activity, onBack }: Props) {
   const [intervalsOpen, setIntervalsOpen] = useState((activity.intervals?.length ?? 0) > 0)
   const [saving,     setSaving]     = useState(false)
 
-  const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
+  const typeOpts = buildTypeOptions(type)
   const isRest  = type === 'rest'
   const isRun   = type === 'run'
   const hasDist = DIST_TYPES.has(type)

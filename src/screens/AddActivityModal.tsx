@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ModalSheet } from '@/components/shared/ModalSheet'
 import {
   FieldLabel, EditorTextField, EditorTextArea, TypeSelect, InlineSelect,
-  DistanceStepper, SaveBar, RestCard, activityDot, type ChipOption,
+  DistanceStepper, SaveBar, RestCard, activityDot, buildTypeOptions, type ChipOption,
 } from '@/components/shared/editor'
 import { DayPicker } from '@/components/shared/DayPicker'
 import { IntervalEditor } from '@/components/shared/IntervalEditor'
@@ -14,7 +14,6 @@ import { useTheme } from '@/hooks/useTheme'
 import { createActivity } from '@/services/activities'
 import { createSchema } from '@/services/schemas'
 import { routeSchemaId } from '@/utils/schemaRouting'
-import { ACTIVITY_TYPES, TYPE_DISPLAY } from '@/constants/activities'
 import { Fonts, Spacing, schemaColor } from '@/constants/theme'
 import { toDateString, fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
 import type { ActivityType } from '@/constants/activities'
@@ -81,7 +80,7 @@ export function AddActivityModal({ visible, prefillDate, onClose }: Props) {
     setSchemaId(routeSchemaId(datum, schemaList, activities))
   }, [datum, schemaList, activities])
 
-  const typeOpts: ChipOption[] = ACTIVITY_TYPES.map(t => ({ key: t, label: TYPE_DISPLAY[t]?.nl ?? t, dot: activityDot(t) }))
+  const typeOpts = buildTypeOptions(type)
   // Alleen schema's die op 'weergeven' staan zijn koppelbaar.
   const schemaChips: ChipOption[] = schemaList
     .filter(s => s.isVisible && !s.isArchived)
