@@ -1,7 +1,7 @@
 // runyo — full-screen import-wizard (Runna-stijl). Vervangt ImportModal.
 // Eén stap per scherm, 4 fasen, gepinde mint-CTA, afbreek-sheet.
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import {
   Modal, View, Text, TextInput, TouchableOpacity, ScrollView,
   ActivityIndicator, StyleSheet, Animated,
@@ -33,12 +33,44 @@ import { fromDateString, DAYS_NL, MONTHS_NL } from '@/utils/date'
 
 const DAY_INDEX_TO_MASK = [0, 1, 2, 3, 4, 5, 6] // 0=ma … 6=zo
 
-function analyzePhase(pct: number): string {
-  if (pct < 0.2) return 'Schema lezen…'
-  if (pct < 0.45) return 'Activiteiten tellen…'
-  if (pct < 0.7) return 'Planning verwerken…'
-  if (pct < 0.9) return 'Weken indelen…'
-  return 'Bijna klaar…'
+// Geruststellende statusregels onder de laadcirkel. Ze zijn NIET aan de
+// voortgang gekoppeld maar cyclen op tijd (elke ANALYZE_CYCLE_MS), zodat het
+// scherm tijdens een lange analyse blijft leven.
+const ANALYZE_MESSAGES = [
+  'Schema lezen…',
+  'Trainingen herkennen…',
+  'Afstanden uitlezen…',
+  "Tempo's verzamelen…",
+  'Intervallen ontleden…',
+  'Weken op een rij zetten…',
+  'Rustdagen inplannen…',
+  'Lange duurlopen markeren…',
+  'Hersteltrainingen vinden…',
+  'Je opbouw in kaart brengen…',
+  'Kilometers optellen…',
+  'Datums koppelen…',
+  'Sessies sorteren…',
+  'Het schema netjes maken…',
+  'Details nalopen…',
+  "Alles op z'n plek leggen…",
+  'Je planning afstemmen…',
+  'Trainingsweken vormgeven…',
+  'Notities verwerken…',
+  'De puntjes op de i zetten…',
+]
+const ANALYZE_CYCLE_MS = 20_000
+// Vanaf 95% blijft "Bijna klaar…" staan; duurt dat laatste stukje te lang, dan
+// escaleren we naar "Echt bijna klaar…" zodat het geen leugen wordt.
+const NEAR_DONE_PCT = 0.95
+const REALLY_NEAR_DONE_S = 30
+
+function analyzePhase(pct: number, sec: number, at95Sec: number | null): string {
+  if (pct >= NEAR_DONE_PCT) {
+    if (at95Sec != null && sec - at95Sec >= REALLY_NEAR_DONE_S) return 'Echt bijna klaar…'
+    return 'Bijna klaar…'
+  }
+  const idx = Math.floor(sec / (ANALYZE_CYCLE_MS / 1000)) % ANALYZE_MESSAGES.length
+  return ANALYZE_MESSAGES[idx]
 }
 
 function friendlyDate(iso: string): string {
@@ -77,6 +109,25 @@ export function ImportWizard({
   // Anthropic-call afbreekt zodat we niet doorbetalen voor een antwoord dat
   // niemand meer leest (annuleren of modal sluiten).
   const analyzeAbort = useRef<AbortController | null>(null)
+
+  // Tijd-gedreven statusregel onder de laadcirkel: tikt elke seconde tijdens de
+  // analyse, cyclet de tekst en onthoudt sinds wanneer we op 95% staan.
+  const [analyzeSec, setAnalyzeSec] = useState(0)
+  const aPctRef = useRef(flow.aPct)
+  aPctRef.current = flow.aPct
+  const at95Ref = useRef<number | null>(null)
+  useEffect(() => {
+    if (flow.step !== 'analyze') { setAnalyzeSec(0); at95Ref.current = null; return }
+    const id = setInterval(() => {
+      setAnalyzeSec(s => {
+        const next = s + 1
+        if (aPctRef.current >= NEAR_DONE_PCT) { if (at95Ref.current === null) at95Ref.current = next }
+        else at95Ref.current = null
+        return next
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [flow.step])
 
   const close = useCallback(() => { analyzeAbort.current?.abort(); flow.restart(); onClose() }, [flow, onClose])
   const finish = useCallback(() => { flow.restart(); (onSuccess ?? onClose)() }, [flow, onSuccess, onClose])
@@ -329,7 +380,7 @@ export function ImportWizard({
         return (
           <View style={[s.fill, s.center, { paddingHorizontal: 32 }]}>
             <Ring t={t} pct={flow.aPct} />
-            <Text style={[s.analyzePhase, { color: t.text }]}>{analyzePhase(flow.aPct)}</Text>
+            <Text style={[s.analyzePhase, { color: t.text }]}>{analyzePhase(flow.aPct, analyzeSec, at95Ref.current)}</Text>
             <Text style={[s.analyzeSub, { color: t.muted }]}>runyo leest je schema in en zet je trainingen klaar. Dit kan enkele minuten duren.</Text>
           </View>
         )
