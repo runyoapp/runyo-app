@@ -330,7 +330,7 @@ export function ImportWizard({
           <View style={[s.fill, s.center, { paddingHorizontal: 32 }]}>
             <Ring t={t} pct={flow.aPct} />
             <Text style={[s.analyzePhase, { color: t.text }]}>{analyzePhase(flow.aPct)}</Text>
-            <Text style={[s.analyzeSub, { color: t.muted }]}>runyo leest je schema en deelt het in weken. Dit kan enkele minuten duren.</Text>
+            <Text style={[s.analyzeSub, { color: t.muted }]}>runyo leest je schema in en zet je trainingen klaar. Dit kan enkele minuten duren.</Text>
           </View>
         )
       case 'review': {
