@@ -440,6 +440,57 @@ describe('parseRawResponse — optionele velden', () => {
   })
 })
 
+// ── 6b. B3: compact output-formaat + rust-reconstructie ───────────────────────
+
+describe('parseRawResponse — compact (B3)', () => {
+  it('parses compacte korte keys (d/t/ti/de/k) naar de interne velden', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nRAPPORT: x.\n[{"d":"2026-08-03","t":"run","ti":"Easy","de":"30 min rustig","k":6}]'
+    const row = parseRawResponse(raw).rows[0]
+    expect(row).toMatchObject({ datum: '2026-08-03', type: 'run', titel: 'Easy', detail: '30 min rustig', km: 6 })
+  })
+
+  it('parses compacte interval-keys (iv met r/dk/p/rc)', () => {
+    const raw = HEAD + '[{"d":"2026-08-01","t":"run","ti":"Intervallen","de":"6x800","k":10,"iv":[{"r":6,"dk":0.8,"p":"3:30","rc":"2min"}]}]'
+    const row = parseRawResponse(raw).rows[0]
+    expect(row.intervals).toHaveLength(1)
+    expect(row.intervals![0]).toMatchObject({ id: 'intv-0', repeat: 6, distanceKm: 0.8, pace: '3:30', recovery: '2min' })
+  })
+
+  it('parses compacte race-keys (rt/gt/mg)', () => {
+    const raw = HEAD + '[{"d":"2026-08-01","t":"race","ti":"Marathon","de":"","k":42,"rt":"Marathon","gt":"3:30:00","mg":true}]'
+    const row = parseRawResponse(raw).rows[0]
+    expect(row).toMatchObject({ raceType: 'Marathon', goalTime: '3:30:00', isMainGoal: true })
+  })
+
+  it('vult ontbrekende rustdagen aan binnen de week als startDate gegeven is', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nRAPPORT: x.\n[{"d":"2026-08-05","t":"run","ti":"Tempo","de":"","k":10}]'
+    const rows = parseRawResponse(raw, '2026-08-03').rows
+    expect(rows).toHaveLength(7) // ma 3 t/m zo 9 aug
+    expect(rows[0]).toMatchObject({ datum: '2026-08-03', type: 'rest' })
+    expect(rows.filter(r => r.type === 'run')).toHaveLength(1)
+  })
+
+  it('rekt de span op tot weken·7 zodat trailing rustweken meekomen', () => {
+    const raw = 'TITEL: P\nWEKEN: 2\nRAPPORT: x.\n[{"d":"2026-08-05","t":"run","ti":"Tempo","de":"","k":10}]'
+    const rows = parseRawResponse(raw, '2026-08-03').rows
+    expect(rows).toHaveLength(14)
+  })
+
+  it('behoudt een expliciete rustdag-met-inhoud en dubbelt die niet', () => {
+    const raw = 'TITEL: P\nWEKEN: 1\nRAPPORT: x.\n[{"d":"2026-08-04","t":"herstel","de":"foam rollen"},{"d":"2026-08-05","t":"run","ti":"Tempo","de":"","k":10}]'
+    const rows = parseRawResponse(raw, '2026-08-03').rows
+    expect(rows).toHaveLength(7)
+    const rec = rows.find(r => r.datum === '2026-08-04')!
+    expect(rec.type).toBe('recovery')
+    expect(rec.detail).toBe('foam rollen')
+  })
+
+  it('reconstrueert niets zonder startDate (gedrag ongewijzigd)', () => {
+    const raw = 'TITEL: P\nWEKEN: 4\nRAPPORT: x.\n[{"d":"2026-08-05","t":"run","ti":"Tempo","de":"","k":10}]'
+    expect(parseRawResponse(raw).rows).toHaveLength(1)
+  })
+})
+
 describe('sanitizeIntervals', () => {
   it('normalizes valid blocks and generates ids', () => {
     const out = sanitizeIntervals([

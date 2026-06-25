@@ -10,6 +10,7 @@ import type * as xlsx from 'xlsx'
 import { createSchema, deleteSchema, type SchemaSpan } from './schemas'
 import { createActivitiesBatch, type ActivityCreateInput } from './activities'
 import { TYPE_NL_MAP, ACTIVITY_TYPES } from '@/constants/activities'
+import { fromDateString, toDateString, addDays } from '@/utils/date'
 import type { Activity, ActivityType, IntervalBlock, IntervalUnit } from '@/types/activity'
 
 // Geldige interval-eenheden, gespiegeld aan de backend-normalizeIntervals.
@@ -28,7 +29,7 @@ const WEEKDAY_LABELS = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag'
 function buildUserText(startDate: string, dayMode: DayMode): string {
   if (dayMode.mode === 'choose' && dayMode.days.length > 0) {
     const labels = [...dayMode.days].sort((a, b) => a - b).map(i => WEEKDAY_LABELS[i]).join(', ')
-    return `Begindatum: ${startDate}. Plaats de trainingen van elke week op deze weekdagen (op volgorde): ${labels}. Vul overige dagen met rust. Negeer de weekdagen uit het document.`
+    return `Begindatum: ${startDate}. Plaats de trainingen van elke week op deze weekdagen (op volgorde): ${labels}. Laat de overige dagen weg (de app vult ze met rust). Negeer de weekdagen uit het document.`
   }
   return `Begindatum: ${startDate}. Houd de trainingsdagen uit het schema exact aan.`
 }
@@ -49,31 +50,36 @@ WAT JE WEL MAG:
 - Vertalen van Engels naar Nederlands (maar behoud alle waarden letterlijk)
 - Miles → km omrekenen (× 1.609, afgerond op 1 decimaal)
 
-Velden per item: datum (YYYY-MM-DD), type (run|kracht|mobiliteit|rust|herstel|werk|race), titel (max 70 tekens), detail (max 500 tekens — kopieer zo letterlijk mogelijk), km (number|null).
+Geef de output als JSON-array van compacte objecten met KORTE keys (dit bespaart ruimte):
+- d: datum YYYY-MM-DD (verplicht)
+- t: type (run|kracht|mobiliteit|herstel|werk|race) — zie de rustregel hieronder
+- ti: titel (max 70 tekens)
+- de: detail (max 500 tekens — kopieer ZO LETTERLIJK MOGELIJK, niet inkorten)
+- k: km als getal, of laat de key weg
 
-Optionele velden (alleen invullen als ze LETTERLIJK in de bron staan, anders weglaten):
-- targetPace: doeltempo als vrije tekst, bv. "4:30".
-- targetHr: doelhartslag als getal (bpm), bv. 150.
-- intervals: array van blokken {repeat (getal), distanceKm of durationMin (getal), pace (tekst), recovery (tekst)} voor interval-/blok-sessies.
-- Voor type "race": raceType (afstand/soort), goalTime (doeltijd, bv. "37:30"), isMainGoal (true als het schema deze race als hoofddoel markeert).
-Staat er geen tempo/hartslag/interval/doeltijd → laat het veld weg. NOOIT verzinnen of afleiden.
-Behoud de oorspronkelijke omschrijving ALTIJD óók letterlijk in detail — de optionele velden zijn een aanvulling, geen vervanging.
-Interval-afstanden in meters (bv. "600", "8x400m") → distanceKm in km (600 m = 0,6). De pace van een intervalblok hoort in het blok (pace); targetPace alleen voor een tempo dat voor de hele sessie geldt.
+Optionele keys (alleen invullen als ze LETTERLIJK in de bron staan, anders weglaten):
+- tp: doeltempo als vrije tekst, bv. "4:30".
+- th: doelhartslag als getal (bpm), bv. 150.
+- iv: array van interval-/blokobjecten, óók met korte keys: {r: herhalingen (getal), dk: afstand in km (getal), dm: duur in min (getal), p: tempo (tekst), rc: rust (tekst), l: label (tekst)}.
+- Voor type "race": rt: raceType (afstand/soort), gt: goalTime (doeltijd, bv. "37:30"), mg: true als het schema deze race als hoofddoel markeert.
+Staat er geen tempo/hartslag/interval/doeltijd → laat de key weg. NOOIT verzinnen of afleiden.
+Behoud de oorspronkelijke omschrijving ALTIJD óók letterlijk in de — de optionele keys zijn een aanvulling, geen vervanging.
+Interval-afstanden in meters (bv. "600", "8x400m") → dk in km (600 m = 0,6). De pace van een intervalblok hoort in het blok (p); tp alleen voor een tempo dat voor de hele sessie geldt.
 
 Regels:
 1. Begindatum opgegeven door gebruiker = dag 1 van week 1. Elke week +7 dagen.
-2. Ontbrekende of lege dagen → type rust.
-3. REST / Off / Vrij → type rust. Cross-Training → mobiliteit.
-4. Output: chronologisch, alle weken volledig, elke dag aanwezig (lege dag → rust). Meerdere sessies op één dag (bv. 2 runs, of 1 run + 1 kracht) → meerdere losse items met dezelfde datum, NIET samenvoegen.
+2. LAAT RUSTDAGEN WEG: lege dagen, "rust", "vrij", "off", "REST" geef je NIET als item — de app vult ontbrekende datums automatisch met rust. Geef een rust- of hersteldag ALLEEN als er een eigen instructie bij hoort (bv. "rust, foam rollen") → dan t=herstel of t=rust met die tekst in de.
+3. Cross-Training → mobiliteit.
+4. Output: chronologisch. Alleen dagen met een training of een specifieke instructie. Meerdere sessies op één dag (bv. 2 runs, of 1 run + 1 kracht) → meerdere losse items met dezelfde datum, NIET samenvoegen.
 
 TRAININGSDAGEN — volg de instructie van de gebruiker:
 - "Houd de trainingsdagen aan": neem de weekdagen exact over zoals in het document.
 - "Plaats de trainingen op deze weekdagen: …": verschuif binnen elke week de trainingen
-  (in dezelfde volgorde en met dezelfde inhoud) naar de opgegeven weekdagen. Vul de overige
-  dagen met rust. Negeer de oorspronkelijke weekdagen uit het document.
+  (in dezelfde volgorde en met dezelfde inhoud) naar de opgegeven weekdagen. Laat de overige
+  dagen weg (de app vult ze met rust). Negeer de oorspronkelijke weekdagen uit het document.
 
 Schrijf eerst TITEL: (max 30 tekens — naam van het schema).
-Dan WEKEN: (getal, bijv. "12").
+Dan WEKEN: (totaal aantal weken in het schema, bijv. "12" — telt ook lege/rustweken mee zodat de app de juiste lengte aanvult).
 Dan DAGEN: (vast als het brondocument echte vaste weekdagen heeft, geen als het een "dag 1, dag 2"-schema zonder weekdagen is).
 Dan RAPPORT: (max 2 zinnen, beschrijf het schema neutraal).
 Dan direct de JSON array, geen markdown.`
@@ -277,7 +283,75 @@ function tryParseArray(s: string): unknown[] | null {
 
 function looksLikeRows(arr: unknown[]): boolean {
   const first = arr[0]
-  return arr.length > 0 && typeof first === 'object' && first !== null && 'datum' in first
+  return arr.length > 0 && typeof first === 'object' && first !== null && ('datum' in first || 'd' in first)
+}
+
+// B3: het model levert compacte rijen met KORTE keys (d/t/ti/de/k + tp/th/iv/rt/gt/mg).
+// We mappen ze hier terug naar de interne lange namen, zodat de rest van de parser én
+// alle downstream-code ongewijzigd blijft. Oude verbose responses (lange keys) en oude
+// import-logs blijven werken: bij een lange key valt de korte gewoon weg (4A, backwards-compat).
+function pick(o: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const k of keys) if (o[k] !== undefined) return o[k]
+  return undefined
+}
+
+function normalizeIntervalKeys(block: unknown): unknown {
+  if (!block || typeof block !== 'object' || Array.isArray(block)) return block
+  const o = block as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  const map: Record<string, string[]> = {
+    id: ['id'], label: ['label', 'l'], repeat: ['repeat', 'r'],
+    distanceKm: ['distanceKm', 'dk'], durationMin: ['durationMin', 'dm'],
+    amountUnit: ['amountUnit', 'u'], pace: ['pace', 'p'], recovery: ['recovery', 'rc'],
+  }
+  for (const long in map) {
+    const v = pick(o, ...map[long])
+    if (v !== undefined) out[long] = v
+  }
+  return out
+}
+
+function normalizeRowKeys(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object') return {}
+  const o = raw as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  const map: Record<string, string[]> = {
+    datum: ['datum', 'd'], type: ['type', 't'], titel: ['titel', 'ti'],
+    detail: ['detail', 'de'], km: ['km', 'k'], fase: ['fase', 'f'],
+    targetPace: ['targetPace', 'tp'], targetHr: ['targetHr', 'th'],
+    raceType: ['raceType', 'rt'], goalTime: ['goalTime', 'gt'], isMainGoal: ['isMainGoal', 'mg'],
+  }
+  for (const long in map) {
+    const v = pick(o, ...map[long])
+    if (v !== undefined) out[long] = v
+  }
+  const intervals = pick(o, 'intervals', 'iv')
+  if (Array.isArray(intervals)) out.intervals = intervals.map(normalizeIntervalKeys)
+  else if (intervals !== undefined) out.intervals = intervals
+  return out
+}
+
+// B3: het model laat lege rustdagen weg om tokens te besparen. We reconstrueren ze hier
+// client-side zodat de geïmporteerde rijen identiek zijn aan vroeger (gedrag ongewijzigd,
+// alleen de model-output is compacter). De span loopt van de begindatum tot de latere van
+// (begindatum + weken·7 − 1) en de laatste trainingsdatum. Datums zonder rij → type rest.
+// Een rustdag MÉT inhoud staat al als rij in de output en wordt dus niet overschreven.
+function fillRestDays(rows: ParsedRow[], startDate: string, weken: number): ParsedRow[] {
+  const start = fromDateString(startDate)
+  if (isNaN(start.getTime()) || rows.length === 0) return rows
+  const have = new Set(rows.map(r => r.datum))
+  const lastIso = rows.reduce((m, r) => (r.datum > m ? r.datum : m), startDate)
+  let endDate = fromDateString(lastIso)
+  if (weken > 0) {
+    const wkEnd = addDays(start, weken * 7 - 1)
+    if (wkEnd.getTime() > endDate.getTime()) endDate = wkEnd
+  }
+  const out = [...rows]
+  for (let d = start; d.getTime() <= endDate.getTime(); d = addDays(d, 1)) {
+    const iso = toDateString(d)
+    if (!have.has(iso)) out.push({ datum: iso, type: 'rest', titel: '', detail: '', km: null, fase: '' })
+  }
+  return out.sort((a, b) => a.datum.localeCompare(b.datum))
 }
 
 /**
@@ -389,7 +463,7 @@ export function sanitizeIntervals(value: unknown): IntervalBlock[] | null {
  * Parse the raw text response from the backend into structured AnalyseResult.
  * Pure function — safe to unit-test without mocking fetch.
  */
-export function parseRawResponse(raw: string): AnalyseResult {
+export function parseRawResponse(raw: string, startDate?: string): AnalyseResult {
   // B1: de backend hangt deze sentinel aan de stream als de generatie op het
   // max_tokens-plafond is afgekapt → schema mogelijk onvolledig.
   const truncated = raw.includes('RUNYO_TRUNCATED_MAXTOKENS')
@@ -401,17 +475,21 @@ export function parseRawResponse(raw: string): AnalyseResult {
 
   const schemaTitle = titelM?.[1]?.trim() ?? ''
   const wekenStr    = wekenM?.[1] ? `${wekenM[1]} weken` : ''
+  const weken       = wekenM?.[1] ? parseInt(wekenM[1], 10) : 0
   const rapport     = rapportM?.[1]?.trim() ?? ''
   const daysSignal  = dagenM ? (dagenM[1].toLowerCase() as 'vast' | 'geen') : null
 
-  const parsed = findRowsArray(raw) as Array<Record<string, unknown>> | null
-  if (!Array.isArray(parsed) || !parsed.length) {
+  const rawArr = findRowsArray(raw) as unknown[] | null
+  if (!Array.isArray(rawArr) || !rawArr.length) {
     // Afgekapt vóór een bruikbare array → geen generieke "geen schema", maar een
     // melding die de echte oorzaak benoemt (schema te lang).
     throw new Error(truncated
       ? 'Het schema was te lang en is afgekapt voordat het compleet was. Probeer een korter schema, of splits het in delen.'
       : 'Geen schema gevonden.')
   }
+
+  // B3: korte/compacte keys → interne lange namen mappen (verbose blijft werken).
+  const parsed = rawArr.map(normalizeRowKeys)
 
   const rows: ParsedRow[] = parsed
     .filter(r => typeof r?.datum === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.datum))
@@ -443,7 +521,11 @@ export function parseRawResponse(raw: string): AnalyseResult {
       }
     })
 
-  return { schemaTitle, wekenStr, rapport, rows, daysSignal, truncated }
+  // B3: het model laat lege rustdagen weg → hier weer aanvullen, zodat de
+  // geïmporteerde rijen (en de review-weergave) identiek blijven aan vroeger.
+  const filled = startDate ? fillRestDays(rows, startDate, weken) : rows
+
+  return { schemaTitle, wekenStr, rapport, rows: filled, daysSignal, truncated }
 }
 
 // De backend streamt de schema-tekst (text/plain) zodat lange generaties (~2 min)
@@ -528,7 +610,7 @@ export async function analyseSchema(
     }
     clearInterval(progressTimer)
     const raw = await readSchemaStream(res, onProgress)
-    return parseRawResponse(raw)
+    return parseRawResponse(raw, startDate)
   } finally {
     clearInterval(progressTimer)
   }
@@ -566,7 +648,7 @@ export async function analyseSchemaFromUrl(
     }
     clearInterval(progressTimer)
     const raw = await readSchemaStream(res, onProgress)
-    return parseRawResponse(raw)
+    return parseRawResponse(raw, startDate)
   } finally {
     clearInterval(progressTimer)
   }
