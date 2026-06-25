@@ -51,6 +51,13 @@ function isUrl(s: string | null): boolean {
   return !!s && /^https?:\/\//i.test(s)
 }
 
+// Server-side verwerkingstijd compact: <1 min → seconden, anders min:ss.
+function formatDuration(ms: number): string {
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`
+}
+
 function EntryCard({ entry }: { entry: ImportLogEntry }) {
   const theme = useTheme()
   const [expanded, setExpanded] = useState(false)
@@ -67,6 +74,7 @@ function EntryCard({ entry }: { entry: ImportLogEntry }) {
     statParts.push(`${((entry.inputTokens ?? 0) / 1000).toFixed(1)}k → ${((entry.outputTokens ?? 0) / 1000).toFixed(1)}k tok`)
     statParts.push(formatCost(estimateCostUsd(entry.inputTokens, entry.outputTokens)))
   }
+  if (entry.durationMs != null) statParts.push(formatDuration(entry.durationMs))
 
   async function download() {
     if (Platform.OS !== 'web') {

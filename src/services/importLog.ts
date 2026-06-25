@@ -14,6 +14,7 @@ export type ImportLogEntry = {
   error:        string | null
   inputTokens:  number | null
   outputTokens: number | null
+  durationMs:   number | null
   rowCount:     number | null
   schemaTitle:  string | null
   rawPreview:   string | null
