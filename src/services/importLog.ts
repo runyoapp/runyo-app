@@ -2,6 +2,12 @@ import { getAccessToken } from './auth'
 
 export const BACKEND = 'https://runyo-auth-production.up.railway.app'
 
+export type ImportOptions = {
+  source?: string
+  startDate?: string
+  dayMode?: { mode: 'keep' } | { mode: 'choose'; days: number[] }
+}
+
 export type ImportLogEntry = {
   id:           string
   ts:           string
@@ -18,6 +24,7 @@ export type ImportLogEntry = {
   rowCount:     number | null
   schemaTitle:  string | null
   rawPreview:   string | null
+  options:      ImportOptions | null
   hasFile:      boolean
 }
 

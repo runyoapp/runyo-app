@@ -34,6 +34,20 @@ function buildUserText(startDate: string, dayMode: DayMode): string {
   return `Begindatum: ${startDate}. Houd de trainingsdagen uit het schema exact aan.`
 }
 
+// De door de gebruiker gekozen opties die deze import sturen — meegestuurd in
+// _meta.options zodat de import-log ze terugtoont (bron, startdatum, dag-modus).
+// Wat hier zit beïnvloedt de analyse; keepOld is een save-tijd keuze (zichtbaarheid
+// van vorige schema's) en hoort niet bij de /import-call.
+function buildImportOptions(source: string, startDate: string, dayMode: DayMode) {
+  return {
+    source,
+    startDate,
+    dayMode: dayMode.mode === 'choose' && dayMode.days.length > 0
+      ? { mode: 'choose' as const, days: [...dayMode.days].sort((a, b) => a - b) }
+      : { mode: 'keep' as const },
+  }
+}
+
 export const IMPORT_BACKEND = 'https://runyo-auth-production.up.railway.app'
 
 export const SYSTEM_PROMPT = `Je bent een schema-formatter. Zet een trainingsschema PRECIES over naar het app-formaat.
@@ -598,7 +612,10 @@ export async function analyseSchema(
       body: JSON.stringify({
         // Geen fileB64 hier: het bestand zit al in userContent. De backend
         // leest het daar uit voor de import-log (scheelt de helft van de body).
-        _meta: { fileName, fileMime, fileSize: base64Bytes(fileB64) },
+        _meta: {
+          fileName, fileMime, fileSize: base64Bytes(fileB64),
+          options: buildImportOptions(isImage ? 'photo' : isExcel ? 'excel' : 'pdf', startDate, dayMode),
+        },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -635,7 +652,7 @@ export async function analyseSchemaFromUrl(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        _meta: { fileName: url, fileMime: 'text/csv' },
+        _meta: { fileName: url, fileMime: 'text/csv', options: buildImportOptions('sheet', startDate, dayMode) },
         url,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],

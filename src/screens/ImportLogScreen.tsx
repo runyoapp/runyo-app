@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Fonts, Spacing, Radius } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
-import { getImportLog, downloadImportFile, type ImportLogEntry } from '@/services/importLog'
+import { getImportLog, downloadImportFile, type ImportLogEntry, type ImportOptions } from '@/services/importLog'
 
 function formatTs(ts: string): string {
   const d = new Date(ts)
@@ -56,6 +56,25 @@ function formatDuration(ms: number): string {
   const s = Math.round(ms / 1000)
   if (s < 60) return `${s}s`
   return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`
+}
+
+// Door de gebruiker gekozen import-opties compact samenvatten voor de log.
+const WEEKDAY_ABBR = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']
+const SOURCE_LABEL: Record<string, string> = { pdf: 'PDF', excel: 'Excel', photo: 'Foto', sheet: 'Sheet' }
+
+function formatOptions(o: ImportOptions): string {
+  const parts: string[] = []
+  if (o.source) parts.push(SOURCE_LABEL[o.source] ?? o.source)
+  if (o.dayMode) {
+    parts.push(o.dayMode.mode === 'choose'
+      ? `zelf gekozen: ${o.dayMode.days.map(d => WEEKDAY_ABBR[d] ?? d).join(', ')}`
+      : 'dagen meenemen')
+  }
+  if (o.startDate) {
+    const [y, m, d] = o.startDate.split('-')
+    if (y && m && d) parts.push(`start ${d}-${m}-${y}`)
+  }
+  return parts.join('  ·  ')
 }
 
 function EntryCard({ entry }: { entry: ImportLogEntry }) {
@@ -119,9 +138,14 @@ function EntryCard({ entry }: { entry: ImportLogEntry }) {
         <Text style={[styles.errorLine, { color: theme.danger }]}>{entry.error}</Text>
       )}
 
-      {/* Stats — rijen/titel + tokens + geschatte kosten */}
+      {/* Stats — rijen/titel + tokens + geschatte kosten + duur */}
       {statParts.length > 0 && (
         <Text style={[styles.statsLine, { color: theme.muted }]}>{statParts.join('  ·  ')}</Text>
+      )}
+
+      {/* Gekozen opties — bron, dag-modus, startdatum */}
+      {entry.options && (
+        <Text style={[styles.statsLine, { color: theme.muted }]}>{formatOptions(entry.options)}</Text>
       )}
 
       {/* Expanded: raw preview + bron-knop */}
