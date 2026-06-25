@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useDataStore } from '@/stores/dataStore'
 import { useUiStore } from '@/stores/uiStore'
 import { patchActivity } from '@/services/activities'
-import { ActivityColors, Fonts, Radius, type Theme } from '@/constants/theme'
+import { ActivityColors, Fonts, Radius, schemaColor, type Theme } from '@/constants/theme'
 import { useTheme } from '@/hooks/useTheme'
 import { MetricPills } from '@/components/shared/MetricPills'
 import { deriveActivityMetrics } from '@/utils/activityMetrics'
@@ -84,6 +84,17 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   const upsertActivity = useDataStore(s => s.upsertActivity)
   const showToast      = useUiStore(s => s.showToast)
   const queryClient    = useQueryClient()
+  const schemaList     = useDataStore(s => s.schemaList)
+  const visibleCount   = useDataStore(s => s.visibleSchemaIds.length)
+
+  // Schema-label per activiteit: alleen tonen als er meerdere schema's zichtbaar
+  // zijn — anders is het ruis. Map = schemaId → naam + kleur.
+  const showSchema = visibleCount > 1
+  const schemaTags = useMemo(() => {
+    const m = new Map<string, { name: string; color: string }>()
+    for (const s of schemaList) m.set(s.id, { name: s.name, color: schemaColor(s, schemaList) })
+    return m
+  }, [schemaList])
 
   const [dragId,      setDragId]      = useState<string | null>(null)
   const [dragFromIdx, setDragFromIdx] = useState<number | null>(null)
@@ -239,6 +250,7 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
                           theme={theme}
                           animateIn={justMovedId === session.id}
                           dragGesture={pan}
+                          schema={showSchema ? schemaTags.get(session.schemaId) : undefined}
                         />
                       </Pressable>
                     )
@@ -274,9 +286,10 @@ export function WeekDragStrip({ weekDates, activities, selectedDate, onOpenActiv
   )
 }
 
-function SessionPill({ session, theme, dragging = false, animateIn = false, dragGesture }: {
+function SessionPill({ session, theme, dragging = false, animateIn = false, dragGesture, schema }: {
   session: Activity; theme: Theme; dragging?: boolean; animateIn?: boolean
   dragGesture?: ReturnType<typeof Gesture.Pan>
+  schema?: { name: string; color: string }
 }) {
   // In-spring: opacity + lichte translateY/scale wanneer de pill net op deze dag
   // is geland (justMovedId). Anders meteen op de eindstand (geen animatie).
@@ -308,6 +321,14 @@ function SessionPill({ session, theme, dragging = false, animateIn = false, drag
       }, dragging && styles.pillDragging]}>
         <View style={[styles.pillBar, { backgroundColor: catColor(session.type, theme) }]} />
         <View style={styles.pillBody}>
+          {schema && !dragging ? (
+            <View style={[styles.schemaTag, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={[styles.schemaDot, { backgroundColor: schema.color }]} />
+              <Text style={[styles.schemaName, { color: theme.text2 }]} numberOfLines={1}>
+                {schema.name}
+              </Text>
+            </View>
+          ) : null}
           <Text style={[styles.pillTitle, { color: theme.text }]} numberOfLines={1}>
             {session.titel || typeLabel(session.type)}
           </Text>
@@ -359,6 +380,9 @@ const styles = StyleSheet.create({
   pillDragging:{ transform: [{ scale: 1.04 }], shadowColor: '#0E1F1A', shadowOpacity: 0.22, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
   pillBar:     { width: 4, height: 26, borderRadius: 2 },
   pillBody:    { flex: 1, minWidth: 0 },
+  schemaTag:   { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, borderWidth: 1, borderRadius: 999, paddingVertical: 1.5, paddingLeft: 5, paddingRight: 7, marginBottom: 3 },
+  schemaDot:   { width: 6, height: 6, borderRadius: 999 },
+  schemaName:  { fontFamily: Fonts.displayMedium, fontSize: 9.5, letterSpacing: 0.1, maxWidth: 120 },
   pillTitle:   { fontFamily: Fonts.displaySemiBold, fontSize: 13.5, letterSpacing: -0.1 },
   pillMeta:    { fontFamily: Fonts.mono, fontSize: 10.5, marginTop: 1 },
   pillPills:   { marginTop: 5 },
