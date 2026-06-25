@@ -114,7 +114,7 @@ export function MainNavigator() {
   useActivities()
 
   return (
-    <View style={{ flex: 1, flexDirection: isDesktop ? 'row' : 'column' }}>
+    <View style={{ flex: 1 }}>
       <Tab.Navigator
         tabBar={props => tabBarHidden
           ? null
@@ -122,7 +122,13 @@ export function MainNavigator() {
             ? <DesktopSidebar {...props} />
             : <FloatingTabBar {...props} />
         }
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false,
+          // Desktop: laat de navigator de sidebar links naast de schermen
+          // plaatsen (row-layout). Zonder dit stapelt een bottom-tab navigator
+          // de tabBar altijd ONDER de schermen — ook onze sidebar.
+          tabBarPosition: isDesktop ? 'left' : 'bottom',
+        }}
       >
         <Tab.Screen name="Today" component={TodayScreen} />
         <Tab.Screen name="Plan"  component={PlanScreen} />
